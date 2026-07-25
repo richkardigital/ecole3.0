@@ -1,4 +1,10 @@
 {
+  "name": "ecole3.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd server && npm install && npx prisma generate",
+    "build": "cd client && npm install && npm run build"
+  },
   "dependencies": {
     "lucide-react": "^0.563.0"
   }
