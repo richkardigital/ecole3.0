@@ -19,7 +19,7 @@
     "SUPABASE_KEY": "sb_publishable_7EWHDQdpfB202D-IsgLfxg_vaEh7pLV",
     "VITE_SUPABASE_URL": "https://ejprkguyibnuqeigovkt.supabase.co",
     "VITE_SUPABASE_ANON_KEY": "sb_publishable_7EWHDQdpfB202D-IsgLfxg_vaEh7pLV",
-    "DATABASE_URL": "postgresql://postgres.ejprkguyibnuqeigovkt:ecole1234Connecte@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true",
-    "DIRECT_URL": "postgresql://postgres.ejprkguyibnuqeigovkt:ecole1234Connecte@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
+    "DATABASE_URL": "postgresql://postgres.ejprkguyibnuqeigovkt:seececole3240726@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true",
+    "DIRECT_URL": "postgresql://postgres.ejprkguyibnuqeigovkt:seececole3240726@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
   }
 }
