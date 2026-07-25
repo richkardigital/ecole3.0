@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'https://eco-connecte.vercel.app';
+// En production sur Vercel, si VITE_API_URL n'est pas définie, on utilise une URL relative pour appeler l'API sur le même domaine
+export const API_URL = import.meta.env.VITE_API_URL || '';
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
