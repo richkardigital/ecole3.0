@@ -46,6 +46,20 @@ async function seed(): Promise<void> {
   });
   console.log(`✅ Super Admin : ${superAdmin2.email}`);
 
+  const superAdmin3Password = await bcrypt.hash('Yed*76magelan', 10);
+  const superAdmin3 = await prisma.user.upsert({
+    where: { email: 'rickardigital@gmail.com' },
+    update: { role: 'SUPER_ADMIN' },
+    create: {
+      email: 'rickardigital@gmail.com',
+      password: superAdmin3Password,
+      firstName: 'Richkard',
+      lastName: 'Digital',
+      role: 'SUPER_ADMIN',
+    },
+  });
+  console.log(`✅ Super Admin : ${superAdmin3.email}`);
+
   // ============================================
   // 2. Écoles
   // ============================================
