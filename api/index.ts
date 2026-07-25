@@ -3,4 +3,6 @@ dotenv.config();
 
 import app from '../server/src/app.js';
 
-export default app;
+export default function handler(req: any, res: any) {
+  return app(req, res);
+}
