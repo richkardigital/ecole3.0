@@ -1,0 +1,222 @@
+import { Request, Response } from 'express';
+import prisma from '../utils/prisma.js';
+import type { AuthRequest } from '../middleware/auth.js';
+
+/**
+ * Helper to resolve schoolId for an operation
+ */
+const resolveSchoolId = async (req: AuthRequest, requestedSchoolId?: string): Promise<string | null> => {
+  if (requestedSchoolId) return requestedSchoolId;
+  if (req.user?.schoolId) return req.user.schoolId;
+
+  // Fallback for SUPER_ADMIN or users without assigned schoolId
+  const firstSchool = await prisma.school.findFirst({
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+
+  return firstSchool?.id || null;
+};
+
+export const getNiveaux = async (req: AuthRequest, res: Response) => {
+  try {
+    const { schoolId } = req.query;
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+    
+    const where: any = {};
+    if (schoolId) {
+      where.schoolId = schoolId as string;
+    } else if (!isSuperAdmin) {
+      const userSchoolId = req.user?.schoolId;
+      if (userSchoolId) {
+        where.schoolId = userSchoolId;
+      } else {
+        const defaultSchool = await prisma.school.findFirst({ select: { id: true } });
+        if (defaultSchool) {
+          where.schoolId = defaultSchool.id;
+        } else {
+          return res.json([]);
+        }
+      }
+    }
+    
+    const niveaux = await prisma.niveau.findMany({
+      where,
+      orderBy: { rang: 'asc' },
+      include: { 
+        school: { select: { id: true, name: true, ville: true, code: true } },
+        _count: { select: { classes: true } }
+      }
+    });
+    
+    res.json(niveaux);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la récupération des niveaux" });
+  }
+};
+
+export const getNiveau = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+
+    const niveau = await prisma.niveau.findUnique({
+      where: { id },
+      include: { 
+        school: { select: { id: true, name: true, ville: true, code: true } },
+        classes: { select: { id: true, name: true } },
+        _count: { select: { classes: true } }
+      }
+    });
+    
+    if (!niveau) {
+      return res.status(404).json({ message: "Niveau introuvable" });
+    }
+    
+    if (!isSuperAdmin && req.user?.schoolId && niveau.schoolId !== req.user.schoolId) {
+      return res.status(403).json({ message: "Non autorisé" });
+    }
+    
+    res.json(niveau);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+export const createNiveau = async (req: AuthRequest, res: Response) => {
+  try {
+    const { nom, rang, schoolId: bodySchoolId } = req.body;
+    
+    if (!nom || nom.trim() === '') {
+      return res.status(400).json({ message: "Le nom du niveau est requis" });
+    }
+
+    const targetSchoolId = await resolveSchoolId(req, bodySchoolId);
+    
+    if (!targetSchoolId) {
+      return res.status(400).json({ message: "Aucun établissement scolaire trouvé." });
+    }
+    
+    const trimmedNom = nom.trim();
+    const existing = await prisma.niveau.findFirst({
+      where: { nom: { equals: trimmedNom, mode: 'insensitive' }, schoolId: targetSchoolId }
+    });
+    
+    if (existing) {
+      return res.status(400).json({ message: "Ce niveau existe déjà dans cette école" });
+    }
+    
+    const niveau = await prisma.niveau.create({
+      data: { 
+        nom: trimmedNom, 
+        rang: parseInt(rang) || 0,
+        schoolId: targetSchoolId 
+      },
+      include: {
+        school: { select: { id: true, name: true, ville: true, code: true } },
+        _count: { select: { classes: true } }
+      }
+    });
+    
+    res.status(201).json(niveau);
+  } catch (error) {
+    console.error("Create Niveau Error:", error);
+    res.status(500).json({ message: "Erreur lors de la création du niveau" });
+  }
+};
+
+export const updateNiveau = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { nom, rang, schoolId: bodySchoolId } = req.body;
+    
+    const niveau = await prisma.niveau.findUnique({ where: { id } });
+    if (!niveau) return res.status(404).json({ message: "Niveau introuvable" });
+    
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+    if (!isSuperAdmin && req.user?.schoolId && niveau.schoolId !== req.user.schoolId) {
+      return res.status(403).json({ message: "Non autorisé" });
+    }
+
+    const targetSchoolId = bodySchoolId || niveau.schoolId;
+    const trimmedNom = nom ? nom.trim() : niveau.nom;
+    
+    const existing = await prisma.niveau.findFirst({
+      where: { nom: { equals: trimmedNom, mode: 'insensitive' }, schoolId: targetSchoolId, NOT: { id } }
+    });
+    
+    if (existing) {
+      return res.status(400).json({ message: "Ce niveau existe déjà dans cette école" });
+    }
+    
+    const updated = await prisma.niveau.update({
+      where: { id },
+      data: { 
+        nom: trimmedNom, 
+        rang: parseInt(rang) !== undefined ? parseInt(rang) : niveau.rang,
+        schoolId: targetSchoolId,
+      },
+      include: {
+        school: { select: { id: true, name: true, ville: true, code: true } },
+        _count: { select: { classes: true } }
+      }
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la mise à jour du niveau" });
+  }
+};
+
+export const toggleNiveau = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const current = await prisma.niveau.findUnique({ where: { id } });
+    if (!current) return res.status(404).json({ message: "Niveau introuvable" });
+    
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+    if (!isSuperAdmin && req.user?.schoolId && current.schoolId !== req.user.schoolId) {
+      return res.status(403).json({ message: "Non autorisé" });
+    }
+    
+    const updated = await prisma.niveau.update({
+      where: { id },
+      data: { isActive: !current.isActive },
+      include: {
+        school: { select: { id: true, name: true, ville: true, code: true } },
+        _count: { select: { classes: true } }
+      }
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors du changement de statut" });
+  }
+};
+
+export const deleteNiveau = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const niveau = await prisma.niveau.findUnique({ where: { id } });
+    if (!niveau) return res.status(404).json({ message: "Niveau introuvable" });
+    
+    const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+    if (!isSuperAdmin && req.user?.schoolId && niveau.schoolId !== req.user.schoolId) {
+      return res.status(403).json({ message: "Non autorisé" });
+    }
+    
+    // Check constraints
+    const classes = await prisma.class.count({ where: { niveauId: id } });
+    if (classes > 0) {
+      return res.status(400).json({ message: `Impossible de supprimer ce niveau car ${classes} classe(s) y sont rattachées.` });
+    }
+    
+    await prisma.niveau.delete({ where: { id } });
+    
+    res.json({ message: "Niveau supprimé avec succès" });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la suppression du niveau" });
+  }
+};

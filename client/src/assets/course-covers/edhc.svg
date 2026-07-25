@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f3f4f6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="600" fill="url(#bg)"/>
+  <g opacity="0.12" fill="#111827">
+    <circle cx="230" cy="160" r="120"/>
+    <circle cx="1040" cy="120" r="160"/>
+    <circle cx="980" cy="520" r="220"/>
+  </g>
+  <g transform="translate(220 160)">
+    <rect x="0" y="0" width="760" height="360" rx="30" fill="#ffffff" stroke="#111827" stroke-opacity="0.12" stroke-width="10"/>
+    <rect x="0" y="0" width="250" height="360" fill="#f97316" opacity="0.95" rx="30"/>
+    <rect x="250" y="0" width="260" height="360" fill="#ffffff"/>
+    <rect x="510" y="0" width="250" height="360" fill="#22c55e" opacity="0.95" rx="30"/>
+    <rect x="250" y="0" width="260" height="360" fill="#ffffff"/>
+    <g opacity="0.92" fill="#111827">
+      <path d="M365 130c20-46 74-76 128-66 44 8 78 42 86 84 10 56-20 106-68 128-56 26-136 10-164-56-10-22-8-62 18-90z" fill="#111827" opacity="0.08"/>
+      <path d="M402 138c14-18 36-28 60-28s46 10 60 28c-18 10-30 26-30 44 0 30-26 54-58 54s-58-24-58-54c0-18 12-34 26-44z" fill="#111827" opacity="0.22"/>
+      <path d="M380 260h260" stroke="#111827" stroke-opacity="0.25" stroke-width="12" stroke-linecap="round"/>
+      <path d="M420 300h180" stroke="#111827" stroke-opacity="0.25" stroke-width="12" stroke-linecap="round"/>
+    </g>
+  </g>
+  <g>
+    <rect x="70" y="60" width="460" height="140" rx="26" fill="#000000" fill-opacity="0.25" stroke="#111827" stroke-opacity="0.12"/>
+    <text x="300" y="150" text-anchor="middle" fill="#ffffff" font-size="72" font-weight="900" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial">EDHC</text>
+  </g>
+</svg>

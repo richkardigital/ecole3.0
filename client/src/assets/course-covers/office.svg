@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f3f4f6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="600" fill="url(#bg)"/>
+  <g opacity="0.14" fill="#111827">
+    <circle cx="220" cy="170" r="120"/>
+    <circle cx="1040" cy="130" r="160"/>
+    <circle cx="980" cy="520" r="220"/>
+  </g>
+  <g fill="#111827" opacity="0.9">
+    <path d="M300 170h280c18 0 32 14 32 32v280c0 18-14 32-32 32H300c-18 0-32-14-32-32V202c0-18 14-32 32-32z" fill="#1f2937"/>
+    <path d="M328 220h224c10 0 18 8 18 18v24c0 10-8 18-18 18H328c-10 0-18-8-18-18v-24c0-10 8-18 18-18z" fill="#ffffff" opacity="0.92"/>
+    <path d="M328 292h224c10 0 18 8 18 18v24c0 10-8 18-18 18H328c-10 0-18-8-18-18v-24c0-10 8-18 18-18z" fill="#ffffff" opacity="0.92"/>
+    <path d="M328 364h224c10 0 18 8 18 18v24c0 10-8 18-18 18H328c-10 0-18-8-18-18v-24c0-10 8-18 18-18z" fill="#ffffff" opacity="0.92"/>
+    <path d="M328 436h160c10 0 18 8 18 18v24c0 10-8 18-18 18H328c-10 0-18-8-18-18v-24c0-10 8-18 18-18z" fill="#ffffff" opacity="0.92"/>
+  </g>
+  <g>
+    <rect x="700" y="180" width="430" height="240" rx="26" fill="#0ea5e9" opacity="0.14" stroke="#111827" stroke-opacity="0.12"/>
+    <path d="M760 250h310" stroke="#111827" stroke-opacity="0.35" stroke-width="10" stroke-linecap="round"/>
+    <path d="M760 310h270" stroke="#111827" stroke-opacity="0.35" stroke-width="10" stroke-linecap="round"/>
+    <path d="M760 370h220" stroke="#111827" stroke-opacity="0.35" stroke-width="10" stroke-linecap="round"/>
+  </g>
+  <g>
+    <rect x="420" y="40" width="700" height="120" rx="26" fill="#000000" fill-opacity="0.25" stroke="#111827" stroke-opacity="0.12"/>
+    <text x="770" y="120" text-anchor="middle" fill="#111827" font-size="58" font-weight="900" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial">BUREAUTIQUE</text>
+  </g>
+</svg>

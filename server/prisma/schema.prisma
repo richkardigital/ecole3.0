@@ -1,0 +1,799 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================
+// ENUMS
+// =============================================
+
+enum UserRole {
+  SUPER_ADMIN
+  DIRECTEUR
+  EDUCATEUR
+  ENSEIGNANT
+  APPRENANT
+}
+
+enum BulletinStatus {
+  BROUILLON
+  SOUMIS
+  VALIDE
+}
+
+enum ResourceType {
+  PDF
+  VIDEO
+  AUDIO
+  IMAGE
+  LIEN
+}
+
+enum TermStatus {
+  OPEN
+  CLOSED
+}
+
+enum AcademicYearStatus {
+  EN_COURS
+  ACHEVE
+}
+
+enum Gender {
+  MASCULIN
+  FEMININ
+  AUTRE
+}
+
+// =============================================
+// TEACHING TYPE — Type d'enseignement
+// =============================================
+
+model TeachingType {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schools School[]
+
+  @@index([isActive])
+}
+
+// =============================================
+// SCHOOL — Établissement scolaire
+// =============================================
+
+model School {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  ville       String?
+  address     String?
+  phone       String?
+  email       String?
+  logoUrl     String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Type d'enseignement
+  teachingTypeId String?
+  teachingType   TeachingType? @relation(fields: [teachingTypeId], references: [id], onDelete: SetNull)
+
+  // Directeur de l'école
+  managerId String? @unique
+  manager   User?   @relation("SchoolManager", fields: [managerId], references: [id])
+
+  // Relations
+  users         User[]         @relation("SchoolUsers")
+  classes       Class[]
+  subjects      Subject[]
+  academicYears AcademicYear[]
+  niveaux       Niveau[]
+  news          News[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([teachingTypeId])
+}
+
+// =============================================
+// NIVEAU — Niveaux scolaires (6ème, 5ème, etc.)
+// =============================================
+
+model Niveau {
+  id       String  @id @default(uuid())
+  nom      String
+  rang     Int     @default(0) // Pour trier (1=PS, 2=MS, ..., 20=6ème, etc.)
+  isActive Boolean @default(true)
+
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  classes   Class[]
+  resources Resource[]
+
+  @@unique([nom, schoolId])
+  @@index([rang])
+  @@index([isActive])
+}
+
+// =============================================
+// USER — Utilisateur (tous les rôles)
+// =============================================
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      UserRole @default(APPRENANT)
+  isActive  Boolean  @default(true)
+  isOnline  Boolean  @default(false)
+
+  // Profil enrichi
+  phone     String?
+  birthDate DateTime?
+  avatarUrl String?
+  address   String?
+  gender    Gender?
+
+  schoolId String?
+  school   School? @relation("SchoolUsers", fields: [schoolId], references: [id], onDelete: SetNull)
+
+  managedSchool School? @relation("SchoolManager")
+
+  // Relations académiques
+  courses        Course[]       @relation("CourseTeacher")
+  teacherClasses TeacherClass[]
+  enrollments    Enrollment[]
+  grades         Grade[]
+  submissions    Submission[]
+  quizAttempts   QuizAttempt[]
+
+  // Relations communication
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
+  // Relations forum
+  forumPosts    ForumPost[]
+  forumComments ForumComment[]
+
+  // Relations bulletins
+  submittedBulletins Bulletin[] @relation("BulletinSubmitter")
+  validatedBulletins Bulletin[] @relation("BulletinValidator")
+
+  // Relations resources
+  createdResources Resource[] @relation("ResourceCreator")
+
+  // Relations vie scolaire
+  absences Absence[]
+  conducts Conduct[]
+
+  // Audit
+  auditLogs AuditLog[]
+
+  // Relations Meeting / News
+  hostedMeetings Meeting[] @relation("MeetingHost")
+  authoredNews   News[]    @relation("NewsAuthor")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([role])
+  @@index([email])
+  @@index([isActive])
+}
+
+// =============================================
+// ACADEMIC YEAR — Année scolaire
+// =============================================
+
+model AcademicYear {
+  id        String             @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean            @default(false)
+  isActive  Boolean            @default(true)
+  status    AcademicYearStatus @default(EN_COURS)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  terms   Term[]
+  classes Class[]
+
+  @@unique([name, schoolId])
+  @@index([isCurrent])
+  @@index([status])
+}
+
+// =============================================
+// TERM — Trimestre
+// =============================================
+
+model Term {
+  id        String     @id @default(uuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  status    TermStatus @default(OPEN)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  grades    Grade[]
+  bulletins Bulletin[]
+  conducts  Conduct[]
+
+  @@index([status])
+}
+
+// =============================================
+// CLASS — Classe
+// =============================================
+
+model Class {
+  id       String  @id @default(uuid())
+  name     String
+  isActive Boolean @default(true)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  niveauId String?
+  niveau   Niveau? @relation(fields: [niveauId], references: [id], onDelete: SetNull)
+
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+
+  // Relations
+  enrollments    Enrollment[]
+  courses        Course[]
+  teacherClasses TeacherClass[]
+  messages       Message[]
+  bulletins      Bulletin[]
+  meetings       Meeting[]
+
+  @@unique([name, schoolId])
+  @@index([schoolId])
+  @@index([niveauId])
+  @@index([isActive])
+}
+
+// =============================================
+// SUBJECT — Matière
+// =============================================
+
+model Subject {
+  id          String  @id @default(uuid())
+  name        String
+  code        String?
+  coefficient Int     @default(1)
+  isActive    Boolean @default(true)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  courses        Course[]
+  teacherClasses TeacherClass[]
+
+  @@unique([name, schoolId])
+  @@index([isActive])
+}
+
+// =============================================
+// TEACHER_CLASS — Affectation Enseignant ↔ Classe ↔ Matière
+// =============================================
+
+model TeacherClass {
+  id String @id @default(uuid())
+
+  teacherId String
+  teacher   User @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  classId String
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([teacherId, classId, subjectId])
+  @@index([teacherId])
+  @@index([classId])
+}
+
+// =============================================
+// ENROLLMENT — Inscription d'un apprenant dans une classe
+// =============================================
+
+model Enrollment {
+  id String @id @default(uuid())
+
+  studentId String
+  student   User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  classId String
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  matricule String?
+  joinedAt  DateTime @default(now())
+
+  @@unique([studentId, classId])
+  @@index([studentId])
+  @@index([classId])
+}
+
+// =============================================
+// COURSE — Cours (matière enseignée dans une classe)
+// =============================================
+
+model Course {
+  id String @id @default(uuid())
+
+  classId   String
+  subjectId String
+  teacherId String
+
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher User    @relation("CourseTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  coefficient Int @default(1)
+
+  // Contenu du cours
+  chapters    Chapter[]
+  resources   Resource[]
+  assignments Assignment[]
+  quizzes     Quiz[]
+  grades      Grade[]
+
+  @@unique([classId, subjectId, teacherId])
+  @@index([teacherId])
+  @@index([classId])
+}
+
+// =============================================
+// CHAPTER — Chapitre d'un cours
+// =============================================
+
+model Chapter {
+  id        String   @id @default(uuid())
+  title     String
+  content   String?
+  position  Int      @default(0)
+  courseId   String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  resources Resource[]
+  createdAt DateTime @default(now())
+
+  @@index([courseId])
+}
+
+// =============================================
+// RESOURCE — Ressource pédagogique (ex-Material)
+// =============================================
+
+model Resource {
+  id    String       @id @default(uuid())
+  title String
+  type  ResourceType @default(PDF)
+  url   String
+  source String?
+
+  // Portée de la ressource
+  isGlobal       Boolean @default(false) // Visible par toutes les écoles du même niveau
+  isDownloadable Boolean @default(true)
+
+  // Relations
+  courseId  String?
+  course   Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  chapterId String?
+  chapter   Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+
+  niveauId String?
+  niveau   Niveau? @relation(fields: [niveauId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?  @relation("ResourceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([courseId])
+  @@index([niveauId])
+  @@index([isGlobal])
+}
+
+// =============================================
+// ASSIGNMENT — Devoir
+// =============================================
+
+model Assignment {
+  id            String   @id @default(uuid())
+  title         String
+  description   String?
+  dueDate       DateTime
+  points        Int      @default(20)
+  coefficient   Int      @default(1)
+  correctionUrl String?
+  voiceNoteUrl  String?
+
+  courseId String
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  submissions Submission[]
+  grades      Grade[]
+
+  createdAt DateTime @default(now())
+
+  @@index([courseId])
+  @@index([dueDate])
+}
+
+// =============================================
+// SUBMISSION — Soumission d'un devoir par un apprenant
+// =============================================
+
+model Submission {
+  id          String   @id @default(uuid())
+  content     String?
+  fileUrl     String?
+  submittedAt DateTime @default(now())
+
+  studentId    String
+  assignmentId String
+
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  grade Grade?
+
+  @@unique([studentId, assignmentId])
+  @@index([studentId])
+  @@index([assignmentId])
+}
+
+// =============================================
+// GRADE — Note
+// =============================================
+
+model Grade {
+  id          String  @id @default(uuid())
+  value       Float
+  coefficient Float   @default(1)
+  comment     String?
+  validated   Boolean @default(false)
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  termId       String?
+  assignmentId String?
+  courseId      String?
+
+  term       Term?       @relation(fields: [termId], references: [id])
+  assignment Assignment? @relation(fields: [assignmentId], references: [id])
+  course     Course?     @relation(fields: [courseId], references: [id])
+
+  submissionId String?     @unique
+  submission   Submission? @relation(fields: [submissionId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
+  @@index([termId])
+  @@index([courseId])
+}
+
+// =============================================
+// BULLETIN — Bulletin scolaire (workflow)
+// =============================================
+
+model Bulletin {
+  id     String         @id @default(uuid())
+  statut BulletinStatus @default(BROUILLON)
+
+  classId String
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  termId String
+  term   Term @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  moyenneClasse Float?
+
+  // Qui a soumis
+  submittedById String?
+  submittedBy   User?    @relation("BulletinSubmitter", fields: [submittedById], references: [id])
+  submittedAt   DateTime?
+
+  // Qui a validé
+  validatedById String?
+  validatedBy   User?    @relation("BulletinValidator", fields: [validatedById], references: [id])
+  validatedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classId, termId])
+  @@index([statut])
+}
+
+// =============================================
+// MESSAGE — Messagerie instantanée
+// =============================================
+
+model Message {
+  id          String  @id @default(uuid())
+  content     String
+  senderId    String
+  sender      User    @relation("SentMessages", fields: [senderId], references: [id])
+  recipientId String?
+  recipient   User?   @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  classId     String?
+  class       Class?  @relation(fields: [classId], references: [id])
+
+  attachmentUrl  String?
+  attachmentType String?
+
+  lu        Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([classId])
+}
+
+// =============================================
+// QUIZ — Évaluations en ligne
+// =============================================
+
+model Quiz {
+  id          String  @id @default(uuid())
+  title       String
+  description String?
+  coefficient Int     @default(1)
+  published   Boolean @default(false)
+  timeLimit   Int?
+
+  courseId String
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+  createdAt DateTime       @default(now())
+
+  @@index([courseId])
+}
+
+model QuizQuestion {
+  id            String @id @default(uuid())
+  text          String
+  type          String @default("MULTIPLE_CHOICE")
+  points        Int    @default(1)
+  correctAnswer String
+
+  quizId String
+  quiz   Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  options QuizOption[]
+  answers QuizAnswer[]
+
+  @@index([quizId])
+}
+
+model QuizOption {
+  id         String       @id @default(uuid())
+  text       String
+  isCorrect  Boolean      @default(false)
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model QuizAttempt {
+  id          String   @id @default(uuid())
+  score       Float
+  startedAt   DateTime @default(now())
+  completedAt DateTime @default(now())
+
+  studentId String
+  student   User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  quizId String
+  quiz   Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  answers QuizAnswer[]
+
+  @@index([studentId])
+  @@index([quizId])
+}
+
+model QuizAnswer {
+  id              String       @id @default(uuid())
+  attemptId       String
+  attempt         QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId      String
+  question        QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOptions String[]
+  isCorrect       Boolean
+}
+
+// =============================================
+// NOTIFICATION
+// =============================================
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  userId    String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([read])
+}
+
+// =============================================
+// FORUM — Publications et discussions
+// =============================================
+
+model ForumPost {
+  id       String  @id @default(uuid())
+  title    String
+  content  String
+  category String  @default("GENERAL")
+  fileUrl  String?
+  fileType String?
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  comments ForumComment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([category])
+}
+
+model ForumComment {
+  id      String @id @default(uuid())
+  content String
+
+  authorId String
+  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  postId String
+  post   ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
+// =============================================
+// ABSENCE — Gestion des absences
+// =============================================
+
+model Absence {
+  id        String   @id @default(uuid())
+  date      DateTime
+  reason    String?
+  justified Boolean  @default(false)
+
+  studentId String
+  student   User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
+  @@index([date])
+}
+
+// =============================================
+// CONDUCT — Conduite (liée au bulletin)
+// =============================================
+
+model Conduct {
+  id           String  @id @default(uuid())
+  appreciation String?
+  comment      String?
+
+  studentId String
+  student   User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  termId String
+  term   Term   @relation(fields: [termId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, termId])
+  @@index([studentId])
+}
+
+// =============================================
+// AUDIT LOG — Traçabilité des actions
+// =============================================
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  entity    String?  // Nom du modèle concerné
+  entityId  String?  // ID de l'entité
+  metadata  String?  // JSON stringifié (détails de l'action)
+  ipAddress String?
+
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// =============================================
+// MEETING — Réunions et Classes virtuelles
+// =============================================
+
+model Meeting {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  link        String?
+  
+  hostId      String
+  host        User     @relation("MeetingHost", fields: [hostId], references: [id], onDelete: Cascade)
+  
+  classId     String?
+  class       Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([hostId])
+  @@index([classId])
+}
+
+// =============================================
+// NEWS — Actualités et Annonces
+// =============================================
+
+model News {
+  id          String   @id @default(uuid())
+  title       String
+  content     String
+  imageUrl    String?
+  
+  authorId    String
+  author      User     @relation("NewsAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  
+  schoolId    String?
+  school      School?  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([schoolId])
+}
+

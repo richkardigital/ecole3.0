@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ecfeff"/>
+    </linearGradient>
+    <radialGradient id="earth" cx="50%" cy="45%" r="60%">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </radialGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#86efac"/>
+      <stop offset="1" stop-color="#16a34a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="600" fill="url(#bg)"/>
+  <g opacity="0.18" fill="#0f172a">
+    <circle cx="210" cy="150" r="90"/>
+    <circle cx="1030" cy="190" r="140"/>
+    <circle cx="980" cy="520" r="180"/>
+  </g>
+  <g transform="translate(510 110)">
+    <circle cx="90" cy="120" r="110" fill="url(#earth)"/>
+    <path d="M30 110c40-40 70-30 110-60 35-26 54 0 86 16-24 28-36 76-78 96-52 24-96-2-118-52z" fill="#22c55e" opacity="0.9"/>
+    <path d="M60 150c40 18 72 10 112 26 26 10 44 34 54 60-40 12-90 10-128-18-26-20-34-42-38-68z" fill="#16a34a" opacity="0.9"/>
+    <path d="M90 10c-30 20-52 44-64 78" stroke="#ffffff" stroke-opacity="0.6" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M186 40c26 22 46 50 52 86" stroke="#ffffff" stroke-opacity="0.6" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M14 140c18 40 50 70 92 88" stroke="#ffffff" stroke-opacity="0.6" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(0 0)">
+    <path d="M430 130c70-90 210-110 320-36 74 50 132 140 120 228-12 92-80 168-168 196-150 48-320-40-362-192-22-76-2-154 90-196z" fill="url(#leaf)" opacity="0.12"/>
+  </g>
+  <g>
+    <rect x="380" y="430" width="440" height="120" rx="26" fill="#000000" fill-opacity="0.25" stroke="#0f172a" stroke-opacity="0.12"/>
+    <text x="600" y="510" text-anchor="middle" fill="#0f172a" font-size="86" font-weight="900" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial">SVT</text>
+  </g>
+</svg>

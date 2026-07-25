@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fef3c7"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f59e0b" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#b45309" stop-opacity="0.25"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="600" fill="url(#bg)"/>
+  <g opacity="0.16" fill="#78350f">
+    <circle cx="220" cy="140" r="120"/>
+    <circle cx="1040" cy="120" r="160"/>
+    <circle cx="980" cy="520" r="220"/>
+  </g>
+  <path d="M0 430c160-60 280-60 420 0s260 60 420 0 280-60 360 0v170H0V430z" fill="url(#sand)"/>
+  <g fill="#78350f" opacity="0.9" stroke="#78350f" stroke-opacity="0.18">
+    <path d="M240 420l110-220 110 220H240z" fill="#92400e"/>
+    <path d="M320 260h60l-30 60-30-60z" fill="#78350f"/>
+    <path d="M340 310h20l-10 30-10-30z" fill="#78350f"/>
+  </g>
+  <g fill="#111827" opacity="0.78">
+    <path d="M720 210c30-70 120-110 200-90 60 16 100 60 110 120 12 72-30 136-92 160-80 30-186-6-218-98-16-44-10-76 0-92z" fill="#111827" opacity="0.10"/>
+    <path d="M840 160c18 0 32 14 32 32 0 12-6 22-14 28 18 8 30 26 30 46 0 30-24 54-54 54h-28c-30 0-54-24-54-54 0-20 12-38 30-46-8-6-14-16-14-28 0-18 14-32 32-32h40z" fill="#111827" opacity="0.26"/>
+    <path d="M802 244h108" stroke="#111827" stroke-opacity="0.35" stroke-width="10" stroke-linecap="round"/>
+    <path d="M802 280h108" stroke="#111827" stroke-opacity="0.35" stroke-width="10" stroke-linecap="round"/>
+    <path d="M802 316h108" stroke="#111827" stroke-opacity="0.35" stroke-width="10" stroke-linecap="round"/>
+  </g>
+  <g>
+    <rect x="70" y="60" width="560" height="140" rx="26" fill="#000000" fill-opacity="0.25" stroke="#111827" stroke-opacity="0.12"/>
+    <text x="350" y="150" text-anchor="middle" fill="#ffffff" font-size="64" font-weight="900" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial">HISTOIRE-GÉO</text>
+  </g>
+</svg>
