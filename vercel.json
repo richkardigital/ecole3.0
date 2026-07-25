@@ -21,6 +21,9 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "DATABASE_URL": "postgresql://postgres:seececole3240726@db.ejprkguyibnuqeigovkt.supabase.co:5432/postgres",
+    "DIRECT_URL": "postgresql://postgres:seececole3240726@db.ejprkguyibnuqeigovkt.supabase.co:5432/postgres",
+    "JWT_SECRET": "ecole-connecte-production-secret-key-2026-seec-online"
   }
 }
