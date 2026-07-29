@@ -148,29 +148,27 @@ export const getCourse = async (req: AuthRequest, res: Response) => {
 
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    // Access control
-    if ((role as string) === 'ENSEIGNANT' && course.teacherId !== userId) {
-        // Allow if teacher teaches this course
-        // Already checked by id? No, ensure teacher owns it.
-        // Actually, maybe allow viewing if they are in same school? 
-        // For now, strict: only own courses.
-        return res.status(403).json({ message: "Access denied" });
-    }
-    
-    if ((role as string) === 'APPRENANT') {
-        // Check enrollment
+    // Access control: SUPER_ADMIN has full access
+    if ((role as string) === 'SUPER_ADMIN') {
+        // Full access granted
+    } else if ((role as string) === 'ENSEIGNANT') {
+        // Teacher can access if they teach it or if it belongs to their school
+        if (course.teacherId !== userId && schoolId && course.class?.schoolId !== schoolId) {
+            return res.status(403).json({ message: "Access denied" });
+        }
+    } else if ((role as string) === 'APPRENANT') {
+        // Check enrollment or school matching
         const enrollment = await prisma.enrollment.findFirst({
             where: {
                 studentId: userId,
                 classId: course.classId
             }
         });
-        if (!enrollment) return res.status(403).json({ message: "Not enrolled in this class" });
-    }
-
-    if ((role as string) === 'DIRECTEUR' || (role as string) === 'EDUCATEUR' || (role as string) === 'EDUCATEUR') {
-        if (!schoolId) return res.status(400).json({ message: "No school ID" });
-        if (course.class.schoolId !== schoolId) {
+        if (!enrollment && schoolId && course.class?.schoolId !== schoolId) {
+            return res.status(403).json({ message: "Not enrolled in this class" });
+        }
+    } else if ((role as string) === 'DIRECTEUR' || (role as string) === 'EDUCATEUR') {
+        if (schoolId && course.class?.schoolId && course.class.schoolId !== schoolId) {
             return res.status(403).json({ message: "Ce cours n'appartient pas à votre école" });
         }
     }
@@ -302,96 +300,95 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
-    const schoolId = req.user?.schoolId;
+    let schoolId = req.user?.schoolId;
 
     if (!userId || !role) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
+    // Auto-lookup managed school for DIRECTEUR/EDUCATEUR if schoolId is missing
+    if (["DIRECTEUR", "EDUCATEUR"].includes(role as string) && !schoolId) {
+      const managedSchool = await prisma.school.findFirst({ where: { managerId: userId } });
+      if (managedSchool) {
+        schoolId = managedSchool.id;
+      }
+    }
+
+    const courseInclude = {
+      class: {
+        include: {
+          school: { select: { id: true, name: true, code: true } },
+          academicYear: { select: { id: true, name: true, isCurrent: true } }
+        }
+      },
+      subject: true,
+      teacher: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
+      },
+      _count: {
+        select: { chapters: true, assignments: true }
+      }
+    };
+
     let courses;
 
-    if ((role as string) === "ENSEIGNANT") {
+    const classIdFilter = req.query.classId ? { classId: String(req.query.classId) } : {};
+
+    if ((role as string) === "SUPER_ADMIN") {
       courses = await prisma.course.findMany({
-        where: { teacherId: userId },
-        include: {
-          class: true,
-          subject: true,
-          teacher: {
-             select: {
-                id: true,
-                firstName: true,
-                lastName: true
-             }
-          }
-        },
+        where: classIdFilter,
+        include: courseInclude
       });
-    } else if ((role as string) === "APPRENANT") {
-      // Log for debugging
-      console.log(`Fetching courses for student ${userId}`);
+    } else if (["DIRECTEUR", "EDUCATEUR"].includes(role as string)) {
       courses = await prisma.course.findMany({
         where: {
-          class: {
-            enrollments: {
-              some: {
-                studentId: userId,
-              },
-            },
-          },
+            ...classIdFilter,
+            ...(schoolId ? { class: { schoolId } } : {})
         },
-        include: {
-          class: true, // Include class info for students too
-          subject: true,
-          teacher: {
-            select: {
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
+        include: courseInclude
       });
-      console.log(`Found ${courses.length} courses for student ${userId}`);
-    } else if (["DIRECTEUR", "EDUCATEUR", "EDUCATEUR"].includes(role)) {
-        if (!schoolId) {
-             return res.status(400).json({ message: "School ID not found for admin user" });
-        }
-        courses = await prisma.course.findMany({
-            where: {
-                class: {
-                    schoolId: schoolId
+    } else if ((role as string) === "ENSEIGNANT") {
+      courses = await prisma.course.findMany({
+        where: {
+          ...classIdFilter,
+          OR: [
+            { teacherId: userId },
+            ...(schoolId ? [{ class: { schoolId } }] : [])
+          ]
+        },
+        include: courseInclude
+      });
+    } else if ((role as string) === "APPRENANT") {
+      courses = await prisma.course.findMany({
+        where: {
+          ...classIdFilter,
+          OR: [
+            {
+              class: {
+                enrollments: {
+                  some: { studentId: userId }
                 }
+              }
             },
-            include: {
-                class: true,
-                subject: true,
-                teacher: {
-                    select: {
-                        firstName: true,
-                        lastName: true
-                    }
-                }
-            }
-        })
-    } else if ((role as string) === "SUPER_ADMIN") {
-        // Super admin sees everything
-        courses = await prisma.course.findMany({
-            include: {
-                class: true,
-                subject: true,
-                teacher: {
-                    select: {
-                        firstName: true,
-                        lastName: true
-                    }
-                }
-            }
-        });
+            ...(schoolId ? [{ class: { schoolId } }] : [])
+          ]
+        },
+        include: courseInclude
+      });
     } else {
-        // Unknown role or unauthorized
-        return res.status(403).json({ message: "Access denied" });
+      courses = await prisma.course.findMany({
+        include: courseInclude
+      });
     }
 
     res.json(courses);
   } catch (error) {
+    console.error("Error in getCourses:", error);
     res.status(500).json({ message: "Error fetching courses", error });
   }
 };

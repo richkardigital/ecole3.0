@@ -35,6 +35,7 @@ import auditLogRoutes from "./routes/audit-log.routes.js";
 import meetingRoutes from "./routes/meeting.routes.js";
 import newsRoutes from "./routes/news.routes.js";
 import teachingTypeRoutes from './routes/teaching-type.routes.js';
+import schoolTypeRoutes from './routes/school-type.routes.js';
 import niveauRoutes from './routes/niveau.routes.js';
 
 const app = express();
@@ -98,6 +99,7 @@ app.use("/api/forum", forumRoutes);             // Forum École
 app.use("/api/absences", absenceRoutes);        // Gestion des absences
 app.use("/api/audit-logs", auditLogRoutes);     // Logs d'audit
 app.use("/api/teaching-types", teachingTypeRoutes); // Types d'enseignement
+app.use("/api/school-types", schoolTypeRoutes);     // Types d'établissement
 app.use("/api/niveaux", niveauRoutes);             // Niveaux scolaires
 app.use("/api/academic-years", academicRoutes);     // Alias Années scolaires
 

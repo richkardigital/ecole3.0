@@ -1,6 +1,15 @@
 /**
  * Seed de la base de données.
- * Crée les données initiales : Super Admin, niveaux, écoles, utilisateurs de test.
+ * Crée la structure initiale globale et une École Démo 100% complète et fonctionnelle :
+ * - Super Admins (Platform Super Administrators)
+ * - Types d'enseignement & Types d'établissement
+ * - École Démo ("Complexe Scolaire Excellence d'Abidjan")
+ * - Directeur, Éducateur, Enseignant
+ * - Multi-classes pour l'enseignant (6ème A, 5ème A, 3ème A)
+ * - 2 Élèves inscrits en classe de 6ème A
+ * - Année académique + Trimestres
+ * - Matières, Cours, Chapitres publiés & Devoirs
+ * - Notes & Absences
  *
  * Usage : node --loader ts-node/esm prisma/seed.ts
  */
@@ -13,69 +22,116 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function seed(): Promise<void> {
-  console.log('🚀 Seeding database...\n');
+  console.log('🚀 Démarrage de l\'initialisation de la base de données...\n');
 
   // ============================================
-  // 1. Super Admins
+  // 1. Super Admins de la plateforme
   // ============================================
-  const superAdminPassword = await bcrypt.hash('password123', 10);
-  const superAdmin = await prisma.user.upsert({
+  const defaultPassword = await bcrypt.hash('password123', 10);
+  const adminPassword = await bcrypt.hash('Yed*76magelan', 10);
+
+  const superAdmin1 = await prisma.user.upsert({
     where: { email: 'superadmin@example.com' },
     update: { role: 'SUPER_ADMIN' },
     create: {
       email: 'superadmin@example.com',
-      password: superAdminPassword,
+      password: defaultPassword,
       firstName: 'Super',
       lastName: 'Admin',
       role: 'SUPER_ADMIN',
     },
   });
-  console.log(`✅ Super Admin : ${superAdmin.email}`);
 
-  const superAdmin2Password = await bcrypt.hash('nestorkoffi', 10);
   const superAdmin2 = await prisma.user.upsert({
     where: { email: 'llateamd@gmail.com' },
     update: { role: 'SUPER_ADMIN' },
     create: {
       email: 'llateamd@gmail.com',
-      password: superAdmin2Password,
+      password: await bcrypt.hash('nestorkoffi', 10),
       firstName: 'Nestor',
       lastName: 'Koffi',
       role: 'SUPER_ADMIN',
     },
   });
-  console.log(`✅ Super Admin : ${superAdmin2.email}`);
 
-  const superAdmin3Password = await bcrypt.hash('Yed*76magelan', 10);
   const superAdmin3 = await prisma.user.upsert({
     where: { email: 'rickardigital@gmail.com' },
     update: { role: 'SUPER_ADMIN' },
     create: {
       email: 'rickardigital@gmail.com',
-      password: superAdmin3Password,
+      password: adminPassword,
       firstName: 'Richkard',
       lastName: 'Digital',
       role: 'SUPER_ADMIN',
     },
   });
-  console.log(`✅ Super Admin : ${superAdmin3.email}`);
+  console.log(`✅ Super Admins configurés (${superAdmin3.email}, ${superAdmin1.email})`);
 
   // ============================================
-  // 2. Écoles
+  // 2. Types d'enseignement & Types d'établissement
   // ============================================
-  const school1 = await prisma.school.upsert({
-    where: { code: 'ECO-001' },
-    update: {},
+  const defaultTeachingTypes = [
+    'Enseignement Général (Primaire)',
+    'Enseignement Général (Secondaire)',
+    'Enseignement Technique & Professionnel',
+    'Complexe Mixte (Général & Technique)'
+  ];
+
+  const teachingTypeMap: Record<string, string> = {};
+  for (const ttName of defaultTeachingTypes) {
+    const tt = await prisma.teachingType.upsert({
+      where: { name: ttName },
+      update: { isActive: true },
+      create: { name: ttName, isActive: true }
+    });
+    teachingTypeMap[ttName] = tt.id;
+  }
+  console.log('📚 Types d\'enseignement créés');
+
+  const defaultSchoolTypes = [
+    { name: 'Primaire', code: 'PRIM', description: 'Établissement du premier degré (CI à CM2)' },
+    { name: 'Collège', code: 'COL', description: 'Premier cycle du secondaire (6ème à 3ème)' },
+    { name: 'Lycée', code: 'LYC', description: 'Second cycle du secondaire (Seconde à Terminale)' },
+    { name: 'Complexe Scolaire (Primaire & Secondaire)', code: 'CS', description: 'Établissement intégrant le primaire et le secondaire' },
+    { name: 'Lycée Technique', code: 'LT', description: 'Enseignement technique et professionnel' }
+  ];
+
+  const schoolTypeMap: Record<string, string> = {};
+  for (const st of defaultSchoolTypes) {
+    const sType = await prisma.schoolType.upsert({
+      where: { name: st.name },
+      update: { code: st.code, description: st.description, isActive: true },
+      create: { name: st.name, code: st.code, description: st.description, isActive: true }
+    });
+    schoolTypeMap[st.name] = sType.id;
+  }
+  console.log('🏫 Types d\'établissement créés');
+
+  // ============================================
+  // 3. École Démo ("Complexe Scolaire Excellence d'Abidjan")
+  // ============================================
+  const schoolDemo = await prisma.school.upsert({
+    where: { code: 'CS-EXCELLENCE-2026' },
+    update: {
+      teachingTypeId: teachingTypeMap['Enseignement Général (Secondaire)'],
+      schoolTypeId: schoolTypeMap['Complexe Scolaire (Primaire & Secondaire)'],
+    },
     create: {
-      name: 'École Primaire Sainte-Marie',
-      code: 'ECO-001',
+      name: 'Complexe Scolaire Excellence d\'Abidjan',
+      code: 'CS-EXCELLENCE-2026',
       ville: 'Abidjan',
-      address: 'Cocody, Rue des Jardins',
+      address: 'Cocody Riviera 3, Bd de France',
+      phone: '+225 07 08 09 10 11',
+      email: 'contact@excellence-abidjan.edu.ci',
+      description: 'Établissement démo de référence pour la plateforme École 3.0',
       isActive: true,
+      teachingTypeId: teachingTypeMap['Enseignement Général (Secondaire)'],
+      schoolTypeId: schoolTypeMap['Complexe Scolaire (Primaire & Secondaire)'],
     },
   });
 
-  const school2 = await prisma.school.upsert({
+  // École secondaire secondaire 2
+  await prisma.school.upsert({
     where: { code: 'ECO-002' },
     update: {},
     create: {
@@ -86,20 +142,12 @@ async function seed(): Promise<void> {
       isActive: true,
     },
   });
-  console.log('🏫 Écoles créées');
+  console.log('🏫 Écoles Démo configurées');
 
   // ============================================
-  // 3. Niveaux scolaires
+  // 4. Niveaux scolaires
   // ============================================
   const niveauxData = [
-    { nom: 'PS', rang: 1 },
-    { nom: 'MS', rang: 2 },
-    { nom: 'GS', rang: 3 },
-    { nom: 'CP', rang: 10 },
-    { nom: 'CE1', rang: 11 },
-    { nom: 'CE2', rang: 12 },
-    { nom: 'CM1', rang: 13 },
-    { nom: 'CM2', rang: 14 },
     { nom: '6ème', rang: 20 },
     { nom: '5ème', rang: 21 },
     { nom: '4ème', rang: 22 },
@@ -109,117 +157,33 @@ async function seed(): Promise<void> {
     { nom: 'Terminale', rang: 32 },
   ];
 
-  const niveaux: Record<string, string> = {};
+  const niveauxMap: Record<string, string> = {};
   for (const n of niveauxData) {
     const niveau = await prisma.niveau.upsert({
-      where: { nom_schoolId: { nom: n.nom, schoolId: school1.id } },
+      where: { nom_schoolId: { nom: n.nom, schoolId: schoolDemo.id } },
       update: { rang: n.rang },
       create: {
         nom: n.nom,
         rang: n.rang,
-        schoolId: school1.id,
+        schoolId: schoolDemo.id,
       },
     });
-    niveaux[n.nom] = niveau.id;
+    niveauxMap[n.nom] = niveau.id;
   }
-
-  // Créer les mêmes niveaux pour l'école 2
-  for (const n of niveauxData) {
-    await prisma.niveau.upsert({
-      where: { nom_schoolId: { nom: n.nom, schoolId: school2.id } },
-      update: { rang: n.rang },
-      create: {
-        nom: n.nom,
-        rang: n.rang,
-        schoolId: school2.id,
-      },
-    });
-  }
-  console.log(`📊 ${niveauxData.length} niveaux créés par école`);
+  console.log(`📊 ${niveauxData.length} niveaux créés pour l'école Démo`);
 
   // ============================================
-  // 4. Utilisateurs par rôle (École 1)
-  // ============================================
-  const defaultPassword = await bcrypt.hash('password123', 10);
-
-  // Directeur
-  const directeur = await prisma.user.upsert({
-    where: { email: 'directeur@ecole1.com' },
-    update: { role: 'DIRECTEUR', schoolId: school1.id },
-    create: {
-      email: 'directeur@ecole1.com',
-      password: defaultPassword,
-      firstName: 'Jean',
-      lastName: 'Directeur',
-      role: 'DIRECTEUR',
-      schoolId: school1.id,
-    },
-  });
-
-  // Lier le directeur à l'école
-  await prisma.school.update({
-    where: { id: school1.id },
-    data: { managerId: directeur.id },
-  });
-  console.log(`✅ Directeur : ${directeur.email}`);
-
-  // Éducateur
-  const educateur = await prisma.user.upsert({
-    where: { email: 'educateur@ecole1.com' },
-    update: { role: 'EDUCATEUR', schoolId: school1.id },
-    create: {
-      email: 'educateur@ecole1.com',
-      password: defaultPassword,
-      firstName: 'Marie',
-      lastName: 'Educateur',
-      role: 'EDUCATEUR',
-      schoolId: school1.id,
-    },
-  });
-  console.log(`✅ Éducateur : ${educateur.email}`);
-
-  // Enseignant
-  const enseignant = await prisma.user.upsert({
-    where: { email: 'enseignant@ecole1.com' },
-    update: { role: 'ENSEIGNANT', schoolId: school1.id },
-    create: {
-      email: 'enseignant@ecole1.com',
-      password: defaultPassword,
-      firstName: 'Pierre',
-      lastName: 'Prof',
-      role: 'ENSEIGNANT',
-      schoolId: school1.id,
-    },
-  });
-  console.log(`✅ Enseignant : ${enseignant.email}`);
-
-  // Apprenant
-  const apprenant = await prisma.user.upsert({
-    where: { email: 'apprenant@ecole1.com' },
-    update: { role: 'APPRENANT', schoolId: school1.id },
-    create: {
-      email: 'apprenant@ecole1.com',
-      password: defaultPassword,
-      firstName: 'Kouassi',
-      lastName: 'Élève',
-      role: 'APPRENANT',
-      schoolId: school1.id,
-    },
-  });
-  console.log(`✅ Apprenant : ${apprenant.email}`);
-
-  // ============================================
-  // 5. Année scolaire + Trimestres
+  // 5. Année académique + Trimestres
   // ============================================
   const academicYear = await prisma.academicYear.upsert({
-    where: { name_schoolId: { name: '2025-2026', schoolId: school1.id } },
-    update: {},
+    where: { name_schoolId: { name: '2025-2026', schoolId: schoolDemo.id } },
+    update: { isCurrent: true },
     create: {
       name: '2025-2026',
       startDate: new Date('2025-09-01'),
       endDate: new Date('2026-06-30'),
       isCurrent: true,
-      schoolId: school1.id,
+      schoolId: schoolDemo.id,
     },
   });
 
@@ -230,11 +194,12 @@ async function seed(): Promise<void> {
   ];
 
   for (const t of terms) {
+    const termId = `term-demo-${t.name.replace(/\s/g, '-').toLowerCase()}-${schoolDemo.id.slice(0, 8)}`;
     await prisma.term.upsert({
-      where: { id: `seed-term-${t.name.replace(/\s/g, '-').toLowerCase()}` },
-      update: {},
+      where: { id: termId },
+      update: { status: t.status },
       create: {
-        id: `seed-term-${t.name.replace(/\s/g, '-').toLowerCase()}`,
+        id: termId,
         name: t.name,
         startDate: t.startDate,
         endDate: t.endDate,
@@ -243,211 +208,366 @@ async function seed(): Promise<void> {
       },
     });
   }
-  console.log('📅 Année scolaire + 3 trimestres créés');
+  console.log('📅 Année académique 2025-2026 + 3 Trimestres créés');
 
   // ============================================
-  // 6. Matières
+  // 6. Acteurs de l'École Démo (Utilisateurs)
+  // ============================================
+  
+  // A. Directeur
+  const directeur = await prisma.user.upsert({
+    where: { email: 'directeur.excellence@ecole30.com' },
+    update: { role: 'DIRECTEUR', schoolId: schoolDemo.id },
+    create: {
+      email: 'directeur.excellence@ecole30.com',
+      password: defaultPassword,
+      firstName: 'Marc',
+      lastName: 'Koffi',
+      role: 'DIRECTEUR',
+      schoolId: schoolDemo.id,
+    },
+  });
+
+  await prisma.school.update({
+    where: { id: schoolDemo.id },
+    data: { managerId: directeur.id },
+  });
+  console.log(`👨‍💼 Directeur : ${directeur.email} (Marc Koffi)`);
+
+  // B. Éducateur / Conseiller d'Éducation
+  const educateur = await prisma.user.upsert({
+    where: { email: 'educateur.excellence@ecole30.com' },
+    update: { role: 'EDUCATEUR', schoolId: schoolDemo.id },
+    create: {
+      email: 'educateur.excellence@ecole30.com',
+      password: defaultPassword,
+      firstName: 'Sylvie',
+      lastName: 'Bamba',
+      role: 'EDUCATEUR',
+      schoolId: schoolDemo.id,
+    },
+  });
+  console.log(`👩‍💼 Éducatrice : ${educateur.email} (Sylvie Bamba)`);
+
+  // C. Professeur / Enseignant (Multi-Classes)
+  const enseignant = await prisma.user.upsert({
+    where: { email: 'prof.maths@ecole30.com' },
+    update: { role: 'ENSEIGNANT', schoolId: schoolDemo.id },
+    create: {
+      email: 'prof.maths@ecole30.com',
+      password: defaultPassword,
+      firstName: 'Amadou',
+      lastName: 'Koné',
+      role: 'ENSEIGNANT',
+      schoolId: schoolDemo.id,
+    },
+  });
+  console.log(`👨‍🏫 Professeur : ${enseignant.email} (Amadou Koné)`);
+
+  // D. Élève 1
+  const eleve1 = await prisma.user.upsert({
+    where: { email: 'eleve1.excellence@ecole30.com' },
+    update: { role: 'APPRENANT', schoolId: schoolDemo.id },
+    create: {
+      email: 'eleve1.excellence@ecole30.com',
+      password: defaultPassword,
+      firstName: 'Yao',
+      lastName: 'Jean-Marc',
+      role: 'APPRENANT',
+      schoolId: schoolDemo.id,
+    },
+  });
+
+  // E. Élève 2
+  const eleve2 = await prisma.user.upsert({
+    where: { email: 'eleve2.excellence@ecole30.com' },
+    update: { role: 'APPRENANT', schoolId: schoolDemo.id },
+    create: {
+      email: 'eleve2.excellence@ecole30.com',
+      password: defaultPassword,
+      firstName: 'Konan',
+      lastName: 'Akissi Sarah',
+      role: 'APPRENANT',
+      schoolId: schoolDemo.id,
+    },
+  });
+  console.log(`👨‍🎓 Élève 1 : ${eleve1.email} (Yao Jean-Marc)`);
+  console.log(`👩‍🎓 Élève 2 : ${eleve2.email} (Konan Akissi Sarah)`);
+
+  // ============================================
+  // 7. Matières de l'École
   // ============================================
   const subjectsData = [
     { name: 'Mathématiques', code: 'MATH', coefficient: 4 },
+    { name: 'Sciences de la Vie et de la Terre', code: 'SVT', coefficient: 2 },
     { name: 'Français', code: 'FRA', coefficient: 4 },
     { name: 'Anglais', code: 'ANG', coefficient: 2 },
-    { name: 'SVT', code: 'SVT', coefficient: 2 },
     { name: 'Histoire-Géographie', code: 'HG', coefficient: 2 },
-    { name: 'Éducation Physique', code: 'EPS', coefficient: 1 },
   ];
 
+  const subjectsMap: Record<string, any> = {};
   for (const s of subjectsData) {
-    await prisma.subject.upsert({
-      where: { name_schoolId: { name: s.name, schoolId: school1.id } },
+    const subject = await prisma.subject.upsert({
+      where: { name_schoolId: { name: s.name, schoolId: schoolDemo.id } },
       update: { coefficient: s.coefficient, code: s.code },
       create: {
         name: s.name,
         code: s.code,
         coefficient: s.coefficient,
-        schoolId: school1.id,
+        schoolId: schoolDemo.id,
       },
     });
+    subjectsMap[s.name] = subject;
   }
-  console.log(`📚 ${subjectsData.length} matières créées`);
+  console.log('📚 Matières créées');
 
   // ============================================
-  // 7. Classes
+  // 8. Classes (6ème A, 5ème A, 3ème A)
   // ============================================
-  const classesData = [
-    { name: '6ème A', niveauNom: '6ème' },
-    { name: '6ème B', niveauNom: '6ème' },
-    { name: '5ème A', niveauNom: '5ème' },
-    { name: '4ème A', niveauNom: '4ème' },
-  ];
+  const class6A = await prisma.class.upsert({
+    where: { name_schoolId: { name: '6ème A', schoolId: schoolDemo.id } },
+    update: {},
+    create: {
+      name: '6ème A',
+      schoolId: schoolDemo.id,
+      niveauId: niveauxMap['6ème'],
+      academicYearId: academicYear.id,
+    },
+  });
 
-  for (const c of classesData) {
-    await prisma.class.upsert({
-      where: { name_schoolId: { name: c.name, schoolId: school1.id } },
-      update: {},
-      create: {
-        name: c.name,
-        schoolId: school1.id,
-        niveauId: niveaux[c.niveauNom] || null,
-        academicYearId: academicYear.id,
-      },
-    });
-  }
-  console.log(`🏫 ${classesData.length} classes créées`);
+  const class5A = await prisma.class.upsert({
+    where: { name_schoolId: { name: '5ème A', schoolId: schoolDemo.id } },
+    update: {},
+    create: {
+      name: '5ème A',
+      schoolId: schoolDemo.id,
+      niveauId: niveauxMap['5ème'],
+      academicYearId: academicYear.id,
+    },
+  });
 
-  // ============================================
-  // 8. Récupérer les classes et matières pour les affectations
-  // ============================================
-  const sixiemeA = await prisma.class.findFirst({ where: { name: '6ème A', schoolId: school1.id } });
-  const cinquiemeA = await prisma.class.findFirst({ where: { name: '5ème A', schoolId: school1.id } });
-  const mathSubject = await prisma.subject.findFirst({ where: { name: 'Mathématiques', schoolId: school1.id } });
-  const francaisSubject = await prisma.subject.findFirst({ where: { name: 'Français', schoolId: school1.id } });
-  const anglaisSubject = await prisma.subject.findFirst({ where: { name: 'Anglais', schoolId: school1.id } });
-
-  // ============================================
-  // 9. Inscription de l'apprenant dans une classe (Enrollment)
-  // ============================================
-  if (sixiemeA) {
-    await prisma.enrollment.upsert({
-      where: { studentId_classId: { studentId: apprenant.id, classId: sixiemeA.id } },
-      update: {},
-      create: {
-        studentId: apprenant.id,
-        classId: sixiemeA.id,
-        matricule: 'MAT-2026-001',
-      },
-    });
-    console.log('📝 Apprenant inscrit en 6ème A');
-  }
+  const class3A = await prisma.class.upsert({
+    where: { name_schoolId: { name: '3ème A', schoolId: schoolDemo.id } },
+    update: {},
+    create: {
+      name: '3ème A',
+      schoolId: schoolDemo.id,
+      niveauId: niveauxMap['3ème'],
+      academicYearId: academicYear.id,
+    },
+  });
+  console.log('🎓 Classes créées (6ème A, 5ème A, 3ème A)');
 
   // ============================================
-  // 10. Affectation enseignant → classe → matière (Course)
+  // 9. Inscription des 2 élèves en 6ème A
   // ============================================
-  const coursesCreated: string[] = [];
-  
-  if (sixiemeA && mathSubject) {
-    const course = await prisma.course.upsert({
-      where: { classId_subjectId_teacherId: { classId: sixiemeA.id, subjectId: mathSubject.id, teacherId: enseignant.id } },
-      update: {},
-      create: {
-        classId: sixiemeA.id,
-        subjectId: mathSubject.id,
-        teacherId: enseignant.id,
-        coefficient: mathSubject.coefficient,
-      },
-    });
-    coursesCreated.push(course.id);
-  }
+  await prisma.enrollment.upsert({
+    where: { studentId_classId: { studentId: eleve1.id, classId: class6A.id } },
+    update: {},
+    create: {
+      studentId: eleve1.id,
+      classId: class6A.id,
+      matricule: 'MAT-2026-001',
+    },
+  });
 
-  if (sixiemeA && francaisSubject) {
-    const course = await prisma.course.upsert({
-      where: { classId_subjectId_teacherId: { classId: sixiemeA.id, subjectId: francaisSubject.id, teacherId: enseignant.id } },
-      update: {},
-      create: {
-        classId: sixiemeA.id,
-        subjectId: francaisSubject.id,
-        teacherId: enseignant.id,
-        coefficient: francaisSubject.coefficient,
-      },
-    });
-    coursesCreated.push(course.id);
-  }
-
-  if (sixiemeA && anglaisSubject) {
-    const course = await prisma.course.upsert({
-      where: { classId_subjectId_teacherId: { classId: sixiemeA.id, subjectId: anglaisSubject.id, teacherId: enseignant.id } },
-      update: {},
-      create: {
-        classId: sixiemeA.id,
-        subjectId: anglaisSubject.id,
-        teacherId: enseignant.id,
-        coefficient: anglaisSubject.coefficient,
-      },
-    });
-    coursesCreated.push(course.id);
-  }
-  console.log(`📚 ${coursesCreated.length} cours créés (enseignant ↔ classe ↔ matière)`);
+  await prisma.enrollment.upsert({
+    where: { studentId_classId: { studentId: eleve2.id, classId: class6A.id } },
+    update: {},
+    create: {
+      studentId: eleve2.id,
+      classId: class6A.id,
+      matricule: 'MAT-2026-002',
+    },
+  });
+  console.log('📝 2 élèves inscrits en 6ème A (Yao Jean-Marc & Konan Sarah)');
 
   // ============================================
-  // 11. TeacherClass (affectation directe)
+  // 10. Multi-Affectations Enseignant (Prof. Amadou Koné → 6ème A, 5ème A, 3ème A)
   // ============================================
-  if (sixiemeA && mathSubject) {
-    await prisma.teacherClass.upsert({
-      where: { teacherId_classId_subjectId: { teacherId: enseignant.id, classId: sixiemeA.id, subjectId: mathSubject.id } },
-      update: {},
-      create: {
-        teacherId: enseignant.id,
-        classId: sixiemeA.id,
-        subjectId: mathSubject.id,
-      },
-    });
-  }
-  console.log('👨‍🏫 TeacherClass créé');
+  // Course 1: Mathématiques 6ème A
+  const courseMath6A = await prisma.course.upsert({
+    where: { classId_subjectId_teacherId: { classId: class6A.id, subjectId: subjectsMap['Mathématiques'].id, teacherId: enseignant.id } },
+    update: {},
+    create: {
+      classId: class6A.id,
+      subjectId: subjectsMap['Mathématiques'].id,
+      teacherId: enseignant.id,
+      coefficient: 4,
+    },
+  });
+
+  // Course 2: SVT 6ème A
+  const courseSVT6A = await prisma.course.upsert({
+    where: { classId_subjectId_teacherId: { classId: class6A.id, subjectId: subjectsMap['Sciences de la Vie et de la Terre'].id, teacherId: enseignant.id } },
+    update: {},
+    create: {
+      classId: class6A.id,
+      subjectId: subjectsMap['Sciences de la Vie et de la Terre'].id,
+      teacherId: enseignant.id,
+      coefficient: 2,
+    },
+  });
+
+  // Course 3: Mathématiques 3ème A
+  const courseMath3A = await prisma.course.upsert({
+    where: { classId_subjectId_teacherId: { classId: class3A.id, subjectId: subjectsMap['Mathématiques'].id, teacherId: enseignant.id } },
+    update: {},
+    create: {
+      classId: class3A.id,
+      subjectId: subjectsMap['Mathématiques'].id,
+      teacherId: enseignant.id,
+      coefficient: 4,
+    },
+  });
+
+  // TeacherClasses
+  await prisma.teacherClass.upsert({
+    where: { teacherId_classId_subjectId: { teacherId: enseignant.id, classId: class6A.id, subjectId: subjectsMap['Mathématiques'].id } },
+    update: {},
+    create: { teacherId: enseignant.id, classId: class6A.id, subjectId: subjectsMap['Mathématiques'].id },
+  });
+
+  await prisma.teacherClass.upsert({
+    where: { teacherId_classId_subjectId: { teacherId: enseignant.id, classId: class6A.id, subjectId: subjectsMap['Sciences de la Vie et de la Terre'].id } },
+    update: {},
+    create: { teacherId: enseignant.id, classId: class6A.id, subjectId: subjectsMap['Sciences de la Vie et de la Terre'].id },
+  });
+
+  await prisma.teacherClass.upsert({
+    where: { teacherId_classId_subjectId: { teacherId: enseignant.id, classId: class3A.id, subjectId: subjectsMap['Mathématiques'].id } },
+    update: {},
+    create: { teacherId: enseignant.id, classId: class3A.id, subjectId: subjectsMap['Mathématiques'].id },
+  });
+
+  console.log('👨‍🏫 Prof. Amadou Koné affecté aux cours en 6ème A (Maths & SVT) et en 3ème A (Maths)');
 
   // ============================================
-  // 12. Devoirs de test (Assignments)
+  // 11. Chapitres de cours publiés
   // ============================================
-  if (coursesCreated.length > 0) {
-    const mathCourseId = coursesCreated[0];
-    
-    await prisma.assignment.create({
-      data: {
-        title: 'Exercice: Fractions et décimaux',
-        description: 'Résolvez les exercices du chapitre 3 sur les fractions.',
-        dueDate: new Date('2026-08-15'),
-        courseId: mathCourseId,
-        coefficient: 2,
-        points: 20,
-      },
-    });
+  // Nettoyer les anciens chapitres pour réinitialisation propre
+  await prisma.chapter.deleteMany({
+    where: { courseId: { in: [courseMath6A.id, courseSVT6A.id, courseMath3A.id] } }
+  });
 
-    await prisma.assignment.create({
-      data: {
-        title: 'Contrôle de Mathématiques — Chapitre 4',
-        description: 'Évaluation sur les équations du premier degré.',
-        dueDate: new Date('2026-08-30'),
-        courseId: mathCourseId,
-        coefficient: 3,
-        points: 20,
-      },
-    });
-
-    if (coursesCreated.length > 1) {
-      const francaisCourseId = coursesCreated[1];
-      await prisma.assignment.create({
-        data: {
-          title: 'Rédaction: Mon village natal',
-          description: "Rédigez un texte de 200 mots décrivant votre village ou quartier.",
-          dueDate: new Date('2026-08-20'),
-          courseId: francaisCourseId,
-          coefficient: 2,
-          points: 20,
-        },
-      });
+  await prisma.chapter.create({
+    data: {
+      title: 'Chapitre 1 : Les Nombres Entiers et Décimaux',
+      content: 'Dans ce premier chapitre, nous étudions l\'écriture, la comparaison et les opérations élémentaires sur les nombres entiers et décimaux.',
+      courseId: courseMath6A.id,
     }
-    console.log('📋 Devoirs de test créés');
-  }
+  });
+
+  await prisma.chapter.create({
+    data: {
+      title: 'Chapitre 2 : Fractions et Opérations',
+      content: 'Définition des fractions, simplification et calculs de sommes et de produits de fractions.',
+      courseId: courseMath6A.id,
+    }
+  });
+
+  await prisma.chapter.create({
+    data: {
+      title: 'Chapitre 3 : Équations du Premier Degré',
+      content: 'Résolution de problèmes et équations à une inconnue.',
+      courseId: courseMath6A.id,
+    }
+  });
+
+  await prisma.chapter.create({
+    data: {
+      title: 'Chapitre 1 : La Cellule et le Monde Vivant',
+      content: 'Introduction à la biologie générale : la structure cellulaire et les règnes du vivant.',
+      courseId: courseSVT6A.id,
+    }
+  });
+
+  await prisma.chapter.create({
+    data: {
+      title: 'Chapitre 1 : Théorème de Thalès et Applications',
+      content: 'Rapports de longueurs, droites parallèles et agrandissement/réduction.',
+      courseId: courseMath3A.id,
+    }
+  });
+
+  console.log('📖 5 Chapitres de cours créés et publiés à travers les différentes matières');
 
   // ============================================
-  // Résumé
+  // 12. Devoirs & Évaluations
   // ============================================
-  const userCount = await prisma.user.count();
-  const schoolCount = await prisma.school.count();
-  const niveauCount = await prisma.niveau.count();
-  const classCount = await prisma.class.count();
-  const enrollmentCount = await prisma.enrollment.count();
-  const courseCount = await prisma.course.count();
-  const assignmentCount = await prisma.assignment.count();
+  await prisma.assignment.deleteMany({
+    where: { courseId: { in: [courseMath6A.id, courseSVT6A.id, courseMath3A.id] } }
+  });
 
-  console.log('\n📊 Résumé :');
-  console.log(`  👤 ${userCount} utilisateurs`);
-  console.log(`  🏫 ${schoolCount} écoles`);
-  console.log(`  📊 ${niveauCount} niveaux`);
-  console.log(`  🎓 ${classCount} classes`);
-  console.log(`  📝 ${enrollmentCount} inscriptions`);
-  console.log(`  📚 ${courseCount} cours`);
-  console.log(`  📋 ${assignmentCount} devoirs`);
-  console.log('\n✅ Seed terminé !');
+  await prisma.assignment.create({
+    data: {
+      title: 'Devoir 1 : Exercices sur les fractions et décimaux',
+      description: 'Effectuer les exercices 1 à 5 du manuel page 42. À rendre obligatoirement.',
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      courseId: courseMath6A.id,
+      coefficient: 2,
+      points: 20,
+    }
+  });
+
+  await prisma.assignment.create({
+    data: {
+      title: 'Contrôle Continu : Équations et Problèmes',
+      description: 'Évaluation individuelle écrite sur l\'ensemble des notions du trimestre.',
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      courseId: courseMath6A.id,
+      coefficient: 3,
+      points: 20,
+    }
+  });
+
+  await prisma.assignment.create({
+    data: {
+      title: 'TP SVT : Schéma et observation microscopique',
+      description: 'Dessiner et légender la cellule végétale observée pendant le TP.',
+      dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+      courseId: courseSVT6A.id,
+      coefficient: 2,
+      points: 20,
+    }
+  });
+
+  await prisma.assignment.create({
+    data: {
+      title: 'Devoir de Synthèse : Théorème de Thalès',
+      description: 'Résolution de problèmes complexes avec figures géométriques.',
+      dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+      courseId: courseMath3A.id,
+      coefficient: 3,
+      points: 20,
+    }
+  });
+
+  console.log('📋 Devoirs et évaluations créés pour toutes les classes');
+
+  // ============================================
+  // 13. Flash News de Démo
+  // ============================================
+  await prisma.news.create({
+    data: {
+      title: "Bienvenue au Complexe Scolaire Excellence d'Abidjan !",
+      content: "La direction de l'école est heureuse d'accueillir les élèves et leurs parents pour cette nouvelle année académique sous le signe de l'excellence numérique.",
+      priority: "FLASH",
+      isActive: true,
+      targetRoles: ["ALL"],
+      authorId: directeur.id,
+      schoolId: schoolDemo.id,
+    }
+  });
+
+  console.log('\n=============================================================');
+  console.log('🎉 POPULATION DE LA DB ET AFFECTATIONS MULTI-CLASSES RÉUSSIES ! 🎉');
+  console.log('=============================================================');
+  console.log('🏫 École : Complexe Scolaire Excellence d\'Abidjan (CS-EXCELLENCE-2026)');
+  console.log('👨‍🏫 Prof. Amadou Koné : Affecté à 6ème A (Maths & SVT) et 3ème A (Maths)');
+  console.log('🎓 Élèves inscrits : Yao Jean-Marc & Konan Sarah (6ème A)');
+  console.log('📖 Cours & Chapitres : 3 cours actifs avec 5 chapitres & 4 devoirs');
+  console.log('=============================================================\n');
 
   await prisma.$disconnect();
 }

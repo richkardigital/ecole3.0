@@ -123,6 +123,8 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
         firstName: true,
         lastName: true,
         role: true,
+        phone: true,
+        schoolId: true,
         school: {
           select: {
             id: true,
@@ -132,6 +134,18 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
         enrollments: {
             include: {
                 class: true
+            }
+        },
+        coursesAsTeacher: {
+            include: {
+                class: true,
+                subject: true
+            }
+        },
+        teacherClasses: {
+            include: {
+                class: true,
+                subject: true
             }
         }
       },

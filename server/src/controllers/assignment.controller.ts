@@ -205,13 +205,14 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
     if (!course) return res.status(404).json({ message: "Course not found" });
 
     // RLS
-    if ((req.user?.role as string) === 'ENSEIGNANT' && course.teacherId !== req.user?.id) {
+    const role = req.user?.role as string;
+    if (role === 'SUPER_ADMIN') {
+        // Super Admin has full access
+    } else if (role === 'ENSEIGNANT' && course.teacherId !== req.user?.id) {
         return res.status(403).json({ message: "Access denied" });
-    }
-    if ((req.user?.role as string) === 'APPRENANT' && course.class.enrollments.length === 0) {
+    } else if (role === 'APPRENANT' && course.class.enrollments.length === 0) {
         return res.status(403).json({ message: "Access denied" });
-    }
-    if (((req.user?.role as string) === 'DIRECTEUR' || (req.user?.role as string) === 'EDUCATEUR') && course.class.schoolId !== req.user?.schoolId) {
+    } else if ((role === 'DIRECTEUR' || role === 'EDUCATEUR') && req.user?.schoolId && course.class.schoolId !== req.user?.schoolId) {
         return res.status(403).json({ message: "Access denied" });
     }
 

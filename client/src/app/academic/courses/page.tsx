@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useForm } from 'react-hook-form';
-import { Plus, Book, User, Trash2, Loader2, Users } from 'lucide-react';
+import { 
+  Plus, Book, User, Trash2, Loader2, Users, School, Calendar, 
+  Search, Filter, Eye, RefreshCw, LayoutGrid, List, GraduationCap, BookOpen, Sparkles
+} from 'lucide-react';
 import mathCover from '@/assets/course-covers/math.svg';
 import musicCover from '@/assets/course-covers/music.svg';
 import spanishCover from '@/assets/course-covers/spanish.svg';
@@ -25,165 +28,216 @@ import { Button } from '@/components/ui/Button';
 
 interface CourseModel {
   id: string;
-  class: { name: string; level?: string };
-  subject: { name: string; code?: string };
-  teacher: { id: string; firstName: string; lastName: string };
   coefficient: number;
+  class?: { 
+    id: string; 
+    name: string; 
+    level?: string; 
+    schoolId?: string;
+    school?: { id: string; name: string; code?: string };
+    academicYear?: { id: string; name: string; isCurrent?: boolean };
+  };
+  subject?: { id: string; name: string; code?: string };
+  teacher?: { id: string; firstName: string; lastName: string; email?: string };
+  _count?: { chapters: number; assignments: number };
 }
 
 interface Option {
-    id: string;
-    name: string;
-    firstName?: string;
-    lastName?: string;
+  id: string;
+  name: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 const Courses = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isDirecteur = user?.role === 'DIRECTEUR';
+  const isAdmin = isSuperAdmin || isDirecteur;
+  const isTeacher = user?.role === 'ENSEIGNANT';
+
   const [courses, setCourses] = useState<CourseModel[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'TABLE' | 'GRID'>(isSuperAdmin ? 'TABLE' : 'GRID');
+
+  // Filters State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState('ALL');
+  const [selectedYearFilter, setSelectedYearFilter] = useState('ALL');
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('ALL');
+
+  // Unique options for filters
+  const [schoolsList, setSchoolsList] = useState<Option[]>([]);
+  const [yearsList, setYearsList] = useState<Option[]>([]);
+  const [subjectsList, setSubjectsList] = useState<Option[]>([]);
+
+  // Modals state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [bulkError, setBulkError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
   const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  // Form options
+  const { register, handleSubmit, reset } = useForm();
   const [bulkTeacherId, setBulkTeacherId] = useState<string>('');
   const [bulkSubjectId, setBulkSubjectId] = useState<string>('');
   const [bulkCoefficient, setBulkCoefficient] = useState<number>(1);
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
-  
   const [classes, setClasses] = useState<Option[]>([]);
   const [subjects, setSubjects] = useState<Option[]>([]);
   const [teachers, setTeachers] = useState<Option[]>([]);
 
-  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR';
-  const isTeacher = user?.role === 'ENSEIGNANT';
-
   const fetchCourses = async () => {
+    setIsLoading(true);
     try {
       const response = await api.get('/courses');
-      setCourses(response.data);
+      const data: CourseModel[] = response.data;
+      setCourses(data);
+
+      // Extract unique schools, academic years, and subjects for filtering
+      if (isSuperAdmin || isDirecteur) {
+        const uniqueSchools = Array.from(
+          new Map(
+            data
+              .filter(c => c.class?.school)
+              .map(c => [c.class!.school!.id, { id: c.class!.school!.id, name: c.class!.school!.name }])
+          ).values()
+        );
+        setSchoolsList(uniqueSchools);
+
+        const uniqueYears = Array.from(
+          new Map(
+            data
+              .filter(c => c.class?.academicYear)
+              .map(c => [c.class!.academicYear!.id, { id: c.class!.academicYear!.id, name: c.class!.academicYear!.name }])
+          ).values()
+        );
+        setYearsList(uniqueYears);
+
+        const uniqueSubjects = Array.from(
+          new Map(
+            data
+              .filter(c => c.subject)
+              .map(c => [c.subject!.id, { id: c.subject!.id, name: c.subject!.name }])
+          ).values()
+        );
+        setSubjectsList(uniqueSubjects);
+      }
     } catch (error) {
       console.error('Error fetching courses', error);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-  };
-
-  const fetchDataForForm = async () => {
-      try {
-          const promises = [
-              api.get('/classes'),
-              api.get('/subjects'),
-          ];
-          
-          if (isAdmin) {
-             promises.push(api.get('/users?role=ENSEIGNANT'));
-          }
-
-          const results = await Promise.all(promises);
-          
-          setClasses(results[0].data);
-          setSubjects(results[1].data);
-          
-          if (isAdmin && results[2]) {
-              setTeachers(results[2].data);
-          }
-      } catch (error) {
-          console.error("Error fetching form data", error);
-      }
-  }
-
-  const openBulkModal = async () => {
-      try {
-          setBulkError(null);
-          const classesRes = await api.get('/classes');
-          const subjectsRes = await api.get('/subjects');
-          const teachersRes = await api.get('/users?role=ENSEIGNANT');
-          setClasses(classesRes.data);
-          setSubjects(subjectsRes.data);
-          setTeachers(teachersRes.data);
-          setSelectedClassIds([]);
-          setBulkTeacherId('');
-          setBulkSubjectId('');
-          setBulkCoefficient(1);
-          setIsBulkModalOpen(true);
-      } catch (error) {
-          console.error("Error preparing bulk assignment modal", error);
-          setBulkError("Impossible de charger les données nécessaires.");
-      }
-  };
-
-  const toggleClassSelection = (classId: string) => {
-      setSelectedClassIds(prev =>
-          prev.includes(classId) ? prev.filter(id => id !== classId) : [...prev, classId]
-      );
-  };
-
-  const onSubmitBulk = async (e: React.FormEvent) => {
-      e.preventDefault();
-      try {
-          setIsBulkSubmitting(true);
-          setBulkError(null);
-
-          if (!bulkTeacherId || !bulkSubjectId || selectedClassIds.length === 0) {
-              setBulkError("Sélectionnez un enseignant, une matière et au moins une classe.");
-              setIsBulkSubmitting(false);
-              return;
-          }
-
-          await api.post('/courses/assign-multiple', {
-              teacherId: bulkTeacherId,
-              subjectId: bulkSubjectId,
-              classIds: selectedClassIds,
-              coefficient: bulkCoefficient || 1
-          });
-
-          setIsBulkModalOpen(false);
-          fetchCourses();
-      } catch (error: any) {
-          console.error("Error assigning courses in bulk", error);
-          setBulkError(error.response?.data?.message || "Erreur lors de l'assignation des cours.");
-      } finally {
-          setIsBulkSubmitting(false);
-      }
   };
 
   useEffect(() => {
     fetchCourses();
   }, []);
 
+  const fetchDataForForm = async () => {
+    try {
+      const promises = [
+        api.get('/classes'),
+        api.get('/subjects'),
+      ];
+      if (isAdmin) {
+        promises.push(api.get('/users?role=ENSEIGNANT'));
+      }
+      const results = await Promise.all(promises);
+      setClasses(results[0].data);
+      setSubjects(results[1].data);
+      if (isAdmin && results[2]) {
+        setTeachers(results[2].data);
+      }
+    } catch (error) {
+      console.error("Error fetching form data", error);
+    }
+  };
+
+  const openBulkModal = async () => {
+    try {
+      setBulkError(null);
+      const [classesRes, subjectsRes, teachersRes] = await Promise.all([
+        api.get('/classes'),
+        api.get('/subjects'),
+        api.get('/users?role=ENSEIGNANT')
+      ]);
+      setClasses(classesRes.data);
+      setSubjects(subjectsRes.data);
+      setTeachers(teachersRes.data);
+      setSelectedClassIds([]);
+      setBulkTeacherId('');
+      setBulkSubjectId('');
+      setBulkCoefficient(1);
+      setIsBulkModalOpen(true);
+    } catch (error) {
+      console.error("Error preparing bulk assignment modal", error);
+      setBulkError("Impossible de charger les données nécessaires.");
+    }
+  };
+
+  const toggleClassSelection = (classId: string) => {
+    setSelectedClassIds(prev =>
+      prev.includes(classId) ? prev.filter(id => id !== classId) : [...prev, classId]
+    );
+  };
+
+  const onSubmitBulk = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsBulkSubmitting(true);
+      setBulkError(null);
+      if (!bulkTeacherId || !bulkSubjectId || selectedClassIds.length === 0) {
+        setBulkError("Sélectionnez un enseignant, une matière et au moins une classe.");
+        setIsBulkSubmitting(false);
+        return;
+      }
+      await api.post('/courses/assign-multiple', {
+        teacherId: bulkTeacherId,
+        subjectId: bulkSubjectId,
+        classIds: selectedClassIds,
+        coefficient: bulkCoefficient || 1
+      });
+      setIsBulkModalOpen(false);
+      fetchCourses();
+    } catch (error: any) {
+      console.error("Error assigning courses in bulk", error);
+      setBulkError(error.response?.data?.message || "Erreur lors de l'assignation des cours.");
+    } finally {
+      setIsBulkSubmitting(false);
+    }
+  };
+
   const openModal = () => {
-      fetchDataForForm();
-      setIsModalOpen(true);
-  }
+    fetchDataForForm();
+    setIsModalOpen(true);
+  };
 
   const openDeleteModal = (courseId: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      e.preventDefault();
-      setCourseToDelete(courseId);
-      setIsDeleteModalOpen(true);
-  }
+    e.stopPropagation();
+    e.preventDefault();
+    setCourseToDelete(courseId);
+    setIsDeleteModalOpen(true);
+  };
 
   const confirmDeleteCourse = async () => {
-      if (!courseToDelete) return;
-      try {
-          await api.delete(`/courses/${courseToDelete}`);
-          setIsDeleteModalOpen(false);
-          setCourseToDelete(null);
-          fetchCourses();
-      } catch (error) {
-          console.error("Error deleting course", error);
-          alert("Impossible de supprimer ce cours. Veuillez réessayer.");
-      }
-  }
+    if (!courseToDelete) return;
+    try {
+      await api.delete(`/courses/${courseToDelete}`);
+      setIsDeleteModalOpen(false);
+      setCourseToDelete(null);
+      fetchCourses();
+    } catch (error) {
+      console.error("Error deleting course", error);
+      alert("Impossible de supprimer ce cours. Veuillez réessayer.");
+    }
+  };
 
   const onSubmit = async (data: any) => {
     try {
@@ -191,9 +245,8 @@ const Courses = () => {
       setSubmitError(null);
       const payload = { ...data };
       if (isTeacher && user) {
-          payload.teacherId = user.id;
+        payload.teacherId = user.id;
       }
-
       await api.post('/courses', payload);
       setIsModalOpen(false);
       reset();
@@ -227,7 +280,6 @@ const Courses = () => {
     'Entrepreneuriat': economyCover,
     'Musique': musicCover,
   };
-  
   const DEFAULT_IMAGE = defaultCover;
 
   const getCourseImage = (subjectName: string) => {
@@ -236,309 +288,504 @@ const Courses = () => {
     return key ? SUBJECT_IMAGES[key] : DEFAULT_IMAGE;
   };
 
+  // Multi-criteria Filtering
+  const filteredCourses = courses.filter(c => {
+    const subjectName = c.subject?.name || '';
+    const className = c.class?.name || '';
+    const teacherName = c.teacher ? `${c.teacher.firstName} ${c.teacher.lastName}` : '';
+    const schoolName = c.class?.school?.name || '';
+
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch = !query || 
+      subjectName.toLowerCase().includes(query) ||
+      className.toLowerCase().includes(query) ||
+      teacherName.toLowerCase().includes(query) ||
+      schoolName.toLowerCase().includes(query);
+
+    const matchesSchool = selectedSchoolFilter === 'ALL' || c.class?.school?.id === selectedSchoolFilter;
+    const matchesYear = selectedYearFilter === 'ALL' || !c.class?.academicYear?.id || c.class?.academicYear?.id === selectedYearFilter;
+    const matchesSubject = selectedSubjectFilter === 'ALL' || c.subject?.id === selectedSubjectFilter;
+
+    return matchesSearch && matchesSchool && matchesYear && matchesSubject;
+  });
+
+  const getDetailPath = (courseId: string) => {
+    if (isSuperAdmin) return `/admin/courses/${courseId}`;
+    if (isDirecteur) return `/directeur/courses/${courseId}`;
+    return `/courses/${courseId}`;
+  };
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <PageHeader 
-        title={isAdmin ? 'Gestion des Cours' : 'Mes Cours'}
-        subtitle="Consultez et organisez les matières enseignées dans les classes."
+        title={isSuperAdmin ? 'Supervision Globale des Cours' : isDirecteur ? 'Gestion des Cours' : 'Mes Cours'}
+        subtitle={
+          isSuperAdmin 
+            ? 'Supervisez, filtrez et suivez tous les cours et chapitres publiés sur la plateforme.'
+            : 'Consultez et organisez les matières et chapitres enseignés dans vos classes.'
+        }
+        icon={<BookOpen className="w-6 h-6 text-brand-accent" />}
         action={
-            isAdmin && (
-                <div className="flex gap-3">
-                  <Button
-                    variant="secondary"
-                    onClick={openBulkModal}
-                    leftIcon={<Users className="w-4 h-4" />}
-                  >
-                    Assignation multiple
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={openModal}
-                    leftIcon={<Plus className="w-4 h-4" />}
-                  >
-                    Nouveau cours
-                  </Button>
-                </div>
-              )
+          // Super Admin: NO creation buttons (as per Audio 2)
+          isSuperAdmin ? null : (
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={openBulkModal}
+                leftIcon={<Users className="w-4 h-4" />}
+              >
+                Assignation multiple
+              </Button>
+              <Button
+                variant="primary"
+                onClick={openModal}
+                leftIcon={<Plus className="w-4 h-4" />}
+              >
+                Nouveau cours
+              </Button>
+            </div>
+          )
         }
       />
 
-      {isLoading ? (
-          <div className="flex justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-brand-accent" />
+      {/* Filter & Sorting Bar */}
+      <div className="bg-brand-card p-4 rounded-xl border border-brand-border/50 space-y-3 shadow-md">
+        <div className="flex flex-col lg:flex-row gap-3 items-center justify-between">
+          {/* Search bar */}
+          <div className="relative w-full lg:w-80">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
+            <input 
+              type="text"
+              placeholder="Rechercher par cours, enseignant, classe..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-brand-surface border border-brand-border/50 rounded-lg pl-9 pr-4 py-2 text-xs text-brand-text placeholder-brand-muted focus:outline-none focus:border-brand-accent"
+            />
           </div>
-      ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {courses.map((course) => (
-              <div 
-                key={course.id} 
-                className="bg-brand-card rounded-2xl shadow-lg overflow-hidden cursor-pointer hover:shadow-brand-accent/10 hover:-translate-y-1 transition-all duration-300 border border-brand-border group relative flex flex-col"
-                onClick={() => navigate(`/courses/${course.id}`)}
+
+          {/* Filters & View Toggle */}
+          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
+            {/* Filter by Academic Year */}
+            {yearsList.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-brand-muted" />
+                <select
+                  value={selectedYearFilter}
+                  onChange={(e) => setSelectedYearFilter(e.target.value)}
+                  className="bg-brand-surface border border-brand-border/50 rounded-lg px-2.5 py-1.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent"
+                >
+                  <option value="ALL">Toutes les années</option>
+                  {yearsList.map(y => (
+                    <option key={y.id} value={y.id}>{y.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Filter by School (Super Admin) */}
+            {isSuperAdmin && schoolsList.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <School className="w-3.5 h-3.5 text-brand-muted" />
+                <select
+                  value={selectedSchoolFilter}
+                  onChange={(e) => setSelectedSchoolFilter(e.target.value)}
+                  className="bg-brand-surface border border-brand-border/50 rounded-lg px-2.5 py-1.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent max-w-[160px] truncate"
+                >
+                  <option value="ALL">Toutes les écoles</option>
+                  {schoolsList.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Filter by Subject */}
+            {subjectsList.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Book className="w-3.5 h-3.5 text-brand-muted" />
+                <select
+                  value={selectedSubjectFilter}
+                  onChange={(e) => setSelectedSubjectFilter(e.target.value)}
+                  className="bg-brand-surface border border-brand-border/50 rounded-lg px-2.5 py-1.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent max-w-[150px] truncate"
+                >
+                  <option value="ALL">Toutes les matières</option>
+                  {subjectsList.map(sub => (
+                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* View Mode Switcher */}
+            <div className="flex items-center bg-brand-surface border border-brand-border/50 rounded-lg p-0.5 ml-2">
+              <button
+                onClick={() => setViewMode('TABLE')}
+                title="Vue Tableau"
+                className={`p-1.5 rounded-md text-xs font-semibold transition-all ${
+                  viewMode === 'TABLE' ? 'bg-brand-accent text-white shadow' : 'text-brand-muted hover:text-brand-text'
+                }`}
               >
-                <div className="relative h-40 overflow-hidden shrink-0">
-                    <img 
-                        src={getCourseImage(course.subject?.name || '')} 
-                        alt={course.subject?.name} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80" 
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-brand-card via-brand-card/60 to-transparent"></div>
-                    <div className="absolute bottom-4 left-5 text-white">
-                        <h3 className="text-xl font-bold drop-shadow-md text-white">{course.subject?.name}</h3>
-                        <span className="text-xs bg-brand-sidebar border border-brand-border text-brand-text font-bold px-2.5 py-1 rounded-full inline-block mt-2 shadow-sm backdrop-blur-md">
-                            {course.class?.name}
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('GRID')}
+                title="Vue Cartes"
+                className={`p-1.5 rounded-md text-xs font-semibold transition-all ${
+                  viewMode === 'GRID' ? 'bg-brand-accent text-white shadow' : 'text-brand-muted hover:text-brand-text'
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </div>
+
+            <Button variant="outline" size="sm" onClick={fetchCourses} className="p-2">
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-brand-accent" />
+        </div>
+      ) : filteredCourses.length === 0 ? (
+        <div className="p-12 text-center text-brand-muted bg-brand-card rounded-xl border border-brand-border/50 flex flex-col items-center gap-3">
+          <Book className="w-12 h-12 text-brand-border opacity-50" />
+          <p className="text-base font-semibold text-brand-text">Aucun cours trouvé</p>
+          <p className="text-xs text-brand-muted">Essayez de modifier vos filtres de recherche.</p>
+        </div>
+      ) : viewMode === 'TABLE' ? (
+        /* SUPERVISION TABLE VIEW */
+        <div className="bg-brand-card rounded-xl border border-brand-border/50 overflow-hidden shadow-lg">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-brand-surface/80 text-brand-muted text-xs uppercase font-semibold border-b border-brand-border/50">
+                <tr>
+                  <th className="px-6 py-4">Cours / Matière</th>
+                  <th className="px-4 py-4">Classe & Niveau</th>
+                  <th className="px-4 py-4">Enseignant</th>
+                  <th className="px-4 py-4">Établissement</th>
+                  <th className="px-4 py-4">Année</th>
+                  <th className="px-4 py-4">Chapitres</th>
+                  <th className="px-4 py-4">Coef</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-border/30">
+                {filteredCourses.map(course => (
+                  <tr 
+                    key={course.id} 
+                    className="hover:bg-white/5 transition-colors cursor-pointer"
+                    onClick={() => navigate(getDetailPath(course.id))}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <img 
+                          src={getCourseImage(course.subject?.name || '')} 
+                          alt="" 
+                          className="w-10 h-10 rounded-lg object-cover border border-brand-border/50 shrink-0" 
+                        />
+                        <div>
+                          <h4 className="font-bold text-brand-text">{course.subject?.name || 'Matière'}</h4>
+                          {course.subject?.code && (
+                            <span className="text-[10px] font-mono text-brand-accent font-semibold">
+                              Code: {course.subject.code}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-brand-surface text-brand-text border border-brand-border/50">
+                        {course.class?.name || 'Classe N/A'}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-brand-accent/10 border border-brand-accent/20 flex items-center justify-center text-brand-accent text-xs font-bold shrink-0">
+                          {course.teacher?.firstName?.[0] || 'E'}
+                        </div>
+                        <div className="text-xs">
+                          <p className="font-semibold text-brand-text">
+                            {course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'Non assigné'}
+                          </p>
+                          {course.teacher?.email && (
+                            <p className="text-[10px] text-brand-muted">{course.teacher.email}</p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5 text-xs text-brand-text">
+                        <School className="w-3.5 h-3.5 text-brand-accent shrink-0" />
+                        <span>{course.class?.school?.name || 'Plateforme'}</span>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-4 whitespace-nowrap text-xs">
+                      {course.class?.academicYear ? (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                          {course.class.academicYear.name}
                         </span>
-                    </div>
-                    <div className="absolute top-4 right-4">
-                         <span className="bg-brand-accent/20 border border-brand-accent/30 text-brand-accent text-xs font-bold px-3 py-1.5 rounded-full shadow-lg backdrop-blur-md">
-                            Coeff: {course.coefficient || 1}
-                         </span>
-                    </div>
+                      ) : (
+                        <span className="text-brand-muted italic text-[11px]">-</span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-300 border border-slate-500/20">
+                        {course._count?.chapters || 0} chapitre(s)
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-4 whitespace-nowrap text-xs font-bold text-brand-accent">
+                      {course.coefficient || 1}
+                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => navigate(getDetailPath(course.id))}
+                          title="Consulter le cours & chapitres"
+                          className="p-1.5 rounded-lg text-brand-muted hover:text-white hover:bg-white/10 transition-colors"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => openDeleteModal(course.id, e)}
+                            title="Supprimer"
+                            className="p-1.5 rounded-lg text-red-400 hover:text-white hover:bg-red-500/20 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* GRID CARDS VIEW */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredCourses.map((course) => (
+            <div 
+              key={course.id} 
+              className="bg-brand-card rounded-2xl shadow-lg overflow-hidden cursor-pointer hover:shadow-brand-accent/10 hover:-translate-y-1 transition-all duration-300 border border-brand-border group relative flex flex-col"
+              onClick={() => navigate(getDetailPath(course.id))}
+            >
+              <div className="relative h-40 overflow-hidden shrink-0">
+                <img 
+                  src={getCourseImage(course.subject?.name || '')} 
+                  alt={course.subject?.name} 
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-brand-card via-brand-card/60 to-transparent"></div>
+                
+                <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                  {course.class?.school && (
+                    <span className="bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-md border border-white/10 backdrop-blur-md flex items-center gap-1">
+                      <School className="w-3 h-3 text-brand-accent" />
+                      {course.class.school.name}
+                    </span>
+                  )}
                 </div>
 
-                <div className="p-5 flex-1 flex flex-col">
-                    <div className="flex justify-between items-center mt-auto">
-                        <div className="flex items-center gap-3 text-sm text-brand-text-muted">
-                            <div className="w-9 h-9 rounded-full bg-brand-sidebar border border-brand-border flex items-center justify-center text-brand-accent">
-                                 {course.teacher?.firstName?.[0]}{course.teacher?.lastName?.[0]}
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-brand-text-muted uppercase font-bold tracking-wider">Enseignant</span>
-                                <span className="font-bold text-brand-text truncate max-w-[140px]" title={`Prof. ${course.teacher?.firstName} ${course.teacher?.lastName}`}>
-                                    {course.teacher?.firstName} {course.teacher?.lastName}
-                                </span>
-                            </div>
-                        </div>
+                <div className="absolute bottom-4 left-5 text-white">
+                  <h3 className="text-xl font-bold drop-shadow-md text-white">{course.subject?.name}</h3>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs bg-brand-sidebar border border-brand-border text-brand-text font-bold px-2.5 py-1 rounded-full shadow-sm backdrop-blur-md">
+                      {course.class?.name}
+                    </span>
+                    {course._count?.chapters !== undefined && (
+                      <span className="text-[11px] bg-brand-accent/20 border border-brand-accent/30 text-brand-accent font-semibold px-2 py-0.5 rounded-full backdrop-blur-md">
+                        {course._count.chapters} chapitres
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-                        {isAdmin && (
-                            <button 
-                                onClick={(e) => openDeleteModal(course.id, e)}
-                                className="p-2.5 text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors border border-transparent hover:border-red-500/30"
-                                title="Supprimer le cours"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        )}
-                    </div>
+                <div className="absolute top-3 right-3">
+                  <span className="bg-brand-accent/20 border border-brand-accent/30 text-brand-accent text-xs font-bold px-3 py-1 rounded-full shadow-lg backdrop-blur-md">
+                    Coeff: {course.coefficient || 1}
+                  </span>
                 </div>
               </div>
-            ))}
-            {courses.length === 0 && (
-                <div className="col-span-full py-20 text-center bg-brand-card rounded-2xl border border-dashed border-brand-border">
-                    <Book className="w-12 h-12 text-brand-text-muted mx-auto mb-4 opacity-50" />
-                    <p className="text-brand-text font-medium">Aucun cours disponible.</p>
+
+              <div className="p-5 flex-1 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs text-brand-text-muted">
+                  <div className="flex items-center gap-2">
+                    <User className="w-3.5 h-3.5 text-brand-accent" />
+                    <span>{course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'Non assigné'}</span>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      onClick={(e) => openDeleteModal(course.id, e)}
+                      className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-500/10 transition-colors"
+                      title="Supprimer le cours"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-            )}
-          </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
+      {/* CREATE COURSE MODAL (DIRECTEUR / TEACHER ONLY) */}
+      {!isSuperAdmin && isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md transition-opacity" onClick={() => setIsModalOpen(false)} />
+          <div className="relative z-10 bg-brand-card border border-brand-border/60 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-brand-text">Créer un nouveau cours</h3>
+            {submitError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-xs font-semibold">
+                {submitError}
+              </div>
+            )}
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-brand-muted uppercase mb-1">Classe *</label>
+                <select
+                  {...register('classId', { required: true })}
+                  className="w-full bg-brand-surface border border-brand-border/50 rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-accent"
+                >
+                  <option value="">Sélectionnez une classe...</option>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-brand-muted uppercase mb-1">Matière *</label>
+                <select
+                  {...register('subjectId', { required: true })}
+                  className="w-full bg-brand-surface border border-brand-border/50 rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-accent"
+                >
+                  <option value="">Sélectionnez une matière...</option>
+                  {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              {isDirecteur && (
+                <div>
+                  <label className="block text-xs font-bold text-brand-muted uppercase mb-1">Enseignant *</label>
+                  <select
+                    {...register('teacherId', { required: true })}
+                    className="w-full bg-brand-surface border border-brand-border/50 rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-accent"
+                  >
+                    <option value="">Sélectionnez un enseignant...</option>
+                    {teachers.map(t => <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>)}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-brand-muted uppercase mb-1">Coefficient</label>
+                <input 
+                  type="number"
+                  defaultValue={1}
+                  step="0.5"
+                  {...register('coefficient', { valueAsNumber: true })}
+                  className="w-full bg-brand-surface border border-brand-border/50 rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-accent"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-brand-border/40">
+                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Annuler</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Création...' : 'Créer le cours'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* BULK ASSIGN MODAL (DIRECTEUR ONLY) */}
+      {!isSuperAdmin && isBulkModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md transition-opacity" onClick={() => setIsBulkModalOpen(false)} />
+          <div className="relative z-10 bg-brand-card border border-brand-border/60 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-brand-text">Assignation multiple de cours</h3>
+            {bulkError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-xs font-semibold">
+                {bulkError}
+              </div>
+            )}
+            <form onSubmit={onSubmitBulk} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-brand-muted uppercase mb-1">Enseignant *</label>
+                <select
+                  value={bulkTeacherId}
+                  onChange={(e) => setBulkTeacherId(e.target.value)}
+                  className="w-full bg-brand-surface border border-brand-border/50 rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-accent"
+                >
+                  <option value="">Sélectionnez l'enseignant...</option>
+                  {teachers.map(t => <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-brand-muted uppercase mb-1">Matière *</label>
+                <select
+                  value={bulkSubjectId}
+                  onChange={(e) => setBulkSubjectId(e.target.value)}
+                  className="w-full bg-brand-surface border border-brand-border/50 rounded-lg px-3 py-2 text-sm text-brand-text focus:outline-none focus:border-brand-accent"
+                >
+                  <option value="">Sélectionnez la matière...</option>
+                  {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-brand-muted uppercase mb-1">Classes destinataires *</label>
+                <div className="max-h-36 overflow-y-auto bg-brand-surface p-3 rounded-lg border border-brand-border/50 space-y-2">
+                  {classes.map(c => (
+                    <label key={c.id} className="flex items-center gap-2 text-xs text-brand-text cursor-pointer hover:text-white">
+                      <input 
+                        type="checkbox"
+                        checked={selectedClassIds.includes(c.id)}
+                        onChange={() => toggleClassSelection(c.id)}
+                        className="rounded border-brand-border text-brand-accent"
+                      />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-brand-border/40">
+                <Button type="button" variant="outline" onClick={() => setIsBulkModalOpen(false)}>Annuler</Button>
+                <Button type="submit" disabled={isBulkSubmitting}>
+                  {isBulkSubmitting ? 'Assignation...' : 'Assigner aux classes'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE MODAL */}
       <ConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={confirmDeleteCourse}
-        title="Supprimer le cours"
-        message="Êtes-vous sûr de vouloir supprimer ce cours ? Cette action est irréversible et supprimera tous les devoirs et contenus associés."
-        confirmText="Supprimer définitivement"
+        title="Supprimer le cours ?"
+        message="Êtes-vous sûr de vouloir supprimer ce cours et toutes ses ressources ?"
+        confirmText="Supprimer"
         variant="danger"
       />
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="relative bg-brand-card p-6 rounded-2xl w-full max-w-md shadow-2xl border border-brand-border animate-fade-in-up">
-            <h2 className="text-xl font-bold mb-6 text-brand-text flex items-center gap-2">
-                <Book className="w-5 h-5 text-brand-accent" />
-                {isAdmin ? 'Attribuer un cours' : 'Créer un nouveau cours'}
-            </h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Classe</label>
-                <select
-                  {...register('classId', { required: 'La classe est requise' })}
-                  className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text appearance-none"
-                >
-                    <option value="">Sélectionner une classe</option>
-                    {classes.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                </select>
-                {errors.classId && <span className="text-red-400 text-sm mt-1 block">{errors.classId.message as string}</span>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Matière</label>
-                <select
-                  {...register('subjectId', { required: 'La matière est requise' })}
-                  className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text appearance-none"
-                >
-                    <option value="">Sélectionner une matière</option>
-                    {subjects.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                </select>
-                {errors.subjectId && <span className="text-red-400 text-sm mt-1 block">{errors.subjectId.message as string}</span>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Coefficient</label>
-                <input
-                  type="number"
-                  min="1"
-                  {...register('coefficient', { required: 'Le coefficient est requis', valueAsNumber: true })}
-                  className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text"
-                  defaultValue={1}
-                />
-              </div>
-
-              {isAdmin && (
-                <div>
-                    <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Enseignant</label>
-                    <select
-                    {...register('teacherId', { required: 'L\'enseignant est requis' })}
-                    className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text appearance-none"
-                    >
-                        <option value="">Sélectionner un enseignant</option>
-                        {teachers.map(t => (
-                            <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>
-                        ))}
-                    </select>
-                    {errors.teacherId && <span className="text-red-400 text-sm mt-1 block">{errors.teacherId.message as string}</span>}
-                </div>
-              )}
-
-              {submitError && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm">
-                  {submitError}
-                </div>
-              )}
-
-              <div className="bg-brand-sidebar border border-brand-border text-brand-text-muted p-3 rounded-xl text-sm">
-                <p className="font-bold text-brand-text mb-1">Note :</p>
-                <p>Vous pourrez ajouter du contenu (PDF, Vidéo, etc.) une fois le cours créé, en cliquant dessus.</p>
-              </div>
-
-              <div className="flex justify-end gap-3 mt-8">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  isLoading={isSubmitting}
-                >
-                  Créer le cours
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isBulkModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsBulkModalOpen(false)} />
-          <div className="relative bg-brand-card p-6 rounded-2xl w-full max-w-3xl shadow-2xl border border-brand-border max-h-[90vh] overflow-y-auto custom-scrollbar animate-fade-in-up">
-            <h2 className="text-xl font-bold mb-6 text-brand-text flex items-center gap-2">
-                <Users className="w-5 h-5 text-brand-accent" />
-                Assignation multiple
-            </h2>
-            <form onSubmit={onSubmitBulk} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Enseignant</label>
-                  <select
-                    value={bulkTeacherId}
-                    onChange={(e) => setBulkTeacherId(e.target.value)}
-                    className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text appearance-none"
-                  >
-                    <option value="">Sélectionner un enseignant</option>
-                    {teachers.map(t => (
-                      <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Matière</label>
-                  <select
-                    value={bulkSubjectId}
-                    onChange={(e) => setBulkSubjectId(e.target.value)}
-                    className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text appearance-none"
-                  >
-                    <option value="">Sélectionner une matière</option>
-                    {subjects.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Coefficient</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={bulkCoefficient}
-                    onChange={(e) => setBulkCoefficient(parseInt(e.target.value) || 1)}
-                    className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-2">Classes de l'école</label>
-                <div className="border border-brand-border rounded-xl max-h-64 overflow-y-auto custom-scrollbar divide-y divide-brand-border bg-brand-sidebar">
-                  {classes.map(cls => (
-                    <label key={cls.id} className="flex items-center justify-between px-4 py-3 hover:bg-brand-border/50 transition-colors cursor-pointer">
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedClassIds.includes(cls.id)}
-                          onChange={() => toggleClassSelection(cls.id)}
-                          className="h-4 w-4 text-brand-accent bg-brand-bg border-brand-border rounded focus:ring-brand-accent focus:ring-offset-brand-card"
-                        />
-                        <span className="text-sm font-medium text-brand-text">{cls.name}</span>
-                      </div>
-                    </label>
-                  ))}
-                  {classes.length === 0 && (
-                    <div className="px-4 py-8 text-center text-sm text-brand-text-muted">
-                      Aucune classe trouvée pour cette école.
-                    </div>
-                  )}
-                </div>
-                <p className="mt-2 text-xs text-brand-text-muted">
-                  Cochez toutes les classes dans lesquelles cet enseignant aura ce cours.
-                </p>
-              </div>
-
-              {bulkError && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm">
-                  {bulkError}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 mt-8">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setIsBulkModalOpen(false)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  isLoading={isBulkSubmitting}
-                >
-                  Assigner le cours aux classes sélectionnées
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

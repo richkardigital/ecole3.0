@@ -39,6 +39,7 @@ export default function RegisterSchoolPage() {
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [teachingTypes, setTeachingTypes] = useState<any[]>([]);
+  const [schoolTypes, setSchoolTypes] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -54,27 +55,44 @@ export default function RegisterSchoolPage() {
     schoolVille: '',
     schoolAddress: '',
     teachingTypeId: '',
+    schoolTypeId: '',
     selectedPlan: selectedPlanInfo.name,
     billingPeriod: billingKey,
   });
 
-  const FALLBACK_TYPES = [
-    { id: 'general', name: 'Enseignement Général (Primaire / Collège / Lycée)' },
+  const FALLBACK_TEACHING_TYPES = [
+    { id: 'general-prim', name: 'Enseignement Général (Primaire)' },
+    { id: 'general-sec', name: 'Enseignement Général (Secondaire)' },
     { id: 'technique', name: 'Enseignement Technique & Professionnel' },
     { id: 'mixte', name: 'Complexe Mixte (Général & Technique)' },
   ];
 
+  const FALLBACK_SCHOOL_TYPES = [
+    { id: 'prim', name: 'Primaire' },
+    { id: 'col', name: 'Collège' },
+    { id: 'lyc', name: 'Lycée' },
+    { id: 'cs', name: 'Complexe Scolaire (Primaire & Secondaire)' },
+  ];
+
   useEffect(() => {
-    const fetchTeachingTypes = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get('/teaching-types');
-        const types = res.data?.filter((t: any) => t.isActive);
-        setTeachingTypes(types?.length > 0 ? types : FALLBACK_TYPES);
+        const [ttRes, stRes] = await Promise.all([
+          api.get('/teaching-types'),
+          api.get('/school-types')
+        ]);
+        
+        const activeTt = ttRes.data?.filter((t: any) => t.isActive);
+        setTeachingTypes(activeTt?.length > 0 ? activeTt : FALLBACK_TEACHING_TYPES);
+
+        const activeSt = stRes.data?.filter((t: any) => t.isActive);
+        setSchoolTypes(activeSt?.length > 0 ? activeSt : FALLBACK_SCHOOL_TYPES);
       } catch {
-        setTeachingTypes(FALLBACK_TYPES);
+        setTeachingTypes(FALLBACK_TEACHING_TYPES);
+        setSchoolTypes(FALLBACK_SCHOOL_TYPES);
       }
     };
-    fetchTeachingTypes();
+    fetchData();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -470,23 +488,45 @@ export default function RegisterSchoolPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                      Type d'enseignement
-                    </label>
-                    <div className="relative">
-                      <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <select
-                        name="teachingTypeId"
-                        value={formData.teachingTypeId}
-                        onChange={handleChange}
-                        className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
-                      >
-                        <option value="">Sélectionnez le type d'enseignement...</option>
-                        {teachingTypes.map((t) => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </select>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                        Type d'enseignement
+                      </label>
+                      <div className="relative">
+                        <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <select
+                          name="teachingTypeId"
+                          value={formData.teachingTypeId}
+                          onChange={handleChange}
+                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
+                        >
+                          <option value="">Sélectionnez le type d'enseignement...</option>
+                          {teachingTypes.map((t) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                        Type d'établissement (Niveau)
+                      </label>
+                      <div className="relative">
+                        <GraduationCap className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <select
+                          name="schoolTypeId"
+                          value={formData.schoolTypeId}
+                          onChange={handleChange}
+                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
+                        >
+                          <option value="">Sélectionnez le type d'école...</option>
+                          {schoolTypes.map((st) => (
+                            <option key={st.id} value={st.id}>{st.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
 

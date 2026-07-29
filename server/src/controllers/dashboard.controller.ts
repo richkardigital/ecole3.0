@@ -5,19 +5,69 @@ import type { AuthRequest } from "../middleware/auth.js";
 export const getDashboardStats = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user;
+    const { yearId } = req.query; // Capture yearId query param
     if (!user) return res.status(401).json({ message: "Unauthorized" });
 
     let stats = {};
 
     switch (user.role) {
-      case "SUPER_ADMIN":
+      case "SUPER_ADMIN": {
         const schoolsCount = await prisma.school.count();
         const usersCount = await prisma.user.count();
+        
+        let studentsCount = 0;
+        let effectifsData: any[] = [];
+        
+        if (yearId && typeof yearId === 'string' && yearId !== 'ALL') {
+          // Total enrolled students for the specific year
+          studentsCount = await prisma.enrollment.count({
+            where: {
+              class: { academicYearId: yearId }
+            }
+          });
+
+          // Fetch schools with their classes for this academic year to sum enrollments
+          const schools = await prisma.school.findMany({
+            include: {
+              classes: {
+                where: { academicYearId: yearId },
+                include: {
+                  _count: { select: { enrollments: true } }
+                }
+              }
+            }
+          });
+
+          for (const school of schools) {
+            const schoolStudents = school.classes.reduce((sum, cls) => sum + cls._count.enrollments, 0);
+            effectifsData.push({ name: school.name, v: schoolStudents });
+          }
+        } else {
+           // Fallback to all students if no specific year is selected
+           studentsCount = await prisma.user.count({ where: { role: 'APPRENANT' } });
+           const schools = await prisma.school.findMany({
+             include: {
+                _count: {
+                  select: { users: { where: { role: 'APPRENANT' } } }
+                }
+             }
+           });
+           for (const school of schools) {
+             effectifsData.push({ name: school.name, v: school._count.users });
+           }
+        }
+
+        // Sort effectifsData for a cleaner chart (optional)
+        effectifsData.sort((a, b) => b.v - a.v);
+
         stats = {
           schools: schoolsCount,
           users: usersCount,
+          students: studentsCount,
+          effectifsData,
         };
         break;
+      }
 
       case "DIRECTEUR":
       case "EDUCATEUR":

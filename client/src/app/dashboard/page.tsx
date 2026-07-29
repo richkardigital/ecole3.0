@@ -14,12 +14,13 @@ interface DashboardStats {
   schools?: number; users?: number; classes?: number; teachers?: number;
   students?: number; courses?: number; ungradedSubmissions?: number;
   enrolledCourses?: number; pendingAssignments?: number;
+  effectifsData?: { name: string; v: number }[];
 }
 
 const ROLE_CONFIG = {
   SUPER_ADMIN: {
     greeting: 'Plateforme SEEC',
-    tagline: 'Vue d\'ensemble de tout le réseau d\'écoles connectées.',
+    tagline: 'Vue d\'ensemble de tout le réseau des écoles connectées.',
     accentFrom: '#ef4444', accentTo: '#dc2626',
     tagClass: 'chip-rose',
   },
@@ -73,19 +74,33 @@ const Dashboard = () => {
   const [selectedYear, setSelectedYear] = useState<string>('');
 
   useEffect(() => {
-    if (!user) { navigate('/login'); return; }
-    const fetchData = async () => {
+    if (!user) return;
+    const fetchYears = async () => {
       try {
-        const [statsRes, yearsRes] = await Promise.all([api.get('/dashboard/stats'), api.get('/academic-years')]);
-        setStats(statsRes.data);
-        setAcademicYears(yearsRes.data);
-        const current = yearsRes.data.find((y: any) => y.isCurrent);
-        if (current) setSelectedYear(current.id);
+        const res = await api.get('/academic-years');
+        setAcademicYears(res.data);
+        const current = res.data.find((y: any) => y.isCurrent);
+        if (current && !selectedYear) setSelectedYear(current.id);
+      } catch (err) { console.error(err); }
+    };
+    if (user.role === 'SUPER_ADMIN' || user.role === 'DIRECTEUR') {
+      fetchYears();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) { navigate('/login'); return; }
+    const fetchStats = async () => {
+      setLoading(true);
+      try {
+        const url = selectedYear ? `/dashboard/stats?yearId=${selectedYear}` : `/dashboard/stats?yearId=ALL`;
+        const res = await api.get(url);
+        setStats(res.data);
       } catch (err) { console.error(err); }
       finally { setLoading(false); }
     };
-    fetchData();
-  }, [user, navigate]);
+    fetchStats();
+  }, [user, navigate, selectedYear]);
 
   if (!user) return null;
   const roleConf = ROLE_CONFIG[user.role as keyof typeof ROLE_CONFIG] || ROLE_CONFIG.DIRECTEUR;
@@ -149,7 +164,8 @@ const Dashboard = () => {
 
             {user.role === 'SUPER_ADMIN' && (<>
               <StatCard title="Écoles" count={stats?.schools ?? '—'} label="Établissements actifs" icon={<School className="w-5 h-5" />} iconColor="text-blue-600" badgeColor="bg-blue-50 border-blue-200" onClick={() => navigate('/admin/schools')} trend={{ value: 12, isPositive: true }} />
-              <StatCard title="Utilisateurs" count={stats?.users ?? '—'} label="Total inscrits" icon={<Users className="w-5 h-5" />} iconColor="text-emerald-600" badgeColor="bg-emerald-50 border-emerald-200" onClick={() => navigate('/admin/users')} trend={{ value: 5, isPositive: true }} />
+              <StatCard title="Utilisateurs" count={stats?.users ?? '—'} label="Réseau global" icon={<Users className="w-5 h-5" />} iconColor="text-emerald-600" badgeColor="bg-emerald-50 border-emerald-200" onClick={() => navigate('/admin/users')} trend={{ value: 5, isPositive: true }} />
+              <StatCard title="Élèves" count={stats?.students ?? '—'} label={selectedYear ? "Inscrits cette année" : "Total inscrits"} icon={<GraduationCap className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/admin/users')} />
             </>)}
 
             {(user.role === 'DIRECTEUR') && (<>
@@ -232,11 +248,13 @@ const Dashboard = () => {
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-50 border border-emerald-200">
                     <TrendingUp className="w-4.5 h-4.5 text-emerald-600" style={{ width: '1.125rem', height: '1.125rem' }} />
                   </div>
-                  <h3 className="font-black text-slate-900 tracking-tight">Effectifs par niveau</h3>
+                  <h3 className="font-black text-slate-900 tracking-tight">
+                    {user.role === 'SUPER_ADMIN' ? 'Effectifs par établissement' : 'Effectifs par niveau'}
+                  </h3>
                 </div>
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={[
+                    <BarChart data={user.role === 'SUPER_ADMIN' ? (stats?.effectifsData || []) : [
                       { name: 'CP', v: 120 }, { name: 'CE1', v: 135 }, { name: 'CE2', v: 108 },
                       { name: 'CM1', v: 95 }, { name: 'CM2', v: 112 }, { name: '6ème', v: 88 },
                     ]}>

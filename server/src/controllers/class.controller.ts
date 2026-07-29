@@ -8,6 +8,8 @@ import bcrypt from 'bcryptjs';
 const createClassSchema = z.object({
   name: z.string(),
   niveauId: z.string().optional(),
+  schoolId: z.string().optional(),
+  isActive: z.boolean().optional(),
 });
 
 const enrollStudentSchema = z.object({
@@ -17,11 +19,15 @@ const enrollStudentSchema = z.object({
 
 export const createClass = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, niveauId } = createClassSchema.parse(req.body);
-    const schoolId = req.user?.schoolId;
+    const { name, niveauId, schoolId: bodySchoolId, isActive } = createClassSchema.parse(req.body);
+    
+    // Use bodySchoolId if provided and user is SUPER_ADMIN, otherwise use user's schoolId
+    const schoolId = (req.user?.role === 'SUPER_ADMIN' && bodySchoolId) 
+        ? bodySchoolId 
+        : req.user?.schoolId;
 
     if (!schoolId) {
-      return res.status(400).json({ message: "User not associated with a school" });
+      return res.status(400).json({ message: "School ID required" });
     }
 
     const newClass = await prisma.class.create({
@@ -29,12 +35,37 @@ export const createClass = async (req: AuthRequest, res: Response) => {
         name,
         schoolId,
         niveauId: niveauId || null,
+        isActive: isActive !== undefined ? isActive : true,
       },
     });
 
     res.status(201).json(newClass);
   } catch (error) {
     res.status(500).json({ message: "Error creating class", error });
+  }
+};
+
+// ... skip to updateClass ...
+
+export const updateClass = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name, niveauId, isActive } = createClassSchema.parse(req.body);
+
+    if (!id) return res.status(400).json({ message: "Missing id" });
+
+    const updatedClass = await prisma.class.update({
+      where: { id: String(id) },
+      data: {
+        name,
+        niveauId: niveauId || null,
+        isActive: isActive !== undefined ? isActive : undefined,
+      },
+    });
+
+    res.json(updatedClass);
+  } catch (error) {
+    res.status(500).json({ message: "Error updating class", error });
   }
 };
 
@@ -159,26 +190,6 @@ export const getClassStudents = async (req: Request, res: Response) => {
     }
 }
 
-export const updateClass = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { name, niveauId } = createClassSchema.parse(req.body);
-
-    if (!id) return res.status(400).json({ message: "Missing id" });
-
-    const updatedClass = await prisma.class.update({
-      where: { id: String(id) },
-      data: {
-        name,
-        niveauId: (req.body as any).niveauId || null,
-      },
-    });
-
-    res.json(updatedClass);
-  } catch (error) {
-    res.status(500).json({ message: "Error updating class", error });
-  }
-};
 
 export const deleteClass = async (req: Request, res: Response) => {
   try {

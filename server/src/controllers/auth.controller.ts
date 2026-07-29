@@ -69,7 +69,7 @@ export const registerSchool = async (req: Request, res: Response) => {
   try {
     const { 
       firstName, lastName, email, password, phone,
-      schoolName, schoolVille, schoolAddress, teachingTypeId 
+      schoolName, schoolVille, schoolAddress, teachingTypeId, schoolTypeId 
     } = req.body;
 
     // Vérifier si le directeur existe déjà
@@ -99,11 +99,17 @@ export const registerSchool = async (req: Request, res: Response) => {
         }
       });
 
-      // 2. Vérifier et assigner le teachingTypeId s'il est valide
+      // 2. Vérifier et assigner le teachingTypeId & schoolTypeId s'ils sont valides
       let validTeachingTypeId: string | null = null;
       if (teachingTypeId && typeof teachingTypeId === 'string' && teachingTypeId.trim() !== '') {
         const existingTt = await tx.teachingType.findUnique({ where: { id: teachingTypeId } });
         if (existingTt) validTeachingTypeId = existingTt.id;
+      }
+
+      let validSchoolTypeId: string | null = null;
+      if (schoolTypeId && typeof schoolTypeId === 'string' && schoolTypeId.trim() !== '') {
+        const existingSt = await tx.schoolType.findUnique({ where: { id: schoolTypeId } });
+        if (existingSt) validSchoolTypeId = existingSt.id;
       }
 
       // Créer l'école en lui associant le directeur
@@ -114,6 +120,7 @@ export const registerSchool = async (req: Request, res: Response) => {
           ville: schoolVille,
           address: schoolAddress,
           teachingTypeId: validTeachingTypeId,
+          schoolTypeId: validSchoolTypeId,
           managerId: newManager.id
         }
       });

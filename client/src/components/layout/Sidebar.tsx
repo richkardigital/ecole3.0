@@ -4,7 +4,7 @@ import {
   LogOut, School, BookOpen, GraduationCap, LayoutDashboard, 
   FileText, Megaphone, X, Calendar, MessageCircle, 
   ClipboardList, Network, Settings, 
-  Plus, FolderOpen, Library as LibraryIcon,
+  Plus, FolderOpen, Library as LibraryIcon, Layers,
   PenTool, Zap, Users, CheckSquare, BarChart3, Sparkles
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -150,12 +150,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/admin/agenda" icon={Calendar} isActive={p === '/admin/agenda'}>Agenda Scolaire</NavItem>
                 <NavItem to="/admin/broadcast" icon={Zap} isActive={p === '/admin/broadcast'}>Flash News</NavItem>
               </NavSection>
-              <NavSection title="Administration">
-                <NavItem to="/admin/teaching-types" icon={Plus} isActive={p === '/admin/teaching-types'}>Types d'enseignement</NavItem>
+              <NavSection title="Créations">
+                <NavItem to="/admin/teaching-types" icon={Layers} isActive={p === '/admin/teaching-types'}>Types d'enseignement</NavItem>
+                <NavItem to="/admin/school-types" icon={School} isActive={p === '/admin/school-types'}>Types d'établissement</NavItem>
                 <NavItem to="/admin/academic-years" icon={Calendar} isActive={p === '/admin/academic-years'}>Années Scolaires</NavItem>
-                <NavItem to="/admin/niveaux" icon={LibraryIcon} isActive={p === '/admin/niveaux'}>Niveaux Scolaires</NavItem>
-                <NavItem to="/admin/subjects" icon={BookOpen} isActive={p === '/admin/subjects'}>Matières & Coefs</NavItem>
-                <NavItem to="/admin/audit-logs" icon={ClipboardList} isActive={p === '/admin/audit-logs'}>Logs d'Audit</NavItem>
+                <NavItem to="/admin/niveaux" icon={GraduationCap} isActive={p === '/admin/niveaux'}>Niveaux Scolaires</NavItem>
               </NavSection>
               <NavSection title="Académique">
                 <NavItem to="/admin/courses" icon={BookOpen} isActive={p.startsWith('/admin/courses')}>Cours & Chapitres</NavItem>
@@ -173,7 +172,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/admin/chat" icon={MessageCircle} isActive={p === '/admin/chat'}>Messagerie</NavItem>
                 <NavItem to="/admin/forum" icon={MessageCircle} isActive={p === '/admin/forum'}>Forum d'entraide</NavItem>
               </NavSection>
-              <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
+              <div className="pt-2 space-y-1" style={{ borderTop: '1px solid #F1F5F9' }}>
+                <NavItem to="/admin/audit-logs" icon={ClipboardList} isActive={p === '/admin/audit-logs'}>Logs d'Audit</NavItem>
                 <NavItem to="/admin/settings" icon={Settings} isActive={p === '/admin/settings'}>Paramètres Système</NavItem>
               </div>
             </>

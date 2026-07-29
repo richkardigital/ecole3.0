@@ -6,8 +6,14 @@ import { ToastProvider } from '@/components/ui/Toast';
 import Login from '@/app/auth/login/page';
 import Dashboard from '@/app/dashboard/page';
 import Schools from '@/app/admin/schools/page';
+import NewSchoolPage from '@/app/admin/schools/new/page';
+import SchoolDetailsPage from '@/app/admin/schools/[id]/page';
+import EditSchoolPage from '@/app/admin/schools/[id]/edit/page';
 import Users from '@/app/admin/users/page';
 import Classes from '@/app/admin/classes/page';
+import NewClassPage from '@/app/admin/classes/new/page';
+import ClassDetailsPage from '@/app/admin/classes/[id]/page';
+import EditClassPage from '@/app/admin/classes/[id]/edit/page';
 import Subjects from '@/app/admin/subjects/page';
 import AcademicYears from '@/app/admin/academic-years/page';
 import Courses from '@/app/academic/courses/page';
@@ -42,6 +48,7 @@ import RegisterSchoolPage from '@/app/vitrine/RegisterSchoolPage';
 import AboutPage from '@/app/vitrine/AboutPage';
 import ForgotPasswordPage from '@/app/auth/forgot-password/page';
 import TeachingTypesPage from '@/app/admin/teaching-types/page';
+import SchoolTypesPage from '@/app/admin/school-types/page';
 import NiveauxPage from '@/app/admin/niveaux/page';
 import SeecPage from '@/app/admin/seec/page';
 import AssignmentsPage from '@/app/academic/assignments/page';
@@ -86,13 +93,20 @@ function App() {
                   <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
                     <Route path="/admin/dashboard" element={<Dashboard />} />
                     <Route path="/admin/schools" element={<Schools />} />
+                    <Route path="/admin/schools/new" element={<NewSchoolPage />} />
+                    <Route path="/admin/schools/:id" element={<SchoolDetailsPage />} />
+                    <Route path="/admin/schools/:id/edit" element={<EditSchoolPage />} />
                     <Route path="/admin/audit-logs" element={<AuditLogs />} />
                     <Route path="/admin/teaching-types" element={<TeachingTypesPage />} />
+                    <Route path="/admin/school-types" element={<SchoolTypesPage />} />
                     <Route path="/admin/academic-years" element={<AcademicYears />} />
                     <Route path="/admin/niveaux" element={<NiveauxPage />} />
                     <Route path="/admin/subjects" element={<Subjects />} />
                     <Route path="/admin/library" element={<Library />} />
                     <Route path="/admin/classes" element={<Classes />} />
+                    <Route path="/admin/classes/new" element={<NewClassPage />} />
+                    <Route path="/admin/classes/:id" element={<ClassDetailsPage />} />
+                    <Route path="/admin/classes/:id/edit" element={<EditClassPage />} />
                     <Route path="/admin/users" element={<Users />} />
                     <Route path="/admin/courses" element={<Courses />} />
                     <Route path="/admin/courses/:id" element={<CourseDetails />} />

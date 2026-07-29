@@ -68,6 +68,24 @@ model TeachingType {
 }
 
 // =============================================
+// SCHOOL TYPE — Type d'établissement (Primaire, Collège, Lycée...)
+// =============================================
+
+model SchoolType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String?  @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  schools     School[]
+
+  @@index([isActive])
+}
+
+// =============================================
 // SCHOOL — Établissement scolaire
 // =============================================
 
@@ -85,9 +103,12 @@ model School {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Type d'enseignement
+  // Type d'enseignement & Type d'établissement
   teachingTypeId String?
   teachingType   TeachingType? @relation(fields: [teachingTypeId], references: [id], onDelete: SetNull)
+
+  schoolTypeId   String?
+  schoolType     SchoolType?   @relation(fields: [schoolTypeId], references: [id], onDelete: SetNull)
 
   // Directeur de l'école
   managerId String? @unique
@@ -780,19 +801,23 @@ model Meeting {
 // =============================================
 
 model News {
-  id          String   @id @default(uuid())
-  title       String
-  content     String
-  imageUrl    String?
+  id              String   @id @default(uuid())
+  title           String
+  content         String
+  imageUrl        String?
+  priority        String   @default("NORMAL") // e.g. "INFO", "NORMAL", "URGENT", "FLASH"
+  isActive        Boolean  @default(true)
+  targetRoles     String[] @default(["ALL"]) // e.g. ["ALL"], ["SUPER_ADMIN"], ["DIRECTEUR"], ["EDUCATEUR"], ["ENSEIGNANT"], ["APPRENANT"]
+  targetSchoolIds String[] @default([])
+
+  authorId        String
+  author          User     @relation("NewsAuthor", fields: [authorId], references: [id], onDelete: Cascade)
   
-  authorId    String
-  author      User     @relation("NewsAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  schoolId        String?
+  school          School?  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   
-  schoolId    String?
-  school      School?  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([authorId])
   @@index([schoolId])

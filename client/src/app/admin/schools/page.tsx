@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import { useForm } from 'react-hook-form';
-import { Plus, Trash2, User, Edit2, Lock, Unlock, School as SchoolIcon, Loader2, BookOpen, Download } from 'lucide-react';
+import { Plus, Trash2, User, Edit2, Lock, Unlock, School as SchoolIcon, Loader2, BookOpen, Download, Eye } from 'lucide-react';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
+import { Link } from 'react-router-dom';
 
 interface School {
   id: string;
@@ -16,6 +16,7 @@ interface School {
   email?: string;
   description?: string;
   isActive: boolean;
+  createdAt: string;
   managerId?: string;
   teachingTypeId?: string;
   teachingType?: { id: string; name: string };
@@ -33,17 +34,18 @@ interface School {
 
 const Schools = () => {
   const [schools, setSchools] = useState<School[]>([]);
-  const [availableManagers, setAvailableManagers] = useState<any[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitLoading, setIsSubmitLoading] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   
   // Delete Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [schoolToDelete, setSchoolToDelete] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, setValue } = useForm();
+  const sortedSchools = [...schools].sort((a, b) => {
+    const dateA = new Date(a.createdAt || 0).getTime();
+    const dateB = new Date(b.createdAt || 0).getTime();
+    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+  });
 
   const handleExport = () => {
     const csvContent = "data:text/csv;charset=utf-8," + 
@@ -69,67 +71,9 @@ const Schools = () => {
     }
   };
 
-  const fetchAvailableManagers = async () => {
-      try {
-          const response = await api.get('/users?role=DIRECTEUR'); // Updated role
-          const allAdmins = response.data;
-          const freeAdmins = allAdmins.filter((u: any) => !u.school);
-          setAvailableManagers(freeAdmins);
-      } catch (error) {
-          console.error('Error fetching users', error);
-      }
-  }
-
   useEffect(() => {
     fetchSchools();
-    fetchAvailableManagers();
   }, []);
-
-  const openCreateModal = async () => {
-      await fetchAvailableManagers();
-      setEditingSchool(null);
-      reset({ name: '', address: '', managerId: '' });
-      setIsModalOpen(true);
-  }
-
-  const openEditModal = async (school: School) => {
-      try {
-        const response = await api.get('/users?role=DIRECTEUR'); // Updated role
-        const allAdmins = response.data;
-        const validManagers = allAdmins.filter((u: any) => 
-            !u.school || (school.managerId && u.id === school.managerId)
-        );
-        
-        setAvailableManagers(validManagers);
-        setEditingSchool(school);
-        setValue('name', school.name);
-        setValue('address', school.address);
-        setValue('managerId', school.managerId || '');
-        setIsModalOpen(true);
-      } catch (error) {
-        console.error('Error preparing edit modal', error);
-      }
-  }
-
-  const onSubmit = async (data: any) => {
-    setIsSubmitLoading(true);
-    try {
-      if (editingSchool) {
-          await api.put(`/schools/${editingSchool.id}`, data);
-      } else {
-          await api.post('/schools', data);
-      }
-      setIsModalOpen(false);
-      reset();
-      fetchSchools();
-      fetchAvailableManagers();
-    } catch (error: any) {
-      console.error('Error saving school', error);
-      alert(error.response?.data?.message || 'Une erreur est survenue lors de l\'enregistrement');
-    } finally {
-        setIsSubmitLoading(false);
-    }
-  };
 
   const confirmDelete = (id: string) => {
       setSchoolToDelete(id);
@@ -141,7 +85,6 @@ const Schools = () => {
       try {
         await api.delete(`/schools/${schoolToDelete}`);
         fetchSchools();
-        fetchAvailableManagers();
       } catch (error) {
         console.error('Error deleting school', error);
         alert('Impossible de supprimer cette école');
@@ -167,25 +110,27 @@ const Schools = () => {
         subtitle="Gérez l'ensemble des établissements du réseau"
         action={
             <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                title={sortOrder === 'desc' ? "Afficher les plus anciennes en premier" : "Afficher les plus récentes en premier"}
+              >
+                Trier: {sortOrder === 'desc' ? 'Récentes' : 'Anciennes'}
+              </Button>
               <Button variant="outline" onClick={handleExport}>
                 <Download className="w-4 h-4 mr-2" />
                 Exporter (CSV)
               </Button>
               <div className="relative group">
-                <Button 
-                    onClick={openCreateModal}
-                    disabled={availableManagers.length === 0}
-                    variant={availableManagers.length > 0 ? 'primary' : 'secondary'}
-                    leftIcon={<Plus className="w-4 h-4" />}
-                >
-                    Ajouter une école
-                </Button>
-                {availableManagers.length === 0 && (
-                    <div className="absolute top-full mt-2 right-0 w-64 bg-brand-sidebar text-brand-text-muted text-xs rounded-lg p-3 text-center shadow-xl border border-brand-border z-10 hidden group-hover:block animate-fade-in-up">
-                        Créez d'abord un Directeur libre dans l'annuaire avant de créer une école.
-                    </div>
-                )}
-            </div>
+                <Link to="/admin/schools/new">
+                  <Button 
+                      variant="primary"
+                      leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                      Ajouter une école
+                  </Button>
+                </Link>
+              </div>
           </div>
         }
       />
@@ -209,7 +154,7 @@ const Schools = () => {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-border bg-brand-card">
-                    {schools.map((school) => (
+                    {sortedSchools.map((school) => (
                     <tr key={school.id} className={`hover:bg-brand-sidebar/50 transition-colors ${!school.isActive ? 'opacity-75' : ''}`}>
                         <td className="px-6 py-5 whitespace-nowrap">
                             <button 
@@ -257,9 +202,12 @@ const Schools = () => {
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex justify-end gap-2">
-                                <button onClick={() => openEditModal(school)} className="text-brand-text-muted hover:text-white bg-brand-sidebar hover:bg-brand-border p-2 rounded-lg transition-colors border border-transparent hover:border-brand-border" title="Modifier">
+                                <Link to={`/admin/schools/${school.id}`} className="text-brand-accent hover:text-white bg-brand-sidebar hover:bg-brand-border p-2 rounded-lg transition-colors border border-transparent hover:border-brand-border" title="Voir les détails">
+                                    <Eye className="w-4 h-4" />
+                                </Link>
+                                <Link to={`/admin/schools/${school.id}/edit`} className="text-brand-text-muted hover:text-white bg-brand-sidebar hover:bg-brand-border p-2 rounded-lg transition-colors border border-transparent hover:border-brand-border" title="Modifier">
                                     <Edit2 className="w-4 h-4" />
-                                </button>
+                                </Link>
                                 <button onClick={() => confirmDelete(school.id)} className="text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 p-2 rounded-lg transition-colors" title="Supprimer">
                                     <Trash2 className="w-4 h-4" />
                                 </button>
@@ -280,79 +228,6 @@ const Schools = () => {
                 </table>
             </div>
           </div>
-      )}
-
-      {/* Create/Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          
-          <div className="relative bg-brand-card rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up border border-brand-border">
-            <div className="px-6 py-4 border-b border-brand-border bg-brand-sidebar">
-                <h2 className="text-lg font-bold text-brand-text">
-                    {editingSchool ? 'Modifier l\'école' : 'Ajouter un établissement'}
-                </h2>
-            </div>
-            
-            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Nom de l'établissement</label>
-                <input
-                  {...register('name', { required: true })}
-                  placeholder="Lycée d'Excellence"
-                  className="w-full px-4 py-2.5 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Adresse</label>
-                <input
-                  {...register('address')}
-                  placeholder="123 Rue de l'Éducation"
-                  className="w-full px-4 py-2.5 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Direction (Admin)</label>
-                <select
-                  {...register('managerId', { required: true })}
-                  className="w-full px-4 py-2.5 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text appearance-none"
-                >
-                  <option value="">Sélectionner un directeur</option>
-                  {availableManagers.map(user => (
-                    <option key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName}
-                    </option>
-                  ))}
-                </select>
-                {availableManagers.length === 0 && (
-                    <p className="text-xs font-medium text-red-400 mt-2 flex items-center gap-1">
-                        <Lock className="w-3 h-3" />
-                        Aucun directeur libre trouvé.
-                    </p>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  isLoading={isSubmitLoading}
-                >
-                  {editingSchool ? 'Mettre à jour' : 'Créer l\'école'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
 
       <ConfirmationModal
