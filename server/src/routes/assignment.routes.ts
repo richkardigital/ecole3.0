@@ -14,6 +14,8 @@ import {
   deleteAssignment,
   publishAssignment,
   updateAssignment,
+  getAssignmentParticipants,
+  gradeStudentAssignment,
 } from "../controllers/assignment.controller.js";
 
 const router = Router();
@@ -34,5 +36,10 @@ router.post("/:id/submit", requireRole([ROLES.APPRENANT]), upload.single('file')
 // Teacher/Admin views submissions and grades
 router.get("/:id/submissions", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getSubmissions);
 router.post("/submissions/:id/grade", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), gradeSubmission);
+
+// New Routes for Global Assignments Details
+router.get("/:id/participants", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getAssignmentParticipants);
+router.post("/:id/grade", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), gradeStudentAssignment);
+
 
 export default router;

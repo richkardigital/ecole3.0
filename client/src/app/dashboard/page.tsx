@@ -8,13 +8,14 @@ import {
   Library, Calendar, TrendingUp, Sparkles, ArrowRight, Zap, 
   FileText, BarChart3, Network
 } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from 'recharts';
 
 interface DashboardStats {
   schools?: number; users?: number; classes?: number; teachers?: number;
   students?: number; courses?: number; ungradedSubmissions?: number;
   enrolledCourses?: number; pendingAssignments?: number;
   effectifsData?: { name: string; v: number }[];
+  boys?: number; girls?: number;
 }
 
 const ROLE_CONFIG = {
@@ -277,29 +278,39 @@ const Dashboard = () => {
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-sky-50 border border-sky-200">
                     <Users className="w-4.5 h-4.5 text-sky-600" style={{ width: '1.125rem', height: '1.125rem' }} />
                   </div>
-                  <h3 className="font-black text-slate-900 tracking-tight">Aperçu du Trimestre</h3>
+                  <h3 className="font-black text-slate-900 tracking-tight">Répartition Filles / Garçons</h3>
                 </div>
                 
-                {/* Gender row */}
-                <div className="flex items-center gap-6 mb-6">
-                  <div className="flex-1">
-                    <div className="flex justify-between text-xs font-bold mb-2">
-                      <span className="text-sky-700">Garçons</span>
-                      <span className="text-slate-900">52%</span>
-                    </div>
-                    <div className="h-2 rounded-full overflow-hidden bg-slate-100">
-                      <div className="h-full rounded-full bg-sky-500" style={{ width: '52%' }} />
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between text-xs font-bold mb-2">
-                      <span className="text-pink-700">Filles</span>
-                      <span className="text-slate-900">48%</span>
-                    </div>
-                    <div className="h-2 rounded-full overflow-hidden bg-slate-100">
-                      <div className="h-full rounded-full bg-pink-500" style={{ width: '48%' }} />
-                    </div>
-                  </div>
+                {/* Gender Pie Chart */}
+                <div className="flex flex-col items-center justify-center mb-6 h-48">
+                  {stats?.boys === 0 && stats?.girls === 0 ? (
+                    <div className="text-sm text-slate-400 italic">Aucune donnée disponible</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'Garçons', value: stats?.boys || 0 },
+                            { name: 'Filles', value: stats?.girls || 0 },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          <Cell fill="#0ea5e9" />
+                          <Cell fill="#ec4899" />
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', boxShadow: '0 4px 20px rgba(15,23,42,0.08)' }}
+                          itemStyle={{ fontWeight: 700 }}
+                        />
+                        <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
 
                 {/* Summary stats */}

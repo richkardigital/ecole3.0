@@ -124,7 +124,7 @@ model School {
   users         User[]         @relation("SchoolUsers")
   classes       Class[]
   subjects      Subject[]
-  academicYears AcademicYear[]
+  academicYears AcademicYear[] @relation("SchoolAcademicYears")
   niveaux       Niveau[]
   news          News[]
 
@@ -230,20 +230,19 @@ model User {
 
 model AcademicYear {
   id        String             @id @default(uuid())
-  name      String
+  name      String             @unique
   startDate DateTime
   endDate   DateTime
   isCurrent Boolean            @default(false)
   isActive  Boolean            @default(true)
   status    AcademicYearStatus @default(EN_COURS)
 
-  schoolId String
-  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  schools School[] @relation("SchoolAcademicYears")
 
   terms   Term[]
   classes Class[]
+  assignments Assignment[]
 
-  @@unique([name, schoolId])
   @@index([isCurrent])
   @@index([status])
 }
@@ -265,6 +264,7 @@ model Term {
   grades    Grade[]
   bulletins Bulletin[]
   conducts  Conduct[]
+  assignments Assignment[]
 
   @@index([status])
 }
@@ -472,6 +472,12 @@ model Assignment {
 
   subjectId String?
   subject Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  
+  academicYearId String?
+  academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+
+  termId String?
+  term Term? @relation(fields: [termId], references: [id], onDelete: SetNull)
 
   submissions Submission[]
   grades      Grade[]
@@ -485,6 +491,8 @@ model Assignment {
   @@index([courseId])
   @@index([niveauId])
   @@index([subjectId])
+  @@index([academicYearId])
+  @@index([termId])
   @@index([dueDate])
 }
 

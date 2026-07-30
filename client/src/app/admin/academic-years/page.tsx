@@ -35,13 +35,12 @@ interface AcademicYearModel {
   isCurrent: boolean;
   isActive: boolean;
   status: 'EN_COURS' | 'ACHEVE';
-  schoolId: string;
-  school?: SchoolModel;
+  schools?: SchoolModel[];
   terms: TermModel[];
   _count?: { classes: number };
 }
 
-type FormData = { name: string; startDate: string; endDate: string; isCurrent: boolean; schoolId?: string };
+type FormData = { name: string; startDate: string; endDate: string; isCurrent: boolean; schoolIds?: string[] };
 
 export default function AcademicYears() {
   const { user } = useAuth();
@@ -130,7 +129,7 @@ export default function AcademicYears() {
       startDate: '', 
       endDate: '', 
       isCurrent: false,
-      schoolId: schools[0]?.id || ''
+      schoolIds: schools.map(s => s.id) // Select all by default
     });
     setFormError(null);
     setIsYearModalOpen(true);
@@ -143,7 +142,7 @@ export default function AcademicYears() {
       startDate: new Date(year.startDate).toISOString().split('T')[0],
       endDate: new Date(year.endDate).toISOString().split('T')[0],
       isCurrent: year.isCurrent,
-      schoolId: year.schoolId,
+      schoolIds: year.schools?.map(s => s.id) || [],
     });
     setFormError(null);
     setIsYearModalOpen(true);
@@ -212,7 +211,7 @@ export default function AcademicYears() {
   const handleSetCurrent = async (year: AcademicYearModel) => {
     try {
       const res = await api.patch(`/academic/years/${year.id}/set-current`);
-      setYears(prev => prev.map(y => y.id === year.id ? { ...res.data } : { ...y, isCurrent: y.schoolId === year.schoolId ? false : y.isCurrent }));
+      setYears(prev => prev.map(y => y.id === year.id ? { ...res.data } : { ...y, isCurrent: false }));
       showToast(`"${year.name}" est désormais l'année en cours.`);
     } catch { showToast("Erreur", 'error'); }
   };
@@ -402,9 +401,9 @@ export default function AcademicYears() {
                       {/* School for Super Admin */}
                       {isSuperAdmin && (
                         <td className="py-4 px-4 text-xs font-semibold text-slate-700">
-                          <span className="inline-flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                          <span className="inline-flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200" title={year.schools?.map(s => s.name).join(', ')}>
                             <Building2 className="w-3 h-3 text-slate-500" />
-                            {year.school?.name || 'Établissement'}
+                            {year.schools?.length ? `${year.schools.length} école(s)` : 'Aucune'}
                           </span>
                         </td>
                       )}
@@ -560,16 +559,18 @@ export default function AcademicYears() {
           {isSuperAdmin && (
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                Établissement scolaire <span className="text-emerald-600">*</span>
+                Établissements scolaires <span className="text-emerald-600">*</span>
               </label>
               <select
-                {...registerYear('schoolId', { required: true })}
-                className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
+                multiple
+                {...registerYear('schoolIds')}
+                className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer h-32"
               >
                 {schools.map(s => (
                   <option key={s.id} value={s.id}>{s.name} ({s.ville || 'Abidjan'})</option>
                 ))}
               </select>
+              <p className="text-[10px] text-slate-500 mt-1">Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs écoles.</p>
             </div>
           )}
 

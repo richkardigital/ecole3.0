@@ -8,7 +8,7 @@ const createYearSchema = z.object({
   startDate: z.string().transform((str) => new Date(str)),
   endDate: z.string().transform((str) => new Date(str)),
   isCurrent: z.boolean().optional(),
-  schoolId: z.string().optional(),
+  schoolIds: z.array(z.string()).optional(),
 });
 
 const createTermSchema = z.object({
@@ -36,35 +36,21 @@ const resolveSchoolId = async (req: AuthRequest, requestedSchoolId?: string): Pr
 
 export const createAcademicYear = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, startDate, endDate, isCurrent, schoolId: bodySchoolId } = createYearSchema.parse(req.body);
-
-    const schoolId = await resolveSchoolId(req, bodySchoolId);
-
-    if (!schoolId) {
-      return res.status(400).json({
-        message: "Aucun établissement scolaire trouvé. Veuillez d'abord enregistrer un établissement.",
-      });
-    }
-
-    // If marking as current, un-mark all others for this school
-    if (isCurrent) {
-      await prisma.academicYear.updateMany({
-        where: { schoolId, isCurrent: true },
-        data: { isCurrent: false },
-      });
-    }
+    const { name, startDate, endDate, isCurrent, schoolIds } = createYearSchema.parse(req.body);
 
     const year = await prisma.academicYear.create({
       data: {
         name: name.trim(),
         startDate,
         endDate,
-        schoolId,
         isCurrent: isCurrent ?? false,
+        schools: schoolIds && schoolIds.length > 0 
+          ? { connect: schoolIds.map(id => ({ id })) } 
+          : undefined
       },
       include: {
         terms: { orderBy: { startDate: "asc" } },
-        school: { select: { id: true, name: true, ville: true, code: true } },
+        schools: { select: { id: true, name: true, ville: true, code: true } },
         _count: { select: { classes: true } },
       },
     });
@@ -72,7 +58,7 @@ export const createAcademicYear = async (req: AuthRequest, res: Response) => {
     res.status(201).json(year);
   } catch (error: any) {
     if (error?.code === 'P2002') {
-      return res.status(400).json({ message: "Cette année scolaire existe déjà pour cet établissement." });
+      return res.status(400).json({ message: "Cette année scolaire existe déjà. Veuillez la sélectionner ou en créer une autre." });
     }
     console.error("Create Academic Year Error:", error);
     res.status(500).json({ message: "Erreur lors de la création de l'année scolaire" });
@@ -87,19 +73,14 @@ export const getAcademicYears = async (req: AuthRequest, res: Response) => {
     let whereClause: any = {};
 
     if (querySchoolId) {
-      whereClause.schoolId = querySchoolId;
+      whereClause.schools = { some: { id: querySchoolId } };
     } else if (!isSuperAdmin) {
       const userSchoolId = req.user?.schoolId;
       if (userSchoolId) {
-        whereClause.schoolId = userSchoolId;
+        whereClause.schools = { some: { id: userSchoolId } };
       } else {
-        // If regular user has no schoolId, fallback to first school or return empty
-        const defaultSchool = await prisma.school.findFirst({ select: { id: true } });
-        if (defaultSchool) {
-          whereClause.schoolId = defaultSchool.id;
-        } else {
-          return res.json([]);
-        }
+        // If regular user has no schoolId, return empty
+        return res.json([]);
       }
     }
 
@@ -107,7 +88,7 @@ export const getAcademicYears = async (req: AuthRequest, res: Response) => {
       where: whereClause,
       include: {
         terms: { orderBy: { startDate: "asc" } },
-        school: { select: { id: true, name: true, ville: true, code: true } },
+        schools: { select: { id: true, name: true, ville: true, code: true } },
         _count: { select: { classes: true } },
       },
       orderBy: { startDate: "desc" },
@@ -128,14 +109,14 @@ export const getAcademicYear = async (req: AuthRequest, res: Response) => {
 
     const whereClause: any = { id };
     if (!isSuperAdmin && userSchoolId) {
-      whereClause.schoolId = userSchoolId;
+      whereClause.schools = { some: { id: userSchoolId } };
     }
 
     const year = await prisma.academicYear.findFirst({
       where: whereClause,
       include: {
         terms: { orderBy: { startDate: "asc" } },
-        school: { select: { id: true, name: true, ville: true, code: true } },
+        schools: { select: { id: true, name: true, ville: true, code: true } },
         _count: { select: { classes: true } },
       },
     });
@@ -153,19 +134,17 @@ export const getAcademicYear = async (req: AuthRequest, res: Response) => {
 export const updateAcademicYear = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, startDate, endDate, isCurrent, schoolId: bodySchoolId } = createYearSchema.parse(req.body);
+    const { name, startDate, endDate, isCurrent, schoolIds } = createYearSchema.parse(req.body);
 
     if (!id) return res.status(400).json({ message: "ID manquant" });
 
     const existing = await prisma.academicYear.findUnique({ where: { id: String(id) } });
     if (!existing) return res.status(404).json({ message: "Année scolaire introuvable" });
 
-    const targetSchoolId = bodySchoolId || existing.schoolId;
-
-    // If marking as current, un-mark all others for this school
+    // If marking as current, un-mark all others globally
     if (isCurrent) {
       await prisma.academicYear.updateMany({
-        where: { schoolId: targetSchoolId, isCurrent: true, NOT: { id: String(id) } },
+        where: { isCurrent: true, NOT: { id: String(id) } },
         data: { isCurrent: false },
       });
     }
@@ -176,12 +155,12 @@ export const updateAcademicYear = async (req: AuthRequest, res: Response) => {
         name: name.trim(),
         startDate,
         endDate,
-        schoolId: targetSchoolId,
         ...(isCurrent !== undefined && { isCurrent }),
+        schools: schoolIds ? { set: schoolIds.map(id => ({ id })) } : undefined
       },
       include: {
         terms: { orderBy: { startDate: "asc" } },
-        school: { select: { id: true, name: true, ville: true, code: true } },
+        schools: { select: { id: true, name: true, ville: true, code: true } },
         _count: { select: { classes: true } },
       },
     });
@@ -189,7 +168,7 @@ export const updateAcademicYear = async (req: AuthRequest, res: Response) => {
     res.json(updatedYear);
   } catch (error: any) {
     if (error?.code === 'P2002') {
-      return res.status(400).json({ message: "Cette année scolaire existe déjà pour cet établissement." });
+      return res.status(400).json({ message: "Cette année scolaire existe déjà. Veuillez la sélectionner." });
     }
     console.error("Update Academic Year Error:", error);
     res.status(500).json({ message: "Erreur lors de la mise à jour de l'année scolaire" });
@@ -215,7 +194,7 @@ export const toggleAcademicYearStatus = async (req: AuthRequest, res: Response) 
       },
       include: {
         terms: { orderBy: { startDate: "asc" } },
-        school: { select: { id: true, name: true, ville: true, code: true } },
+        schools: { select: { id: true, name: true, ville: true, code: true } },
         _count: { select: { classes: true } },
       },
     });
@@ -240,7 +219,7 @@ export const toggleAcademicYearActive = async (req: AuthRequest, res: Response) 
       data: { isActive: !current.isActive },
       include: {
         terms: { orderBy: { startDate: "asc" } },
-        school: { select: { id: true, name: true, ville: true, code: true } },
+        schools: { select: { id: true, name: true, ville: true, code: true } },
         _count: { select: { classes: true } },
       },
     });
@@ -260,9 +239,9 @@ export const setCurrentAcademicYear = async (req: AuthRequest, res: Response) =>
       return res.status(404).json({ message: "Année scolaire introuvable" });
     }
 
-    // Un-mark all current for this school
+    // Un-mark all current globally
     await prisma.academicYear.updateMany({
-      where: { schoolId: current.schoolId, isCurrent: true },
+      where: { isCurrent: true },
       data: { isCurrent: false },
     });
 

@@ -22,6 +22,24 @@ interface SubjectModel {
   name: string;
 }
 
+interface TermModel {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+interface AcademicYearModel {
+  id: string;
+  name: string;
+  terms: TermModel[];
+}
+
+interface ClassModel {
+  id: string;
+  name: string;
+}
+
 interface GlobalAssignment {
   id: string;
   title: string;
@@ -31,6 +49,7 @@ interface GlobalAssignment {
   niveau?: NiveauModel;
   subject?: SubjectModel;
   published: boolean;
+  isCorrected?: boolean;
   _count?: { submissions: number };
 }
 
@@ -50,9 +69,15 @@ export default function GlobalAssignmentsPage() {
   const [assignments, setAssignments] = useState<GlobalAssignment[]>([]);
   const [niveaux, setNiveaux] = useState<NiveauModel[]>([]);
   const [subjects, setSubjects] = useState<SubjectModel[]>([]);
+  const [years, setYears] = useState<AcademicYearModel[]>([]);
+  const [classes, setClasses] = useState<ClassModel[]>([]);
   
+  const [selectedYear, setSelectedYear] = useState<string>('');
+  const [selectedTerm, setSelectedTerm] = useState<string>('');
+  const [selectedNiveau, setSelectedNiveau] = useState<string>('');
+  const [isCorrectedFilter, setIsCorrectedFilter] = useState<string>('ALL');
+
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingAssignment, setDeletingAssignment] = useState<GlobalAssignment | null>(null);
@@ -68,14 +93,24 @@ export default function GlobalAssignmentsPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [assignmentsRes, niveauxRes, subjectsRes] = await Promise.all([
-        api.get('/assignments?global=true'),
+      let query = '/assignments?global=true';
+      if (selectedYear) query += `&academicYearId=${selectedYear}`;
+      if (selectedTerm) query += `&termId=${selectedTerm}`;
+      if (selectedNiveau) query += `&niveauId=${selectedNiveau}`;
+      if (isCorrectedFilter !== 'ALL') query += `&isCorrected=${isCorrectedFilter === 'CORRECTED' ? 'true' : 'false'}`;
+
+      const [assignmentsRes, niveauxRes, subjectsRes, yearsRes, classesRes] = await Promise.all([
+        api.get(query),
         api.get('/niveaux'),
-        api.get('/subjects')
+        api.get('/subjects'),
+        api.get('/academic/years'),
+        api.get('/classes')
       ]);
       setAssignments(assignmentsRes.data);
       setNiveaux(niveauxRes.data);
       setSubjects(subjectsRes.data);
+      setYears(yearsRes.data);
+      setClasses(classesRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error("Impossible de charger les données.");
@@ -88,7 +123,16 @@ export default function GlobalAssignmentsPage() {
     if (isSuperAdmin) {
       fetchData();
     }
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, selectedYear, selectedTerm, selectedNiveau, isCorrectedFilter]);
+
+  // Derived state for terms
+  const currentTerms = years.find(y => y.id === selectedYear)?.terms || [];
+
+  // Reset term when year changes
+  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedYear(e.target.value);
+    setSelectedTerm('');
+  };
 
   const openCreateModal = () => {
     navigate('/admin/assignments/new');
@@ -125,11 +169,6 @@ export default function GlobalAssignmentsPage() {
     return <div className="p-8 text-center text-red-500">Accès non autorisé.</div>;
   }
 
-  const filteredAssignments = assignments.filter(a => 
-    a.title.toLowerCase().includes(search.toLowerCase()) ||
-    a.niveau?.nom.toLowerCase().includes(search.toLowerCase())
-  );
-
   return (
     <div className="p-6 md:p-8 lg:p-10 max-w-7xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500">
       <PageHeader 
@@ -145,23 +184,49 @@ export default function GlobalAssignmentsPage() {
       />
 
       <div className="bg-brand-surface-card rounded-2xl border border-brand-border/50 p-6 shadow-sm">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-brand-text">Toutes les évaluations</h2>
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-text-muted" />
-            <input 
-              type="text"
-              placeholder="Rechercher..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary/50 transition-shadow"
-            />
-          </div>
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 w-full mb-6 items-center">
+            <select 
+              value={selectedYear} 
+              onChange={handleYearChange}
+              className="px-3 py-2 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary/50 text-sm flex-1 min-w-[200px]"
+            >
+              <option value="">Toutes les années</option>
+              {years.map(y => <option key={y.id} value={y.id}>{y.name}</option>)}
+            </select>
+
+            <select 
+              value={selectedTerm} 
+              onChange={(e) => setSelectedTerm(e.target.value)}
+              disabled={!selectedYear || currentTerms.length === 0}
+              className="px-3 py-2 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary/50 text-sm flex-1 min-w-[200px] disabled:opacity-50"
+            >
+              <option value="">Tous les trimestres/semestres</option>
+              {currentTerms.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+
+            <select 
+              value={selectedNiveau} 
+              onChange={(e) => setSelectedNiveau(e.target.value)}
+              className="px-3 py-2 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary/50 text-sm flex-1 min-w-[200px]"
+            >
+              <option value="">Tous les niveaux</option>
+              {niveaux.map(n => <option key={n.id} value={n.id}>{n.nom}</option>)}
+            </select>
+
+            <select 
+              value={isCorrectedFilter} 
+              onChange={(e) => setIsCorrectedFilter(e.target.value)}
+              className="px-3 py-2 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary/50 text-sm flex-1 min-w-[200px]"
+            >
+              <option value="ALL">Tout (Corrigé / Non corrigé)</option>
+              <option value="CORRECTED">Corrigé</option>
+              <option value="UNCORRECTED">À corriger</option>
+            </select>
         </div>
 
         {loading ? (
           <div className="flex justify-center p-12"><div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div></div>
-        ) : filteredAssignments.length === 0 ? (
+        ) : assignments.length === 0 ? (
           <div className="text-center p-12 text-brand-text-muted">Aucune évaluation trouvée.</div>
         ) : (
           <div className="overflow-x-auto">
@@ -173,12 +238,13 @@ export default function GlobalAssignmentsPage() {
                   <th className="py-4 px-4 font-semibold">Niveau</th>
                   <th className="py-4 px-4 font-semibold">Matière</th>
                   <th className="py-4 px-4 font-semibold">Échéance</th>
-                  <th className="py-4 px-4 font-semibold">Statut</th>
+                  <th className="py-4 px-4 font-semibold">Publication</th>
+                  <th className="py-4 px-4 font-semibold">Correction</th>
                   <th className="py-4 px-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredAssignments.map((assignment) => (
+                {assignments.map((assignment) => (
                   <tr key={assignment.id} className="border-b border-brand-border/30 hover:bg-brand-surface/50 transition-colors">
                     <td className="py-4 px-4">
                       <div className="font-semibold text-brand-text">{assignment.title}</div>
@@ -193,7 +259,15 @@ export default function GlobalAssignmentsPage() {
                         {assignment.type}
                       </span>
                     </td>
-                    <td className="py-4 px-4 font-medium">{assignment.niveau?.nom || '-'}</td>
+                    <td className="py-4 px-4 font-medium">
+                      <button 
+                        onClick={() => navigate(`/admin/assignments/${assignment.id}`)}
+                        className="text-brand-primary hover:underline"
+                        title="Voir les détails et corriger"
+                      >
+                        {assignment.niveau?.nom || '-'}
+                      </button>
+                    </td>
                     <td className="py-4 px-4 text-brand-text-muted">{assignment.subject?.name || '-'}</td>
                     <td className="py-4 px-4 text-brand-text-muted">
                       {new Date(assignment.dueDate).toLocaleDateString('fr-FR')}
@@ -206,6 +280,17 @@ export default function GlobalAssignmentsPage() {
                       ) : (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-500">
                           <Clock className="w-3 h-3 mr-1" /> Brouillon
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-4 px-4">
+                      {assignment.isCorrected ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> Corrigé
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                          <Clock className="w-3 h-3 mr-1" /> À corriger
                         </span>
                       )}
                     </td>

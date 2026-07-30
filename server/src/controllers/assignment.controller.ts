@@ -84,6 +84,8 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
         courseId: courseId || null,
         niveauId: niveauId || null,
         subjectId: subjectId || null,
+        academicYearId: req.body.academicYearId || null,
+        termId: req.body.termId || null,
         type: type || "DEVOIR",
         coefficient: parsedCoefficient,
         voiceNoteUrl: voiceNoteUrl || null,
@@ -163,7 +165,7 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
         // If Student, ideally restrict to their school too (though level might be generic, usually it's school specific)
         
         const whereClass: any = {
-            niveauId: String(level)
+            niveau: { nom: String(level) }
         };
 
         if ((req.user?.role as string) === 'DIRECTEUR' || (req.user?.role as string) === 'EDUCATEUR') {
@@ -182,8 +184,12 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
         });
 
         const classIds = classes.map(c => c.id);
-        // On récupère aussi l'ID du niveau si on veut les requêtes globales
-        const niveauIds = level ? [String(level)] : [];
+
+        // Find the actual Niveau ID for global assignments
+        const niveauParams = await prisma.niveau.findFirst({
+            where: { nom: String(level), schoolId: schoolId || undefined }
+        });
+        const niveauIds = niveauParams ? [niveauParams.id] : [];
 
         if (classIds.length === 0 && niveauIds.length === 0) {
             return res.json([]);
@@ -243,6 +249,10 @@ export const getAssignmentById = async (req: AuthRequest, res: Response) => {
     const assignment = await prisma.assignment.findUnique({
       where: { id: id as string },
       include: {
+        subject: true,
+        niveau: true,
+        academicYear: true,
+        term: true,
         course: {
           select: {
             id: true,
@@ -268,19 +278,73 @@ export const getAssignmentById = async (req: AuthRequest, res: Response) => {
 
 export const getAssignments = async (req: AuthRequest, res: Response) => {
   try {
-    const { courseId, global } = req.query;
+    const { courseId, global, academicYearId, termId, classId, niveauId, isCorrected } = req.query;
 
     if (global === 'true' && (req.user?.role as string) === 'SUPER_ADMIN') {
+        const whereClause: any = { courseId: null, niveauId: { not: null } };
+
+        if (niveauId) {
+            whereClause.niveauId = String(niveauId);
+        } else if (classId) {
+            const classObj = await prisma.class.findUnique({ where: { id: String(classId) }});
+            if (classObj && classObj.niveauId) {
+                whereClause.niveauId = classObj.niveauId;
+            }
+        }
+
+        let startDate: Date | undefined;
+        let endDate: Date | undefined;
+
+        if (termId) {
+             const term = await prisma.term.findUnique({ where: { id: String(termId) }});
+             if (term) {
+                 startDate = term.startDate;
+                 endDate = term.endDate;
+             }
+        } else if (academicYearId) {
+             const year = await prisma.academicYear.findUnique({ where: { id: String(academicYearId) }});
+             if (year) {
+                 startDate = year.startDate;
+                 endDate = year.endDate;
+             }
+        }
+
+        if (startDate && endDate) {
+             whereClause.dueDate = {
+                 gte: startDate,
+                 lte: endDate
+             };
+        }
+
         const assignments = await prisma.assignment.findMany({
-            where: { courseId: null, niveauId: { not: null } },
+            where: whereClause,
             include: {
                 subject: true,
                 niveau: true,
-                _count: { select: { submissions: true } }
+                _count: { select: { submissions: true } },
+                submissions: {
+                    select: { id: true, grade: { select: { id: true } } }
+                }
             },
             orderBy: { dueDate: 'desc' }
         });
-        return res.json(assignments);
+
+        let results = assignments.map(a => {
+            const numSubmissions = a._count.submissions;
+            const numGrades = a.submissions.filter(s => s.grade != null).length;
+            const isFullyCorrected = numSubmissions > 0 && numSubmissions === numGrades;
+            
+            const { submissions, ...rest } = a;
+            return { ...rest, isCorrected: isFullyCorrected };
+        });
+
+        if (isCorrected === 'true') {
+            results = results.filter(r => r.isCorrected);
+        } else if (isCorrected === 'false') {
+            results = results.filter(r => !r.isCorrected);
+        }
+
+        return res.json(results);
     }
 
     if (!courseId) {
@@ -501,6 +565,8 @@ export const updateAssignment = async (req: AuthRequest, res: Response) => {
         courseId: courseId || existing.courseId,
         niveauId: niveauId || existing.niveauId,
         subjectId: subjectId || existing.subjectId,
+        academicYearId: req.body.academicYearId || existing.academicYearId,
+        termId: req.body.termId || existing.termId,
         type: type || existing.type,
         coefficient: parsedCoefficient,
         attachments,
@@ -615,3 +681,93 @@ export const gradeSubmission = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: "Error grading submission", error });
   }
 };
+
+export const getAssignmentParticipants = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { classId } = req.query;
+    if (!id) return res.status(400).json({ message: 'ID required' });
+    
+    const assignment = await prisma.assignment.findUnique({ where: { id: id as string } });
+    if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+    
+    let whereClause: any = { role: 'APPRENANT' };
+    
+    if (classId) {
+      whereClause.enrollments = { some: { classId: String(classId) } };
+    } else if (assignment.courseId) {
+      const course = await prisma.course.findUnique({ where: { id: assignment.courseId } });
+      if (course) whereClause.enrollments = { some: { classId: course.classId } };
+    } else if (assignment.niveauId) {
+      whereClause.enrollments = { some: { class: { niveauId: assignment.niveauId } } };
+    }
+    
+    const students = await prisma.user.findMany({
+      where: whereClause,
+      select: {
+        id: true, 
+        firstName: true, 
+        lastName: true, 
+        avatarUrl: true,
+        enrollments: { select: { class: { select: { id: true, name: true } } } },
+        submissions: {
+          where: { assignmentId: id as string },
+          select: {
+            id: true, 
+            submittedAt: true, 
+            content: true, 
+            fileUrl: true,
+            grade: { select: { id: true, value: true, comment: true } }
+          }
+        }
+      }
+    });
+    
+    res.json(students);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching participants', error });
+  }
+};
+
+export const gradeStudentAssignment = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params; // assignmentId
+    const { studentId, value, comment } = req.body;
+    
+    if (!id || !studentId) return res.status(400).json({ message: 'Missing fields' });
+    
+    let submission = await prisma.submission.findFirst({ 
+      where: { assignmentId: id as string, studentId: String(studentId) } 
+    });
+    
+    if (!submission) {
+      submission = await prisma.submission.create({
+        data: {
+          assignmentId: id as string,
+          studentId: String(studentId),
+          content: 'NON_RENDU' // Placeholder to signify they were graded without submitting
+        }
+      });
+    }
+    
+    const grade = await prisma.grade.upsert({
+      where: { submissionId: submission.id },
+      create: {
+        value: Number(value),
+        comment,
+        studentId: String(studentId),
+        submissionId: submission.id,
+        assignmentId: id as string
+      },
+      update: {
+        value: Number(value),
+        comment
+      }
+    });
+    
+    res.json(grade);
+  } catch (error) {
+    res.status(500).json({ message: 'Error grading', error });
+  }
+};
+

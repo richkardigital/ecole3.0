@@ -12,22 +12,44 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
 
     switch (user.role) {
       case "SUPER_ADMIN": {
-        const schoolsCount = await prisma.school.count();
-        const usersCount = await prisma.user.count();
+        let schoolsCount = 0;
+        let usersCount = 0;
         
         let studentsCount = 0;
+        let boysCount = 0;
+        let girlsCount = 0;
         let effectifsData: any[] = [];
         
         if (yearId && typeof yearId === 'string' && yearId !== 'ALL') {
+          schoolsCount = await prisma.school.count({
+            where: { academicYears: { some: { id: yearId } } }
+          });
+          usersCount = await prisma.user.count(); // Could be filtered if needed
+
           // Total enrolled students for the specific year
           studentsCount = await prisma.enrollment.count({
             where: {
               class: { academicYearId: yearId }
             }
           });
+          
+          boysCount = await prisma.enrollment.count({
+            where: {
+              class: { academicYearId: yearId },
+              student: { gender: 'MASCULIN' }
+            }
+          });
+          
+          girlsCount = await prisma.enrollment.count({
+            where: {
+              class: { academicYearId: yearId },
+              student: { gender: 'FEMININ' }
+            }
+          });
 
           // Fetch schools with their classes for this academic year to sum enrollments
           const schools = await prisma.school.findMany({
+            where: { academicYears: { some: { id: yearId } } },
             include: {
               classes: {
                 where: { academicYearId: yearId },
@@ -43,8 +65,13 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             effectifsData.push({ name: school.name, v: schoolStudents });
           }
         } else {
+           schoolsCount = await prisma.school.count();
+           usersCount = await prisma.user.count();
+           
            // Fallback to all students if no specific year is selected
            studentsCount = await prisma.user.count({ where: { role: 'APPRENANT' } });
+           boysCount = await prisma.user.count({ where: { role: 'APPRENANT', gender: 'MASCULIN' } });
+           girlsCount = await prisma.user.count({ where: { role: 'APPRENANT', gender: 'FEMININ' } });
            const schools = await prisma.school.findMany({
              include: {
                 _count: {
@@ -64,6 +91,8 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
           schools: schoolsCount,
           users: usersCount,
           students: studentsCount,
+          boys: boysCount,
+          girls: girlsCount,
           effectifsData,
         };
         break;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { Link } from 'react-router-dom';
 import api from '@/lib/api';
 import {
   Search, FileText, Video, Download, ExternalLink, Filter, Plus,
@@ -30,6 +31,9 @@ interface Material {
       firstName: string;
       lastName: string;
     };
+  };
+  niveau?: {
+    nom: string;
   };
 }
 
@@ -183,13 +187,14 @@ export default function LibraryPage() {
         description="Accédez aux supports pédagogiques, fiches de révision et ressources numérisées de l'établissement."
       >
         {isTeacherOrAdmin && (
-          <Button 
-            variant="glow"
-            onClick={() => setIsUploadModalOpen(true)}
-            leftIcon={<Plus className="w-4 h-4" />}
-          >
-            Ajouter un document
-          </Button>
+          <Link to="/academic/library/new">
+            <Button 
+              variant="glow"
+              leftIcon={<Plus className="w-4 h-4" />}
+            >
+              Ajouter un document
+            </Button>
+          </Link>
         )}
       </PageHeader>
 
@@ -257,7 +262,7 @@ export default function LibraryPage() {
                   {getIcon(material.type)}
                 </div>
                 <span className="text-xs font-bold px-2.5 py-1 rounded-lg chip-cyan">
-                  {material.course?.subject?.name || 'Matière'}
+                  {material.course?.subject?.name || 'Général'}
                 </span>
               </div>
               
@@ -266,7 +271,7 @@ export default function LibraryPage() {
               </h3>
               
               <p className="text-xs text-slate-500 font-medium mb-4">
-                {material.course?.class?.name || 'Classe'}
+                {material.course?.class?.name ? `Classe : ${material.course.class.name}` : material.niveau?.nom ? `Niveau : ${material.niveau.nom}` : 'Niveau'}
                 {material.course?.teacher && ` • Prof. ${material.course.teacher.lastName}`}
                 {material.source && <span className="block text-[11px] mt-1 italic text-slate-400">Source : {material.source}</span>}
               </p>
@@ -303,123 +308,7 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {/* ───────────────────────── UPLOAD MODAL ───────────────────────── */}
-      <Modal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        title="Ajouter un document à la bibliothèque"
-        size="md"
-        accentColor="green"
-      >
-        <form onSubmit={handleFileUpload} className="space-y-4">
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-              Cours concerné <span className="text-emerald-600">*</span>
-            </label>
-            <select 
-              className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
-              value={selectedCourseId}
-              onChange={e => setSelectedCourseId(e.target.value)}
-              required
-            >
-              <option value="">Sélectionner un cours...</option>
-              {myCourses.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.class?.name || 'Classe'} - {c.subject?.name || 'Matière'}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-              Titre du document <span className="text-emerald-600">*</span>
-            </label>
-            <input 
-              type="text"
-              placeholder="Ex: Chapitre 1 - Équations du second degré"
-              className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-bold"
-              value={newMaterial.title}
-              onChange={e => setNewMaterial({...newMaterial, title: e.target.value})}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-              Source (Optionnel)
-            </label>
-            <input 
-              type="text"
-              placeholder="Ex: Ministère de l'Éducation, Manuel scolaire..."
-              className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-bold"
-              value={newMaterial.source}
-              onChange={e => setNewMaterial({...newMaterial, source: e.target.value})}
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-              Type de ressource
-            </label>
-            <select 
-              className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
-              value={newMaterial.type}
-              onChange={e => setNewMaterial({...newMaterial, type: e.target.value})}
-            >
-              <option value="PDF">Document (PDF, Word, Excel...)</option>
-              <option value="VIDEO">Vidéo (Lien YouTube...)</option>
-            </select>
-          </div>
-
-          {newMaterial.type === 'VIDEO' ? (
-            <div>
-              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                Lien Vidéo <span className="text-emerald-600">*</span>
-              </label>
-              <input 
-                type="url"
-                className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-bold"
-                placeholder="https://youtube.com/..."
-                value={newMaterial.url}
-                onChange={e => setNewMaterial({...newMaterial, url: e.target.value})}
-                required
-              />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                Fichier <span className="text-emerald-600">*</span>
-              </label>
-              <input 
-                type="file"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-250 rounded-xl text-sm font-semibold file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-all cursor-pointer"
-                onChange={e => setNewMaterial({...newMaterial, file: e.target.files ? e.target.files[0] : null})}
-                required={!newMaterial.url}
-              />
-            </div>
-          )}
-
-          <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
-            <Button 
-              variant="secondary"
-              type="button"
-              onClick={() => setIsUploadModalOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button 
-              variant="glow"
-              type="submit"
-              isLoading={uploadLoading}
-            >
-              Ajouter
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* ───────────────────────── DELETE CONFIRMATION ───────────────────────── */}
+      {/* Grid */}
       <ConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}

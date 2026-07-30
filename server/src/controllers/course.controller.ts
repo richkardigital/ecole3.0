@@ -42,7 +42,8 @@ export const getLibrary = async (req: AuthRequest, res: Response) => {
                     }
                 }
             }
-        }
+        },
+        niveau: true
     };
 
     if ((role as string) === "ENSEIGNANT") {

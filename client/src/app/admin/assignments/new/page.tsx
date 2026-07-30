@@ -20,6 +20,17 @@ interface SubjectModel {
   name: string;
 }
 
+interface TermModel {
+  id: string;
+  name: string;
+}
+
+interface AcademicYearModel {
+  id: string;
+  name: string;
+  terms: TermModel[];
+}
+
 interface OptionData {
   text: string;
   isCorrect: boolean;
@@ -37,6 +48,8 @@ type FormData = {
   type: string;
   niveauId: string;
   subjectId: string;
+  academicYearId: string;
+  termId: string;
   dueDate: string;
   description: string;
   questions: QuestionData[];
@@ -50,6 +63,7 @@ export default function NewGlobalAssignmentPage() {
 
   const [niveaux, setNiveaux] = useState<NiveauModel[]>([]);
   const [subjects, setSubjects] = useState<SubjectModel[]>([]);
+  const [years, setYears] = useState<AcademicYearModel[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [evaluationMethod, setEvaluationMethod] = useState<'FILE' | 'QUESTIONS' | 'BOTH'>('BOTH');
@@ -77,17 +91,21 @@ export default function NewGlobalAssignmentPage() {
   // Load Niveaux on mount
   useEffect(() => {
     if (isSuperAdmin) {
-      const fetchNiveaux = async () => {
+      const fetchInitialData = async () => {
         try {
-          const res = await api.get('/niveaux');
-          setNiveaux(res.data);
+          const [niveauxRes, yearsRes] = await Promise.all([
+            api.get('/niveaux'),
+            api.get('/academic/years')
+          ]);
+          setNiveaux(niveauxRes.data);
+          setYears(yearsRes.data);
         } catch (error) {
-          toast.error("Impossible de charger les niveaux.");
+          toast.error("Impossible de charger les données initiales.");
         } finally {
           setLoading(false);
         }
       };
-      fetchNiveaux();
+      fetchInitialData();
     }
   }, [isSuperAdmin]);
 
@@ -132,7 +150,12 @@ export default function NewGlobalAssignmentPage() {
       if (isFileEnabled && files.length > 0) {
         for (const file of files) {
           const formData = new window.FormData();
-          formData.append('file', file);
+          if (data.academicYearId) formData.append('academicYearId', data.academicYearId);
+          if (data.termId) formData.append('termId', data.termId);
+          
+          files.forEach(f => {
+            formData.append('attachments', f);
+          });    
           const uploadRes = await api.post('/uploads', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
@@ -145,6 +168,8 @@ export default function NewGlobalAssignmentPage() {
         type: data.type,
         niveauId: data.niveauId,
         subjectId: data.subjectId || null,
+        academicYearId: data.academicYearId,
+        termId: data.termId,
         dueDate: data.dueDate,
         description: data.description,
         attachments: attachmentUrls,
@@ -188,16 +213,51 @@ export default function NewGlobalAssignmentPage() {
             <div className="p-6 space-y-6">
               <h3 className="text-lg font-bold text-brand-text mb-4">Informations de base</h3>
               
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1">Titre *</label>
-                <input 
-                  {...register('title', { required: true })} 
-                  className="w-full p-3 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary transition-all" 
-                  placeholder="Ex: Examen Blanc de Mathématiques" 
-                />
+              {/* Section Année Scolaire et Trimestre */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-brand-surface border border-brand-border rounded-xl p-4 md:p-6 mb-6">
+                {/* Année Scolaire */}
+                <div>
+                  <label className="block text-sm font-medium text-brand-text mb-2">Année Scolaire <span className="text-red-500">*</span></label>
+                  <select
+                    {...register("academicYearId", { required: "Ce champ est requis" })}
+                    className={`w-full px-4 py-3 bg-brand-surface-card border ${errors.academicYearId ? 'border-red-500' : 'border-brand-border'} rounded-xl focus:ring-2 focus:ring-brand-primary/50 text-brand-text transition-colors`}
+                  >
+                    <option value="">Sélectionner l'année scolaire</option>
+                    {years.map(y => (
+                      <option key={y.id} value={y.id}>{y.name}</option>
+                    ))}
+                  </select>
+                  {errors.academicYearId && <p className="mt-1 text-sm text-red-500">{errors.academicYearId.message}</p>}
+                </div>
+
+                {/* Trimestre / Semestre */}
+                <div>
+                  <label className="block text-sm font-medium text-brand-text mb-2">Trimestre / Semestre <span className="text-red-500">*</span></label>
+                  <select
+                    {...register("termId", { required: "Ce champ est requis" })}
+                    disabled={!watch("academicYearId")}
+                    className={`w-full px-4 py-3 bg-brand-surface-card border ${errors.termId ? 'border-red-500' : 'border-brand-border'} rounded-xl focus:ring-2 focus:ring-brand-primary/50 text-brand-text transition-colors disabled:opacity-50`}
+                  >
+                    <option value="">Sélectionner la période</option>
+                    {years.find(y => y.id === watch("academicYearId"))?.terms.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  {errors.termId && <p className="mt-1 text-sm text-red-500">{errors.termId.message}</p>}
+                </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
+              {/* Informations Principales */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-brand-text mb-2">Titre de l'évaluation <span className="text-red-500">*</span></label>
+                  <input 
+                    {...register('title', { required: true })} 
+                    className="w-full p-3 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary transition-all" 
+                    placeholder="Ex: Examen Blanc de Mathématiques" 
+                  />
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-brand-text-muted mb-1">Type *</label>
                   <select {...register('type', { required: true })} className="w-full p-3 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary transition-all">
@@ -213,9 +273,7 @@ export default function NewGlobalAssignmentPage() {
                     {niveaux.map(n => <option key={n.id} value={n.id}>{n.nom}</option>)}
                   </select>
                 </div>
-              </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-brand-text-muted mb-1">Matière *</label>
                   <select {...register('subjectId')} className="w-full p-3 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary transition-all">
