@@ -8,7 +8,10 @@ const createAssignmentSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
   dueDate: z.string().transform((str) => new Date(str)),
-  courseId: z.string(),
+  courseId: z.string().optional(),
+  niveauId: z.string().optional(),
+  subjectId: z.string().optional(),
+  type: z.enum(["DEVOIR", "PROJET", "EXAMEN"]).optional(),
 });
 
 const submitAssignmentSchema = z.object({
@@ -23,7 +26,7 @@ const gradeSubmissionSchema = z.object({
 
 export const createAssignment = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, dueDate, courseId, coefficient } = req.body;
+    const { title, description, dueDate, courseId, niveauId, subjectId, type, coefficient } = req.body;
     let finalDescription = description || "";
     let voiceNoteUrl = null;
     let correctionUrl = null;
@@ -53,18 +56,24 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
         }
     }
 
-    if (!title || !dueDate || !courseId) {
+    if (!title || !dueDate) {
          return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    if (!courseId && !niveauId) {
+         return res.status(400).json({ message: "courseId or niveauId is required" });
     }
 
     const parsedDate = new Date(dueDate);
     const parsedCoefficient = coefficient ? parseInt(coefficient) : 1;
 
-    if ((req.user?.role as string) === "ENSEIGNANT") {
+    if ((req.user?.role as string) === "ENSEIGNANT" && courseId) {
       const course = await prisma.course.findUnique({ where: { id: courseId } });
       if (!course || course.teacherId !== req.user.id) {
         return res.status(403).json({ message: "Access denied" });
       }
+    } else if (niveauId && (req.user?.role as string) !== "SUPER_ADMIN") {
+        return res.status(403).json({ message: "Only Super Admin can create level-wide assignments" });
     }
 
     const assignment = await prisma.assignment.create({
@@ -72,17 +81,67 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
         title,
         description: finalDescription || null,
         dueDate: parsedDate,
-        courseId,
+        courseId: courseId || null,
+        niveauId: niveauId || null,
+        subjectId: subjectId || null,
+        type: type || "DEVOIR",
         coefficient: parsedCoefficient,
         voiceNoteUrl: voiceNoteUrl || null,
-        correctionUrl: correctionUrl || null
+        correctionUrl: correctionUrl || null,
+        attachments: req.body.attachments ? (Array.isArray(req.body.attachments) ? req.body.attachments : JSON.parse(req.body.attachments)) : [],
+        questions: req.body.questions ? {
+          create: (typeof req.body.questions === 'string' ? JSON.parse(req.body.questions) : req.body.questions).map((q: any) => ({
+            text: q.text,
+            type: q.type || 'MULTIPLE_CHOICE',
+            points: Number(q.points) || 1,
+            options: q.options ? {
+              create: q.options.map((opt: any) => ({
+                text: opt.text,
+                isCorrect: Boolean(opt.isCorrect)
+              }))
+            } : undefined
+          }))
+        } : undefined
       },
+      include: {
+        questions: {
+          include: {
+            options: true
+          }
+        }
+      }
     });
 
     res.status(201).json(assignment);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error creating assignment", error });
+  }
+};
+
+export const publishAssignment = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { published } = req.body;
+    
+    // Check if assignment exists
+    const assignment = await prisma.assignment.findUnique({
+        where: { id }
+    });
+
+    if (!assignment) {
+        return res.status(404).json({ message: "Assignment not found" });
+    }
+
+    const updated = await prisma.assignment.update({
+        where: { id },
+        data: { published }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error updating publish status", error });
   }
 };
 
@@ -104,7 +163,7 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
         // If Student, ideally restrict to their school too (though level might be generic, usually it's school specific)
         
         const whereClass: any = {
-            level: String(level)
+            niveauId: String(level)
         };
 
         if ((req.user?.role as string) === 'DIRECTEUR' || (req.user?.role as string) === 'EDUCATEUR') {
@@ -123,29 +182,47 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
         });
 
         const classIds = classes.map(c => c.id);
+        // On récupère aussi l'ID du niveau si on veut les requêtes globales
+        const niveauIds = level ? [String(level)] : [];
 
-        if (classIds.length === 0) {
+        if (classIds.length === 0 && niveauIds.length === 0) {
             return res.json([]);
         }
 
-        // Find assignments for courses in these classes
-        const assignments = await prisma.assignment.findMany({
-            where: {
-                course: {
-                    classId: { in: classIds }
+        // Find assignments for courses in these classes AND global assignments for this level
+        const assignmentWhere: any = {
+            OR: [
+                {
+                    course: {
+                        classId: { in: classIds }
+                    }
                 },
-                dueDate: {
-                    gte: start,
-                    lte: end
+                {
+                    niveauId: { in: niveauIds }
                 }
-            },
+            ],
+            dueDate: {
+                gte: start,
+                lte: end
+            }
+        };
+
+        // If APPRENANT, only show published assignments
+        if (req.user?.role === 'APPRENANT') {
+            assignmentWhere.published = true;
+        }
+
+        const assignments = await prisma.assignment.findMany({
+            where: assignmentWhere,
             include: {
                 course: {
                     include: {
                         subject: true,
                         class: true
                     }
-                }
+                },
+                subject: true,
+                niveau: true
             },
             orderBy: { dueDate: 'asc' }
         });
@@ -191,7 +268,20 @@ export const getAssignmentById = async (req: AuthRequest, res: Response) => {
 
 export const getAssignments = async (req: AuthRequest, res: Response) => {
   try {
-    const { courseId } = req.query;
+    const { courseId, global } = req.query;
+
+    if (global === 'true' && (req.user?.role as string) === 'SUPER_ADMIN') {
+        const assignments = await prisma.assignment.findMany({
+            where: { courseId: null, niveauId: { not: null } },
+            include: {
+                subject: true,
+                niveau: true,
+                _count: { select: { submissions: true } }
+            },
+            orderBy: { dueDate: 'desc' }
+        });
+        return res.json(assignments);
+    }
 
     if (!courseId) {
        return res.status(400).json({message: "courseId is required"});
@@ -343,6 +433,10 @@ export const deleteAssignment = async (req: AuthRequest, res: Response) => {
         return res.status(403).json({ message: "Access denied" });
     }
 
+    if (assignment.published) {
+      return res.status(400).json({ message: "Vous ne pouvez pas supprimer une évaluation publiée." });
+    }
+
     await prisma.assignment.delete({
       where: { id: id as string },
     });
@@ -351,6 +445,80 @@ export const deleteAssignment = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error deleting assignment", error });
+  }
+};
+
+export const updateAssignment = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { title, description, dueDate, courseId, niveauId, subjectId, type, coefficient } = req.body;
+    let finalDescription = description || "";
+
+    const existing = await prisma.assignment.findUnique({
+      where: { id },
+      include: { questions: true }
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: "Assignment not found" });
+    }
+
+    if (existing.published) {
+      return res.status(400).json({ message: "Vous ne pouvez plus modifier une évaluation publiée." });
+    }
+
+    // Process attachments
+    const attachments = req.body.attachments ? (Array.isArray(req.body.attachments) ? req.body.attachments : JSON.parse(req.body.attachments)) : existing.attachments;
+
+    // We will delete old questions and create new ones for simplicity
+    if (req.body.questions) {
+      await prisma.assignmentQuestion.deleteMany({ where: { assignmentId: id } });
+    }
+
+    const questionsInput = req.body.questions ? {
+      create: (typeof req.body.questions === 'string' ? JSON.parse(req.body.questions) : req.body.questions).map((q: any) => ({
+        text: q.text,
+        type: q.type || 'MULTIPLE_CHOICE',
+        points: Number(q.points) || 1,
+        options: q.options ? {
+          create: q.options.map((opt: any) => ({
+            text: opt.text,
+            isCorrect: Boolean(opt.isCorrect)
+          }))
+        } : undefined
+      }))
+    } : undefined;
+
+    const parsedDate = dueDate ? new Date(dueDate) : existing.dueDate;
+    const parsedCoefficient = coefficient ? parseInt(coefficient) : existing.coefficient;
+
+    const updated = await prisma.assignment.update({
+      where: { id },
+      data: {
+        title: title || existing.title,
+        description: finalDescription || existing.description,
+        dueDate: parsedDate,
+        courseId: courseId || existing.courseId,
+        niveauId: niveauId || existing.niveauId,
+        subjectId: subjectId || existing.subjectId,
+        type: type || existing.type,
+        coefficient: parsedCoefficient,
+        attachments,
+        questions: questionsInput
+      },
+      include: {
+        questions: {
+          include: {
+            options: true
+          }
+        }
+      }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error updating assignment", error });
   }
 };
 

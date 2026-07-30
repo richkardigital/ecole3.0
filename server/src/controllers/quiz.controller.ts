@@ -90,7 +90,7 @@ export const deleteQuiz = async (req: AuthRequest, res: Response) => {
         });
 
         if (!quiz) return res.status(404).json({ message: "Quiz not found" });
-        if (quiz.course.teacherId !== userId) {
+        if ((req.user?.role as string) === "ENSEIGNANT" && quiz.course.teacherId !== userId) {
             return res.status(403).json({ message: "Unauthorized to delete this quiz" });
         }
 
@@ -115,7 +115,7 @@ export const updateQuiz = async (req: AuthRequest, res: Response) => {
         });
 
         if (!quiz) return res.status(404).json({ message: "Quiz not found" });
-        if (quiz.course.teacherId !== userId) {
+        if ((req.user?.role as string) === "ENSEIGNANT" && quiz.course.teacherId !== userId) {
             return res.status(403).json({ message: "Unauthorized to update this quiz" });
         }
 
@@ -244,7 +244,7 @@ export const getQuizAttempts = async (req: AuthRequest, res: Response) => {
         });
 
         if (!quiz) return res.status(404).json({ message: "Quiz not found" });
-        if (quiz.course.teacherId !== userId) {
+        if ((req.user?.role as string) === "ENSEIGNANT" && quiz.course.teacherId !== userId) {
             return res.status(403).json({ message: "Unauthorized" });
         }
 

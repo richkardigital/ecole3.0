@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Edit, Trash2, ArrowLeft, Users as UsersIcon, GraduationCap, School, UserCog, Eye, EyeOff, Loader2, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowLeft, Users as UsersIcon, GraduationCap, School, UserCog, Eye, EyeOff, Loader2, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -29,7 +29,7 @@ interface UserGroup {
   id: string;
   title: string;
   count: number;
-  type: 'admin' | 'teacher' | 'class' | 'other';
+  type: 'admin' | 'teacher' | 'student' | 'other';
   users: User[];
 }
 
@@ -37,6 +37,8 @@ const Users = () => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -53,47 +55,27 @@ const Users = () => {
   const [schools, setSchools] = useState<any[]>([]);
 
   const groups = useMemo(() => {
-    const admins: User[] = [];
+    const superAdmins: User[] = [];
+    const directeurs: User[] = [];
+    const educateurs: User[] = [];
     const teachers: User[] = [];
-    const studentsByClass: Record<string, User[]> = {};
-    const studentsNoClass: User[] = [];
+    const students: User[] = [];
 
     users.forEach(u => {
-      if (['SUPER_ADMIN', 'DIRECTEUR', 'EDUCATEUR'].includes(u.role)) {
-        admins.push(u);
-      } else if (u.role === 'ENSEIGNANT') {
-        teachers.push(u);
-      } else if (u.role === 'APPRENANT') {
-        const className = u.enrollments?.[0]?.class?.name;
-        if (className) {
-          if (!studentsByClass[className]) {
-            studentsByClass[className] = [];
-          }
-          studentsByClass[className].push(u);
-        } else {
-          studentsNoClass.push(u);
-        }
-      }
+      if (u.role === 'SUPER_ADMIN') superAdmins.push(u);
+      else if (u.role === 'DIRECTEUR') directeurs.push(u);
+      else if (u.role === 'EDUCATEUR') educateurs.push(u);
+      else if (u.role === 'ENSEIGNANT') teachers.push(u);
+      else if (u.role === 'APPRENANT') students.push(u);
     });
 
     const result: UserGroup[] = [
-      { id: 'admins', title: 'Administration', count: admins.length, type: 'admin', users: admins },
-      { id: 'teachers', title: 'Corps Enseignant', count: teachers.length, type: 'teacher', users: teachers },
+      { id: 'super_admin', title: 'Super Admin', count: superAdmins.length, type: 'admin', users: superAdmins },
+      { id: 'directeur', title: 'Directeur', count: directeurs.length, type: 'admin', users: directeurs },
+      { id: 'educateur', title: 'Éducateur', count: educateurs.length, type: 'admin', users: educateurs },
+      { id: 'enseignant', title: 'Enseignant', count: teachers.length, type: 'teacher', users: teachers },
+      { id: 'eleve', title: 'Élève inscrit', count: students.length, type: 'student', users: students },
     ];
-
-    Object.keys(studentsByClass).sort().forEach(className => {
-      result.push({
-        id: `class-${className}`,
-        title: `Classe ${className}`,
-        count: studentsByClass[className].length,
-        type: 'class',
-        users: studentsByClass[className]
-      });
-    });
-
-    if (studentsNoClass.length > 0) {
-      result.push({ id: 'no-class', title: 'Élèves sans classe', count: studentsNoClass.length, type: 'other', users: studentsNoClass });
-    }
 
     return result;
   }, [users]);
@@ -126,7 +108,16 @@ const Users = () => {
     if (selectedGroupId && !selectedGroup) {
       setSelectedGroupId(null);
     }
+    setCurrentPage(1);
   }, [selectedGroupId, selectedGroup]);
+
+  const paginatedUsers = useMemo(() => {
+    if (!selectedGroup) return [];
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return selectedGroup.users.slice(startIndex, startIndex + itemsPerPage);
+  }, [selectedGroup, currentPage]);
+
+  const totalPages = selectedGroup ? Math.ceil(selectedGroup.users.length / itemsPerPage) : 0;
 
   const fetchUsers = async () => {
     try {
@@ -139,17 +130,41 @@ const Users = () => {
     }
   };
 
-  const handleExport = () => {
+  const handleExportCSV = () => {
+    const groupUsers = selectedGroup ? selectedGroup.users : users;
     const csvContent = "data:text/csv;charset=utf-8," + 
       "Prénom,Nom,Email,Rôle,Téléphone\n" + 
-      users.map(u => `${u.firstName},${u.lastName},${u.email},${u.role},${u.phone || ''}`).join("\n");
+      groupUsers.map(u => `${u.firstName},${u.lastName},${u.email},${u.role},${u.phone || ''}`).join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "utilisateurs.csv");
+    link.setAttribute("download", `utilisateurs_${selectedGroup ? selectedGroup.title : 'tous'}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportExcel = async () => {
+    const groupUsers = selectedGroup ? selectedGroup.users : users;
+    try {
+      const XLSX = await import('xlsx');
+      const data = groupUsers.map(u => ({
+        Prénom: u.firstName,
+        Nom: u.lastName,
+        Email: u.email,
+        Rôle: formatRole(u.role),
+        Téléphone: u.phone || '',
+        Classe: u.enrollments?.[0]?.class?.name || '',
+        École: u.school?.name || ''
+      }));
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Utilisateurs");
+      XLSX.writeFile(workbook, `utilisateurs_${selectedGroup ? selectedGroup.title : 'tous'}.xlsx`);
+    } catch (error) {
+      console.error("Erreur lors de l'export Excel", error);
+      alert("Erreur lors de la génération du fichier Excel.");
+    }
   };
 
   const fetchSchools = async () => {
@@ -260,7 +275,7 @@ const Users = () => {
   const getUserGroupImage = (type: string) => {
     if (type === 'admin') return 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&q=80&w=600';
     if (type === 'teacher') return 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&q=80&w=600';
-    if (type === 'class') return 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=600';
+    if (type === 'student') return 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=80&w=600';
     return 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=80&w=600';
   };
 
@@ -280,10 +295,16 @@ const Users = () => {
                         Retour aux groupes
                     </Button>
                 )}
-                <Button variant="outline" onClick={handleExport}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Exporter (CSV)
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={handleExportCSV} className="hidden sm:flex">
+                        <FileText className="w-4 h-4 mr-2" />
+                        CSV
+                    </Button>
+                    <Button variant="outline" onClick={handleExportExcel}>
+                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        Excel
+                    </Button>
+                </div>
                 <Button 
                     variant="primary"
                     onClick={openCreateModal}
@@ -323,12 +344,12 @@ const Users = () => {
                     <div className={`p-2.5 rounded-xl inline-flex mb-1 backdrop-blur-md shadow-lg ${
                         group.type === 'admin' ? 'bg-purple-500/80 text-white' :
                         group.type === 'teacher' ? 'bg-yellow-500/80 text-white' :
-                        group.type === 'class' ? 'bg-blue-500/80 text-white' :
+                        group.type === 'student' ? 'bg-blue-500/80 text-white' :
                         'bg-brand-sidebar text-brand-text border border-brand-border'
                     }`}>
                         {group.type === 'admin' && <UserCog className="w-5 h-5" />}
                         {group.type === 'teacher' && <GraduationCap className="w-5 h-5" />}
-                        {group.type === 'class' && <School className="w-5 h-5" />}
+                        {group.type === 'student' && <School className="w-5 h-5" />}
                         {group.type === 'other' && <UsersIcon className="w-5 h-5" />}
                     </div>
                 </div>
@@ -357,7 +378,7 @@ const Users = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-border bg-brand-card">
-                {selectedGroup?.users.map((u) => (
+                {paginatedUsers.map((u) => (
                   <tr key={u.id} className="hover:bg-brand-sidebar/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
@@ -413,6 +434,40 @@ const Users = () => {
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-brand-border bg-brand-sidebar/30 gap-4">
+              <div className="text-sm text-brand-text-muted">
+                Affichage de <span className="font-medium text-brand-text">{(currentPage - 1) * itemsPerPage + 1}</span> à <span className="font-medium text-brand-text">{Math.min(currentPage * itemsPerPage, selectedGroup?.users.length || 0)}</span> sur <span className="font-medium text-brand-text">{selectedGroup?.users.length}</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-sm bg-brand-card border border-brand-border rounded-lg hover:bg-brand-sidebar disabled:opacity-50 disabled:cursor-not-allowed text-brand-text transition-colors font-medium shadow-sm"
+                >
+                  Précédent
+                </button>
+                <div className="flex items-center gap-1 hidden sm:flex">
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`w-8 h-8 flex items-center justify-center text-sm font-medium rounded-lg transition-colors ${currentPage === i + 1 ? 'bg-brand-accent text-white shadow-md' : 'bg-brand-card border border-brand-border text-brand-text hover:bg-brand-sidebar'}`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 text-sm bg-brand-card border border-brand-border rounded-lg hover:bg-brand-sidebar disabled:opacity-50 disabled:cursor-not-allowed text-brand-text transition-colors font-medium shadow-sm"
+                >
+                  Suivant
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

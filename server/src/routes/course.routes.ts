@@ -37,14 +37,14 @@ router.get("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIG
 router.delete("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), deleteCourse);
 
 // Chapters
-router.post("/:courseId/chapters", requireRole([ROLES.ENSEIGNANT, ROLES.DIRECTEUR]), createChapter);
-router.put("/chapters/:id", requireRole([ROLES.ENSEIGNANT, ROLES.DIRECTEUR]), updateChapter);
-router.delete("/chapters/:id", requireRole([ROLES.ENSEIGNANT, ROLES.DIRECTEUR]), deleteChapter);
+router.post("/:courseId/chapters", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR]), createChapter);
+router.put("/chapters/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR]), updateChapter);
+router.delete("/chapters/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR]), deleteChapter);
 router.get("/:id/content", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getCourseChapters);
 
 // Material routes nested under course
-router.post("/:id/materials", requireRole([ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.single('file'), addMaterial);
+router.post("/:id/materials", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.single('file'), addMaterial);
 router.get("/:id/materials", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getMaterials);
-router.delete("/materials/:id", requireRole([ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), deleteMaterial);
+router.delete("/materials/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), deleteMaterial);
 
 export default router;

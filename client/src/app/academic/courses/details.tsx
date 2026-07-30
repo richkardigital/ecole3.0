@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api, { getFileUrl } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useForm } from 'react-hook-form';
-import { Book, FileText, Video, File, Link as LinkIcon, Plus, Trash2, FolderPlus, Award, Pencil } from 'lucide-react';
+import { Book, FileText, Video, File, Link as LinkIcon, Plus, Trash2, FolderPlus, Award, Pencil, ArrowLeft } from 'lucide-react';
 import Gradebook from '@/components/Gradebook';
 import QuizList from '@/components/QuizList';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -53,6 +53,7 @@ interface ChapterModel {
 
 const CourseDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [course, setCourse] = useState<CourseModel | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +138,7 @@ const CourseDetails = () => {
   const { register: registerChap, handleSubmit: handleSubmitChap, reset: resetChap } = useForm<{ title: string; content?: string }>();
   const { register: registerAssign, handleSubmit: handleSubmitAssign, reset: resetAssign, formState: { errors: errorsAssign } } = useForm<{ title: string; description?: string; dueDate: string; coefficient: number; file?: FileList; voiceNote?: FileList; correction?: FileList }>();
 
-  const isTeacher = user?.role === 'ENSEIGNANT' || user?.role === 'DIRECTEUR';
+  const isTeacher = user?.role === 'ENSEIGNANT' || user?.role === 'DIRECTEUR' || user?.role === 'SUPER_ADMIN';
 
   const selectedMatType = watchMat('type', 'PDF');
 
@@ -234,6 +235,7 @@ const CourseDetails = () => {
             // Mapping to ensure we have dates and content
             const chaptersWithDates = res.data.chapters.map((c: any) => ({
                 ...c,
+                materials: c.resources || [], // Map backend resources to frontend materials
                 createdAt: c.createdAt || new Date().toISOString() // Fallback if not returned
             }));
             setChapters(chaptersWithDates);
@@ -395,8 +397,17 @@ const CourseDetails = () => {
   if (error) return <div className="p-6 text-red-600 dark:text-red-400">{error}</div>;
   if (!course) return <div className="p-6 text-brand-text">Chargement...</div>;
 
+  const backPath = user?.role === 'SUPER_ADMIN' ? '/admin/courses' : user?.role === 'DIRECTEUR' ? '/directeur/courses' : '/enseignant/courses';
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link to={backPath} className="p-2 text-brand-text-muted hover:text-brand-text hover:bg-brand-sidebar rounded-lg transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+        </Link>
+        <h2 className="text-xl font-bold text-brand-text">Détails du Cours</h2>
+      </div>
+
       <div className="bg-brand-card p-6 rounded-xl shadow-sm border border-brand-border/50">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
             <div>
@@ -404,7 +415,7 @@ const CourseDetails = () => {
                 <Book className="w-8 h-8 text-brand-accent" />
                 {course.subject?.name}
                 </h1>
-                <p className="text-brand-text-muted mt-1">Classe: {course.class?.name} • Prof: {course.teacher?.firstName} {course.teacher?.lastName}</p>
+                <p className="text-brand-text-muted mt-1">École: <span className="font-semibold">{course.class?.school?.name || 'Non spécifié'}</span> • Classe: <span className="font-semibold">{course.class?.name}</span> • Professeur: <span className="font-semibold">{course.teacher?.firstName} {course.teacher?.lastName}</span></p>
             </div>
             {isTeacher && activeTab === 'CONTENT' && (
                     <div className="flex flex-wrap gap-2">
@@ -505,16 +516,6 @@ const CourseDetails = () => {
                         </div>
                         
                         <div className="p-6 space-y-4">
-                            {/* Course Info Header for each chapter as requested */}
-                            <div className="flex flex-wrap gap-4 text-sm text-brand-text-muted mb-4 pb-4 border-b border-brand-border/30">
-                                <div className="flex items-center gap-1">
-                                    <span className="font-semibold text-brand-text">Professeur:</span> {course.teacher.firstName} {course.teacher.lastName}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <span className="font-semibold text-brand-text">École:</span> {course.class.school?.name || "Non spécifié"}
-                                </div>
-                            </div>
-
                             {/* Content */}
                             {chapter.content && (
                                 <div className="prose prose-invert max-w-none mb-6">

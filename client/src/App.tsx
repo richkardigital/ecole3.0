@@ -52,6 +52,10 @@ import SchoolTypesPage from '@/app/admin/school-types/page';
 import NiveauxPage from '@/app/admin/niveaux/page';
 import SeecPage from '@/app/admin/seec/page';
 import AssignmentsPage from '@/app/academic/assignments/page';
+import GlobalAssignmentsPage from '@/app/admin/assignments/page';
+import NewGlobalAssignmentPage from '@/app/admin/assignments/new/page';
+import GlobalAssignmentDetailsPage from '@/app/admin/assignments/[id]/page';
+import EditGlobalAssignmentPage from '@/app/admin/assignments/[id]/edit/page';
 import ReportCards from '@/app/academic/report-cards/page';
 
 function App() {
@@ -110,8 +114,10 @@ function App() {
                     <Route path="/admin/users" element={<Users />} />
                     <Route path="/admin/courses" element={<Courses />} />
                     <Route path="/admin/courses/:id" element={<CourseDetails />} />
-                    <Route path="/admin/assignments" element={<AssignmentsPage />} />
-                    <Route path="/admin/assignments/:id" element={<AssignmentDetails />} />
+                    <Route path="/admin/assignments" element={<GlobalAssignmentsPage />} />
+                    <Route path="/admin/assignments/new" element={<NewGlobalAssignmentPage />} />
+                    <Route path="/admin/assignments/:id" element={<GlobalAssignmentDetailsPage />} />
+                    <Route path="/admin/assignments/:id/edit" element={<EditGlobalAssignmentPage />} />
                     <Route path="/admin/report-cards" element={<ReportCards />} />
                     <Route path="/admin/seec" element={<SeecPage />} />
                     <Route path="/admin/broadcast" element={<Broadcast />} />

@@ -66,8 +66,13 @@ export const getSubjects = async (req: AuthRequest, res: Response) => {
   try {
     const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
     const querySchoolId = req.query.schoolId as string | undefined;
+    const niveauId = req.query.niveauId as string | undefined;
 
     let whereClause: any = {};
+
+    if (niveauId) {
+      whereClause.courses = { some: { class: { niveauId } } };
+    }
 
     if (querySchoolId) {
       whereClause.schoolId = querySchoolId;
@@ -89,7 +94,7 @@ export const getSubjects = async (req: AuthRequest, res: Response) => {
       where: whereClause,
       include: {
         school: { select: { id: true, name: true, ville: true, code: true } },
-        _count: { select: { courses: true, grades: true } }
+        _count: { select: { courses: true } }
       },
       orderBy: { name: "asc" },
     });

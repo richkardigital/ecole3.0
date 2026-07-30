@@ -51,6 +51,12 @@ enum Gender {
   AUTRE
 }
 
+enum AssignmentType {
+  DEVOIR
+  PROJET
+  EXAMEN
+}
+
 // =============================================
 // TEACHING TYPE — Type d'enseignement
 // =============================================
@@ -142,6 +148,7 @@ model Niveau {
 
   classes   Class[]
   resources Resource[]
+  assignments Assignment[]
 
   @@unique([nom, schoolId])
   @@index([rang])
@@ -309,6 +316,7 @@ model Subject {
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 
   courses        Course[]
+  assignments    Assignment[]
   teacherClasses TeacherClass[]
 
   @@unique([name, schoolId])
@@ -454,16 +462,55 @@ model Assignment {
   correctionUrl String?
   voiceNoteUrl  String?
 
-  courseId String
-  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  type          AssignmentType @default(DEVOIR)
+
+  courseId String?
+  course  Course? @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  niveauId String?
+  niveau  Niveau? @relation(fields: [niveauId], references: [id], onDelete: Cascade)
+
+  subjectId String?
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   submissions Submission[]
   grades      Grade[]
+  questions   AssignmentQuestion[]
+
+  attachments String[] @default([])
+  published   Boolean  @default(false)
 
   createdAt DateTime @default(now())
 
   @@index([courseId])
+  @@index([niveauId])
+  @@index([subjectId])
   @@index([dueDate])
+}
+
+model AssignmentQuestion {
+  id            String   @id @default(uuid())
+  text          String
+  type          String   @default("MULTIPLE_CHOICE")
+  points        Int      @default(1)
+  
+  assignmentId  String
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  
+  options       AssignmentOption[]
+  
+  @@index([assignmentId])
+}
+
+model AssignmentOption {
+  id         String   @id @default(uuid())
+  text       String
+  isCorrect  Boolean  @default(false)
+  
+  questionId String
+  question   AssignmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@index([questionId])
 }
 
 // =============================================
