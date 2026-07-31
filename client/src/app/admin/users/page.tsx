@@ -25,6 +25,14 @@ interface User {
         name: string;
     }
   }[];
+  courses?: {
+      class: { name: string }
+  }[];
+  teacherClasses?: {
+    class: {
+      name: string;
+    }
+  }[];
 }
 
 interface UserGroup {
