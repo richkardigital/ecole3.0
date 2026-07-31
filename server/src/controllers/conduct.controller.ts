@@ -25,8 +25,18 @@ export const createConduct = async (req: AuthRequest, res: Response) => {
         }
     }
 
-    const conduct = await prisma.conduct.create({
-      data: {
+    const conduct = await prisma.conduct.upsert({
+      where: {
+        studentId_termId: {
+          studentId,
+          termId
+        }
+      },
+      update: {
+        appreciation,
+        comment,
+      },
+      create: {
         studentId,
         termId,
         appreciation,

@@ -69,6 +69,30 @@ export const updateClass = async (req: Request, res: Response) => {
   }
 };
 
+export const getClassById = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const cls = await prisma.class.findUnique({
+      where: { id: String(id) },
+      include: {
+        school: true,
+        niveau: true,
+        _count: {
+          select: { enrollments: true, courses: true },
+        },
+      },
+    });
+
+    if (!cls) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    res.json(cls);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching class", error });
+  }
+};
+
 export const getClasses = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user;
@@ -100,6 +124,8 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
     const classes = await prisma.class.findMany({
       where,
       include: {
+        niveau: true,
+        school: true,
         _count: {
           select: { enrollments: true, courses: true },
         },
@@ -239,13 +265,20 @@ export const importStudents = async (req: AuthRequest, res: Response) => {
             // Generate email: prenom.nom@ecole.com (simplified)
             const cleanFirstName = firstName.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
             const cleanLastName = lastName.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-            const baseEmail = `${cleanFirstName}.${cleanLastName}@ecole.com`;
+            let baseEmail = row['Email'] || row['email'] || row['Email Ecole'] || `${cleanFirstName}.${cleanLastName}@ecole.com`;
             
             // Check if user exists
             let user = await prisma.user.findUnique({ where: { email: baseEmail } });
             
             if (!user) {
-                 const hashedPassword = await bcrypt.hash("123456", 10);
+                 // Generate random password
+                 const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+                 let generatedPassword = "";
+                 for (let i = 0; i < 10; i++) {
+                     generatedPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+                 }
+                 
+                 const hashedPassword = await bcrypt.hash(generatedPassword, 10);
                  try {
                     user = await prisma.user.create({
                         data: {
@@ -258,9 +291,13 @@ export const importStudents = async (req: AuthRequest, res: Response) => {
                         }
                     });
                     createdCount++;
+                    
+                    // Simulate email sending
+                    console.log(`[EMAIL ENVOYÉ] À : ${baseEmail}`);
+                    console.log(`[EMAIL ENVOYÉ] Sujet : Bienvenue sur École Connectée`);
+                    console.log(`[EMAIL ENVOYÉ] Message : Bonjour ${firstName},\nVotre compte a été créé. Voici vos identifiants :\nEmail: ${baseEmail}\nMot de passe: ${generatedPassword}`);
+                    
                  } catch (e) {
-                     // If duplicate email collision happens concurrently or logic fails, skip or handle
-                     // For now, if creation fails (e.g. unique constraint), we try to find again or skip
                      console.log(`Skipping ${baseEmail} due to error`, e);
                      continue;
                  }

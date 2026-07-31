@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -12,6 +12,8 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
+  matricule?: string | null;
+  avatarUrl?: string | null;
   role: string;
   phone?: string;
   schoolId?: string | null;
@@ -46,10 +48,11 @@ const Users = () => {
   const [isEditConfirmModalOpen, setIsEditConfirmModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>(null);
-  const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitLoading, setIsSubmitLoading] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, reset } = useForm();
   
   const [schools, setSchools] = useState<any[]>([]);
@@ -167,6 +170,96 @@ const Users = () => {
     }
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const XLSX = await import('xlsx');
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+          if (json.length === 0) {
+             alert("Le fichier est vide.");
+             return;
+          }
+
+          setIsSubmitLoading(true);
+          let successCount = 0;
+          let errorCount = 0;
+
+          // Parcourir chaque ligne et créer l'utilisateur
+          for (const row of json) {
+             try {
+                // Mapping des colonnes (Prénom, Nom, Email, etc.)
+                // On peut s'attendre à ce que les colonnes matchent l'export
+                let roleToAssign = 'APPRENANT';
+                const rowRole = row['Rôle'] || row['role'] || row['Role'];
+                if (rowRole) {
+                    if (rowRole.toUpperCase().includes('SUPER ADMIN')) roleToAssign = 'SUPER_ADMIN';
+                    else if (rowRole.toUpperCase().includes('DIRECTEUR')) roleToAssign = 'DIRECTEUR';
+                    else if (rowRole.toUpperCase().includes('EDUCATEUR') || rowRole.toUpperCase().includes('ÉDUCATEUR')) roleToAssign = 'EDUCATEUR';
+                    else if (rowRole.toUpperCase().includes('ENSEIGNANT')) roleToAssign = 'ENSEIGNANT';
+                }
+
+                if (currentUser?.role === 'DIRECTEUR' && roleToAssign === 'SUPER_ADMIN') {
+                   throw new Error("Directeur ne peut pas créer de super admin");
+                }
+                if (currentUser?.role === 'EDUCATEUR' && (roleToAssign === 'SUPER_ADMIN' || roleToAssign === 'DIRECTEUR' || roleToAssign === 'EDUCATEUR')) {
+                   throw new Error("Educateur ne peut créer que des enseignants et apprenants");
+                }
+
+                const payload = {
+                    firstName: row['Prénom'] || row['Prenom'] || row['firstName'] || 'Inconnu',
+                    lastName: row['Nom'] || row['lastName'] || 'Inconnu',
+                    email: row['Email'] || row['email'] || `user${Date.now()}${Math.floor(Math.random()*1000)}@ecole.com`,
+                    role: roleToAssign,
+                    phone: row['Téléphone'] || row['Telephone'] || row['phone'] || '',
+                    password: 'password123', // Default password
+                };
+
+                const formDataPayload = new FormData();
+                Object.keys(payload).forEach(key => {
+                    formDataPayload.append(key, (payload as any)[key]);
+                });
+
+                if (currentUser?.role === 'DIRECTEUR' && currentUser.schoolId) { 
+                    formDataPayload.append('schoolId', currentUser.schoolId);
+                }
+
+                await api.post('/users', formDataPayload, { headers: { 'Content-Type': 'multipart/form-data' } });
+                successCount++;
+             } catch (err) {
+                 console.error("Erreur ajout utilisateur:", err);
+                 errorCount++;
+             }
+          }
+
+          alert(`Import terminé. Succès: ${successCount}. Erreurs: ${errorCount}.`);
+          fetchUsers();
+        } catch (error) {
+          console.error("Erreur lors de la lecture du fichier Excel", error);
+          alert("Erreur lors de la lecture du fichier Excel.");
+        } finally {
+            setIsSubmitLoading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+       console.error("Erreur d'import", error);
+       alert("Erreur lors du chargement de l'importeur Excel.");
+    }
+  };
+
   const fetchSchools = async () => {
     if (currentUser?.role === 'SUPER_ADMIN') {
         try {
@@ -185,10 +278,12 @@ const Users = () => {
 
   const handleEditClick = (user: User) => {
     setEditingUser(user);
+    setSelectedAvatar(null);
     reset({
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        matricule: user.matricule || '',
         role: user.role,
         schoolId: user.schoolId || '',
     });
@@ -216,7 +311,9 @@ const Users = () => {
   const confirmEdit = async () => {
     if (!editingUser || !formData) return;
     try {
-        await api.put(`/users/${editingUser.id}`, formData);
+        await api.put(`/users/${editingUser.id}`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
         fetchUsers();
         setIsModalOpen(false);
         setEditingUser(null);
@@ -233,11 +330,20 @@ const Users = () => {
     setEditingUser(null);
     setSubmitError(null);
     setShowPassword(false);
+    setSelectedAvatar(null);
+    
+    let defaultRole = 'APPRENANT';
+    if (selectedGroupId === 'super_admin') defaultRole = 'SUPER_ADMIN';
+    else if (selectedGroupId === 'directeur') defaultRole = 'DIRECTEUR';
+    else if (selectedGroupId === 'educateur') defaultRole = 'EDUCATEUR';
+    else if (selectedGroupId === 'enseignant') defaultRole = 'ENSEIGNANT';
+    
     reset({
         firstName: '',
         lastName: '',
         email: '',
-        role: 'APPRENANT',
+        matricule: '',
+        role: defaultRole,
         password: '',
         schoolId: ''
     });
@@ -252,14 +358,26 @@ const Users = () => {
              data.schoolId = currentUser.schoolId;
         }
 
+        const formDataPayload = new FormData();
+        Object.keys(data).forEach(key => {
+            if (data[key] !== undefined && data[key] !== null && data[key] !== '') {
+               formDataPayload.append(key, data[key]);
+            }
+        });
+        if (selectedAvatar) {
+            formDataPayload.append('avatar', selectedAvatar);
+        }
+
         if (editingUser) {
             if (!data.password) {
-                delete data.password;
+                formDataPayload.delete('password');
             }
-            setFormData(data);
+            setFormData(formDataPayload);
             setIsEditConfirmModalOpen(true);
         } else {
-            await api.post('/users', data);
+            await api.post('/users', formDataPayload, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
             setIsModalOpen(false);
             reset();
             fetchUsers();
@@ -279,6 +397,136 @@ const Users = () => {
     return 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=80&w=600';
   };
 
+  if (isModalOpen) {
+    return (
+      <div className="space-y-6 animate-fade-in-up">
+        <PageHeader 
+          title={editingUser ? 'Modifier l\'utilisateur' : 'Créer un utilisateur'}
+          subtitle="Remplissez les informations de l'utilisateur ci-dessous"
+          action={
+            <Button 
+              variant="secondary" 
+              onClick={() => setIsModalOpen(false)}
+              leftIcon={<ArrowLeft className="w-4 h-4" />}
+            >
+              Retour à la liste
+            </Button>
+          }
+        />
+        <div className="bg-brand-card p-6 md:p-10 rounded-2xl shadow-xl border border-brand-border">
+          {submitError && (
+            <div className="bg-red-500/10 text-red-400 p-4 rounded-xl mb-6 text-sm border border-red-500/20 flex items-start gap-3">
+              <UsersIcon className="w-5 h-5 shrink-0 mt-0.5" />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-2">Prénom</label>
+                <input {...register('firstName', { required: true })} className="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-2">Nom</label>
+                <input {...register('lastName', { required: true })} className="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50" />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-2">Matricule (Optionnel)</label>
+                <input {...register('matricule')} className="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50" placeholder="Ex: MAT-2023-001" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-2">Email</label>
+                <input {...register('email', { required: true })} type="email" className="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-2">Photo de Profil (Optionnel)</label>
+                <input type="file" accept="image/*" onChange={(e) => setSelectedAvatar(e.target.files?.[0] || null)} className="w-full text-sm text-brand-text-muted file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-brand-sidebar file:text-brand-accent hover:file:bg-brand-border transition-all cursor-pointer" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-2">Mot de passe</label>
+                <div className="relative">
+                    <input 
+                        {...register('password', { required: !editingUser, minLength: 6 })} 
+                        type={showPassword ? "text" : "password"} 
+                        className="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50 pr-12" 
+                        placeholder={editingUser ? "Laisser vide pour ne pas changer" : "••••••••"} 
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-text-muted hover:text-white p-1 rounded transition-colors"
+                    >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-2">Rôle</label>
+                <select {...register('role', { required: true })} className="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text appearance-none">
+                    <option value="APPRENANT">Élève</option>
+                    <option value="ENSEIGNANT">Enseignant</option>
+                    {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'DIRECTEUR') && (
+                        <>
+                            <option value="EDUCATEUR">Éducateur</option>
+                        </>
+                    )}
+                    {currentUser?.role === 'SUPER_ADMIN' && (
+                        <>
+                            <option value="DIRECTEUR">Directeur (Admin)</option>
+                            <option value="SUPER_ADMIN">Super Admin</option>
+                        </>
+                    )}
+                </select>
+              </div>
+
+              {currentUser?.role === 'SUPER_ADMIN' && (
+                  <div>
+                    <label className="block text-sm font-medium text-brand-text-muted mb-2">École d'affectation</label>
+                    <select {...register('schoolId')} className="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text appearance-none">
+                        <option value="">Aucune (Global)</option>
+                        {schools.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                    </select>
+                  </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-brand-border">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsModalOpen(false)}
+                className="px-6 py-2.5"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={isSubmitLoading}
+                className="px-6 py-2.5"
+              >
+                {editingUser ? 'Enregistrer les modifications' : 'Créer le compte'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader 
@@ -296,13 +544,20 @@ const Users = () => {
                     </Button>
                 )}
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleExportCSV} className="hidden sm:flex">
-                        <FileText className="w-4 h-4 mr-2" />
-                        CSV
-                    </Button>
-                    <Button variant="outline" onClick={handleExportExcel}>
+                    <input 
+                        type="file" 
+                        accept=".xlsx, .xls" 
+                        ref={fileInputRef}
+                        style={{ display: 'none' }}
+                        onChange={handleImportExcel}
+                    />
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} isLoading={isSubmitLoading}>
                         <FileSpreadsheet className="w-4 h-4 mr-2" />
-                        Excel
+                        Importer Excel
+                    </Button>
+                    <Button variant="outline" onClick={handleExportExcel} className="hidden sm:flex">
+                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        Exporter Excel
                     </Button>
                 </div>
                 <Button 
@@ -372,8 +627,12 @@ const Users = () => {
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-brand-text-muted uppercase tracking-wider">Identité</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-brand-text-muted uppercase tracking-wider">Rôle</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-brand-text-muted uppercase tracking-wider">Classe</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-brand-text-muted uppercase tracking-wider">École</th>
+                  {selectedGroupId !== 'super_admin' && selectedGroupId !== 'directeur' && selectedGroupId !== 'educateur' && (
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-brand-text-muted uppercase tracking-wider">Classe</th>
+                  )}
+                  {selectedGroupId !== 'super_admin' && (
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-brand-text-muted uppercase tracking-wider">École</th>
+                  )}
                   <th className="px-6 py-4 text-right text-xs font-semibold text-brand-text-muted uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -382,12 +641,17 @@ const Users = () => {
                   <tr key={u.id} className="hover:bg-brand-sidebar/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-brand-sidebar border border-brand-border flex items-center justify-center font-bold text-brand-accent text-xs">
-                              {u.firstName[0]}{u.lastName[0]}
-                          </div>
+                          {u.avatarUrl ? (
+                              <img src={u.avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full border border-brand-border object-cover" />
+                          ) : (
+                              <div className="w-8 h-8 rounded-full bg-brand-sidebar border border-brand-border flex items-center justify-center font-bold text-brand-accent text-xs">
+                                  {u.firstName[0]}{u.lastName[0]}
+                              </div>
+                          )}
                           <div>
                               <div className="text-sm font-bold text-brand-text">{u.firstName} {u.lastName}</div>
                               <div className="text-xs text-brand-text-muted">{u.email}</div>
+                              {u.matricule && <div className="text-[10px] text-brand-accent font-mono mt-0.5">Matricule: {u.matricule}</div>}
                           </div>
                       </div>
                     </td>
@@ -396,12 +660,25 @@ const Users = () => {
                         {formatRole(u.role)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-brand-text-muted">{u.enrollments?.[0]?.class?.name || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-brand-text-muted">{u.school?.name || '-'}</div>
-                    </td>
+                    {selectedGroupId !== 'super_admin' && selectedGroupId !== 'directeur' && selectedGroupId !== 'educateur' && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-brand-text-muted">
+                            {u.role === 'APPRENANT' 
+                                ? u.enrollments?.[0]?.class?.name || '-' 
+                                : u.role === 'ENSEIGNANT' 
+                                    ? Array.from(new Set([
+                                        ...(u.teacherClasses || []).map((tc: any) => tc.class?.name),
+                                        ...(u.courses || []).map((c: any) => c.class?.name)
+                                      ].filter(Boolean))).join(', ') || '-'
+                                    : '-'}
+                        </div>
+                      </td>
+                    )}
+                    {selectedGroupId !== 'super_admin' && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-brand-text-muted">{u.school?.name || '-'}</div>
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         <div className="flex justify-end gap-2">
                             {(currentUser?.role === 'SUPER_ADMIN' || 
@@ -468,107 +745,6 @@ const Users = () => {
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="relative bg-brand-card p-6 rounded-2xl w-full max-w-md shadow-2xl border border-brand-border animate-fade-in-up">
-            <h2 className="text-xl font-bold mb-6 text-brand-text">{editingUser ? 'Modifier l\'utilisateur' : 'Créer un utilisateur'}</h2>
-            
-            {submitError && (
-              <div className="bg-red-500/10 text-red-400 p-3 rounded-lg mb-4 text-sm border border-red-500/20 flex items-start gap-2">
-                <UsersIcon className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{submitError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Prénom</label>
-                  <input {...register('firstName', { required: true })} className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Nom</label>
-                  <input {...register('lastName', { required: true })} className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50" />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Email</label>
-                <input {...register('email', { required: true })} type="email" className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Mot de passe</label>
-                <div className="relative">
-                    <input 
-                        {...register('password', { required: !editingUser, minLength: 6 })} 
-                        type={showPassword ? "text" : "password"} 
-                        className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50 pr-10" 
-                        placeholder={editingUser ? "Laisser vide pour ne pas changer" : "••••••••"} 
-                    />
-                    <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-text-muted hover:text-white p-1 rounded transition-colors"
-                    >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Rôle</label>
-                <select {...register('role', { required: true })} className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text appearance-none">
-                    <option value="APPRENANT">Élève</option>
-                    <option value="ENSEIGNANT">Enseignant</option>
-                    {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'DIRECTEUR') && (
-                        <>
-                            <option value="EDUCATEUR">Éducateur</option>
-                        </>
-                    )}
-                    {currentUser?.role === 'SUPER_ADMIN' && (
-                        <>
-                            <option value="DIRECTEUR">Directeur (Admin)</option>
-                            <option value="SUPER_ADMIN">Super Admin</option>
-                        </>
-                    )}
-                </select>
-              </div>
-
-              {currentUser?.role === 'SUPER_ADMIN' && (
-                  <div>
-                    <label className="block text-sm font-medium text-brand-text-muted mb-1.5">École d'affectation</label>
-                    <select {...register('schoolId')} className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text appearance-none">
-                        <option value="">Aucune (Global)</option>
-                        {schools.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                    </select>
-                  </div>
-              )}
-
-              <div className="flex justify-end gap-3 mt-8">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  isLoading={isSubmitLoading}
-                >
-                  {editingUser ? 'Enregistrer' : 'Créer le compte'}
-                </Button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
 

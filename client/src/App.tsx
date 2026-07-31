@@ -16,11 +16,13 @@ import ClassDetailsPage from '@/app/admin/classes/[id]/page';
 import EditClassPage from '@/app/admin/classes/[id]/edit/page';
 import Subjects from '@/app/admin/subjects/page';
 import AcademicYears from '@/app/admin/academic-years/page';
+import AcademicYearSchoolsPage from '@/app/admin/academic-years/[id]/schools/page';
+import AcademicYearDetailsPage from '@/app/admin/academic-years/[id]/page';
 import Courses from '@/app/academic/courses/page';
 import CourseDetails from '@/app/academic/courses/details';
 import AssignmentDetails from '@/app/academic/assignments/details';
-import StudentReportCards from '@/app/academic/report-cards/page';
 import Library from '@/app/academic/library/page';
+import AdminLibrary from '@/app/admin/library/page';
 import SharedResources from '@/app/academic/shared-resources/page';
 import Agenda from '@/app/academic/agenda/page';
 import Chat from '@/app/communication/chat/page';
@@ -50,6 +52,7 @@ import ForgotPasswordPage from '@/app/auth/forgot-password/page';
 import TeachingTypesPage from '@/app/admin/teaching-types/page';
 import SchoolTypesPage from '@/app/admin/school-types/page';
 import NiveauxPage from '@/app/admin/niveaux/page';
+import NiveauDetailsPage from '@/app/admin/niveaux/[id]/page';
 import SeecPage from '@/app/admin/seec/page';
 import AssignmentsPage from '@/app/academic/assignments/page';
 import GlobalAssignmentsPage from '@/app/admin/assignments/page';
@@ -104,9 +107,12 @@ function App() {
                     <Route path="/admin/teaching-types" element={<TeachingTypesPage />} />
                     <Route path="/admin/school-types" element={<SchoolTypesPage />} />
                     <Route path="/admin/academic-years" element={<AcademicYears />} />
+                    <Route path="/admin/academic-years/:id" element={<AcademicYearDetailsPage />} />
+                    <Route path="/admin/academic-years/:id/schools" element={<AcademicYearSchoolsPage />} />
                     <Route path="/admin/niveaux" element={<NiveauxPage />} />
+                    <Route path="/admin/niveaux/:id" element={<NiveauDetailsPage />} />
                     <Route path="/admin/subjects" element={<Subjects />} />
-                    <Route path="/admin/library" element={<Library />} />
+                    <Route path="/admin/library" element={<AdminLibrary />} />
                     <Route path="/admin/classes" element={<Classes />} />
                     <Route path="/admin/classes/new" element={<NewClassPage />} />
                     <Route path="/admin/classes/:id" element={<ClassDetailsPage />} />
@@ -125,7 +131,7 @@ function App() {
                     <Route path="/admin/absences" element={<Absences />} />
                     <Route path="/admin/conduct" element={<Conduct />} />
                     <Route path="/admin/chat" element={<Chat />} />
-                    <Route path="/admin/forum" element={<div>Forum (À venir)</div>} />
+                    <Route path="/admin/forum" element={<Forum />} />
                     <Route path="/admin/agenda" element={<Agenda />} />
                     <Route path="/admin/settings" element={<Settings />} />
                   </Route>
@@ -148,7 +154,7 @@ function App() {
                     <Route path="/directeur/broadcast" element={<Broadcast />} />
                     <Route path="/directeur/news" element={<News />} />
                     <Route path="/directeur/chat" element={<Chat />} />
-                    <Route path="/directeur/forum" element={<div>Forum (À venir)</div>} />
+                    <Route path="/directeur/forum" element={<Forum />} />
                     <Route path="/directeur/shared-resources" element={<SharedResources />} />
                     <Route path="/directeur/agenda" element={<Agenda />} />
                     <Route path="/directeur/settings" element={<Settings />} />
@@ -168,7 +174,7 @@ function App() {
                     <Route path="/enseignant/library" element={<Library />} />
                     <Route path="/enseignant/report-cards" element={<ReportCards />} />
                     <Route path="/enseignant/chat" element={<Chat />} />
-                    <Route path="/enseignant/forum" element={<div>Forum (À venir)</div>} />
+                    <Route path="/enseignant/forum" element={<Forum />} />
                     <Route path="/enseignant/shared-resources" element={<SharedResources />} />
                     <Route path="/enseignant/settings" element={<Settings />} />
                   </Route>
@@ -201,7 +207,7 @@ function App() {
                     <Route path="news" element={<News />} />
                     <Route path="absences" element={<Absences />} />
                     <Route path="conduct" element={<Conduct />} />
-                    <Route path="library" element={<Library />} />
+                    <Route path="library" element={<AdminLibrary />} />
                     
                     {/* Académique */}
                     <Route path="courses" element={<Courses />} />
@@ -216,7 +222,7 @@ function App() {
 
                     {/* Communication & Quiz */}
                     <Route path="chat" element={<Chat />} />
-                    <Route path="forum" element={<div>Forum (À venir)</div>} />
+                    <Route path="forum" element={<Forum />} />
                     <Route path="meetings" element={<Meetings />} />
                     <Route path="quizzes/:id" element={<QuizTake />} />
                     <Route path="quizzes/:id/attempts" element={<QuizAttemptsList />} />

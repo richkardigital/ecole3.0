@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { BookOpen, ArrowLeft, Paperclip, CheckCircle2, Clock, Check } from 'lucide-react';
+import { BookOpen, ArrowLeft, Paperclip, CheckCircle2, Clock, Check, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';

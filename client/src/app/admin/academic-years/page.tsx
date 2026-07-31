@@ -6,6 +6,7 @@ import {
   Plus, Calendar, ChevronDown, ChevronUp, Trash2, Edit2, Eye, Search,
   Power, CheckCircle2, XCircle, Star, Clock, Archive, Building2, Code
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -34,7 +35,7 @@ interface AcademicYearModel {
   endDate: string;
   isCurrent: boolean;
   isActive: boolean;
-  status: 'EN_COURS' | 'ACHEVE';
+  status: 'CREE' | 'EN_COURS' | 'ACHEVE';
   schools?: SchoolModel[];
   terms: TermModel[];
   _count?: { classes: number };
@@ -45,19 +46,16 @@ type FormData = { name: string; startDate: string; endDate: string; isCurrent: b
 export default function AcademicYears() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const navigate = useNavigate();
 
   const [years, setYears] = useState<AcademicYearModel[]>([]);
   const [schools, setSchools] = useState<SchoolModel[]>([]);
-  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'EN_COURS' | 'ACHEVE'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'CREE' | 'EN_COURS' | 'ACHEVE'>('ALL');
 
   // Year modals
   const [isYearModalOpen, setIsYearModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingYear, setEditingYear] = useState<AcademicYearModel | null>(null);
-  const [viewingYear, setViewingYear] = useState<AcademicYearModel | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [yearToDelete, setYearToDelete] = useState<AcademicYearModel | null>(null);
 
@@ -87,9 +85,7 @@ export default function AcademicYears() {
   const fetchYears = async () => {
     try {
       setLoading(true);
-      const url = isSuperAdmin && selectedSchoolFilter !== 'ALL' 
-        ? `/academic/years?schoolId=${selectedSchoolFilter}`
-        : '/academic/years';
+      const url = '/academic/years';
       const response = await api.get(url);
       setYears(response.data);
     } catch (error) {
@@ -113,7 +109,7 @@ export default function AcademicYears() {
   useEffect(() => {
     fetchYears();
     fetchSchools();
-  }, [selectedSchoolFilter]);
+  }, []);
 
   const generateSlug = (name: string) =>
     name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -142,20 +138,13 @@ export default function AcademicYears() {
       startDate: new Date(year.startDate).toISOString().split('T')[0],
       endDate: new Date(year.endDate).toISOString().split('T')[0],
       isCurrent: year.isCurrent,
-      schoolIds: year.schools?.map(s => s.id) || [],
     });
     setFormError(null);
     setIsYearModalOpen(true);
   };
 
-  const openViewYearModal = async (year: AcademicYearModel) => {
-    setViewingYear(year);
-    setIsViewModalOpen(true);
-    try {
-      const res = await api.get(`/academic/years/${year.id}`);
-      setViewingYear(res.data);
-    } catch { /* keep current */ }
-  };
+
+
 
   const onSubmitYear = async (data: FormData) => {
     if (!data.name.trim()) { setFormError("Le nom de l'année scolaire est requis."); return; }
@@ -192,28 +181,28 @@ export default function AcademicYears() {
     }
   };
 
-  const handleToggleStatus = async (year: AcademicYearModel) => {
-    try {
-      const res = await api.patch(`/academic/years/${year.id}/toggle-status`);
-      setYears(prev => prev.map(y => y.id === year.id ? res.data : y));
-      showToast(res.data.status === 'EN_COURS' ? `"${year.name}" marquée En cours.` : `"${year.name}" marquée Achevée.`);
-    } catch { showToast("Erreur lors du changement de statut", 'error'); }
-  };
-
   const handleToggleActive = async (year: AcademicYearModel) => {
     try {
-      const res = await api.patch(`/academic/years/${year.id}/toggle-active`);
-      setYears(prev => prev.map(y => y.id === year.id ? res.data : y));
-      showToast(res.data.isActive ? `"${year.name}" activée.` : `"${year.name}" désactivée.`);
+      await api.patch(`/academic/years/${year.id}/toggle-active`);
+      showToast(year.status !== 'EN_COURS' ? `"${year.name}" activée.` : `"${year.name}" inactivée.`);
+      fetchYears(); // Fetch to get updated list and deactivated years
     } catch { showToast("Erreur lors du changement d'activation", 'error'); }
+  };
+
+  const handleToggleComplete = async (year: AcademicYearModel) => {
+    try {
+      await api.patch(`/academic/years/${year.id}/toggle-complete`);
+      showToast(year.status !== 'ACHEVE' ? `"${year.name}" achevée.` : `"${year.name}" rouverte.`);
+      fetchYears(); // Fetch to get updated list
+    } catch { showToast("Erreur lors de la clôture", 'error'); }
   };
 
   const handleSetCurrent = async (year: AcademicYearModel) => {
     try {
-      const res = await api.patch(`/academic/years/${year.id}/set-current`);
-      setYears(prev => prev.map(y => y.id === year.id ? { ...res.data } : { ...y, isCurrent: false }));
+      await api.patch(`/academic/years/${year.id}/set-current`);
       showToast(`"${year.name}" est désormais l'année en cours.`);
-    } catch { showToast("Erreur", 'error'); }
+      fetchYears(); // Fetch to get updated list
+    } catch { showToast("Erreur lors du changement d'année en cours", 'error'); }
   };
 
   // ─── Term CRUD ───
@@ -269,11 +258,8 @@ export default function AcademicYears() {
 
   // ─── Filters ───
   const filteredYears = years.filter(y => {
-    const matchSearch = y.name.toLowerCase().includes(search.toLowerCase()) || 
-      generateSlug(y.name).includes(search.toLowerCase()) ||
-      (y.school?.name && y.school.name.toLowerCase().includes(search.toLowerCase()));
     const matchStatus = statusFilter === 'ALL' || y.status === statusFilter;
-    return matchSearch && matchStatus;
+    return matchStatus;
   });
 
   return (
@@ -298,37 +284,7 @@ export default function AcademicYears() {
         </Button>
       </PageHeader>
 
-      {/* Controls Bar */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-        
-        <div className="flex items-center gap-3 w-full md:w-auto flex-1">
-          {/* Search */}
-          <div className="relative flex-1 md:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Rechercher par nom, slug, école..."
-              className="w-full pl-10 pr-4 py-2.5 text-xs text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-medium"
-            />
-          </div>
-
-          {/* School filter for Super Admin */}
-          {isSuperAdmin && schools.length > 0 && (
-            <div className="relative">
-              <select
-                value={selectedSchoolFilter}
-                onChange={e => setSelectedSchoolFilter(e.target.value)}
-                className="px-3.5 py-2.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-250 rounded-xl outline-none cursor-pointer focus:border-emerald-500"
-              >
-                <option value="ALL">Toutes les écoles</option>
-                {schools.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-
+      <div className="flex flex-col md:flex-row items-center justify-end gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
         {/* Status Filter Pills */}
         <div className="flex items-center gap-1.5 w-full md:w-auto justify-end">
           {[
@@ -400,11 +356,15 @@ export default function AcademicYears() {
 
                       {/* School for Super Admin */}
                       {isSuperAdmin && (
-                        <td className="py-4 px-4 text-xs font-semibold text-slate-700">
-                          <span className="inline-flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200" title={year.schools?.map(s => s.name).join(', ')}>
-                            <Building2 className="w-3 h-3 text-slate-500" />
-                            {year.schools?.length ? `${year.schools.length} école(s)` : 'Aucune'}
-                          </span>
+                        <td className="py-4 px-4">
+                          <button 
+                            onClick={() => navigate(`/admin/academic-years/${year.id}/schools`)}
+                            className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 transition-colors px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 cursor-pointer"
+                            title="Gérer les écoles"
+                          >
+                            <Building2 className="w-3 h-3 text-emerald-600" />
+                            {year.schools?.length ? `${year.schools.length} école(s)` : 'Ajouter écoles'}
+                          </button>
                         </td>
                       )}
 
@@ -435,10 +395,11 @@ export default function AcademicYears() {
                       {/* Status */}
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-1.5">
-                          <Badge variant={year.status === 'EN_COURS' ? 'success' : 'neutral'}>
-                            {year.status === 'EN_COURS' ? 'En cours' : 'Achevée'}
-                          </Badge>
-                          {!year.isActive && (
+                          {year.status === 'ACHEVE' ? (
+                            <Badge variant="neutral">Achevée</Badge>
+                          ) : year.isActive ? (
+                            <Badge variant="success">Active</Badge>
+                          ) : (
                             <Badge variant="danger">Inactive</Badge>
                           )}
                         </div>
@@ -447,29 +408,36 @@ export default function AcademicYears() {
                       {/* Actions */}
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openViewYearModal(year)} className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors" title="Voir">
+                          <button onClick={() => navigate(`/admin/academic-years/${year.id}`)} className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors" title="Voir">
                             <Eye className="w-4 h-4" />
                           </button>
                           <button onClick={() => openEditYearModal(year)} className="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Éditer">
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button onClick={() => handleToggleStatus(year)}
-                            className={`p-2 rounded-lg transition-colors ${year.status === 'EN_COURS' ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
-                            title={year.status === 'EN_COURS' ? 'Marquer Achevée' : 'Reprendre En cours'}
-                          >
-                            {year.status === 'EN_COURS' ? <Archive className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                          </button>
+                          
+                          {/* Activer / Inactiver */}
                           <button onClick={() => handleToggleActive(year)}
                             className={`p-2 rounded-lg transition-colors ${year.isActive ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
-                            title={year.isActive ? 'Désactiver' : 'Activer'}
+                            title={year.isActive ? 'Inactiver' : 'Activer'}
                           >
                             <Power className="w-4 h-4" />
                           </button>
+                          
+                          {/* Définir comme Année en cours */}
                           {!year.isCurrent && (
                             <button onClick={() => handleSetCurrent(year)} className="p-2 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors" title="Définir comme année en cours">
                               <Star className="w-4 h-4" />
                             </button>
                           )}
+
+                          {/* Achever / Inachever */}
+                          <button onClick={() => handleToggleComplete(year)}
+                            className={`p-2 rounded-lg transition-colors ${year.status === 'ACHEVE' ? 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'}`}
+                            title={year.status === 'ACHEVE' ? 'Rouvrir (Inachever)' : 'Achever'}
+                          >
+                            <Archive className="w-4 h-4" />
+                          </button>
+
                           <button onClick={() => { setYearToDelete(year); setIsDeleteModalOpen(true); }} className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Supprimer">
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -555,25 +523,7 @@ export default function AcademicYears() {
             </div>
           )}
 
-          {/* School Selection for Super Admin */}
-          {isSuperAdmin && (
-            <div>
-              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                Établissements scolaires <span className="text-emerald-600">*</span>
-              </label>
-              <select
-                multiple
-                {...registerYear('schoolIds')}
-                className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer h-32"
-              >
-                {schools.map(s => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.ville || 'Abidjan'})</option>
-                ))}
-              </select>
-              <p className="text-[10px] text-slate-500 mt-1">Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs écoles.</p>
-            </div>
-          )}
-
+          {/* School Selection for Super Admin - REMOVED from here */}
           <div>
             <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
               Libellé / Nom <span className="text-emerald-600">*</span>
@@ -638,85 +588,6 @@ export default function AcademicYears() {
         </form>
       </Modal>
 
-      {/* ───── MODAL: VIEW YEAR DETAILS ───── */}
-      {viewingYear && (
-        <Modal
-          isOpen={isViewModalOpen}
-          onClose={() => setIsViewModalOpen(false)}
-          title="Détails de l'année scolaire"
-          size="md"
-          accentColor="cyan"
-          footer={<Button variant="secondary" onClick={() => setIsViewModalOpen(false)}>Fermer</Button>}
-        >
-          <div className="space-y-5">
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant={viewingYear.status === 'EN_COURS' ? 'success' : 'neutral'}>
-                    {viewingYear.status === 'EN_COURS' ? 'En cours' : 'Achevée'}
-                  </Badge>
-                  {viewingYear.isCurrent && (
-                    <span className="text-[9px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md">
-                      ★ Année en cours
-                    </span>
-                  )}
-                  {!viewingYear.isActive && <Badge variant="danger">Inactive</Badge>}
-                </div>
-                <span className="text-[10px] font-bold text-slate-400 font-mono">ID: {viewingYear.id.slice(0, 8)}...</span>
-              </div>
-              <h3 className="text-xl font-black text-slate-900 mb-1">{viewingYear.name}</h3>
-              <p className="text-xs font-mono text-emerald-700 font-bold mb-4">slug: {generateSlug(viewingYear.name)}</p>
-              
-              {viewingYear.school && (
-                <div className="mb-4 p-2.5 rounded-xl bg-white border border-slate-200 text-xs flex items-center gap-2 font-bold text-slate-700">
-                  <Building2 className="w-4 h-4 text-emerald-600" />
-                  {viewingYear.school.name} ({viewingYear.school.ville || 'Abidjan'})
-                </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-3 text-xs pt-3 border-t border-slate-200/60">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Début</span>
-                  <span className="font-semibold text-slate-700">{formatDate(viewingYear.startDate)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Fin</span>
-                  <span className="font-semibold text-slate-700">{formatDate(viewingYear.endDate)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Classes</span>
-                  <span className="font-bold text-slate-900">{viewingYear._count?.classes ?? 0}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Terms list */}
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-emerald-600" /> Trimestres ({viewingYear.terms.length})
-              </h4>
-              {viewingYear.terms.length > 0 ? (
-                <div className="space-y-2">
-                  {viewingYear.terms.map(t => (
-                    <div key={t.id} className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between text-xs">
-                      <div>
-                        <p className="font-bold text-slate-900">{t.name}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{formatDateShort(t.startDate)} → {formatDateShort(t.endDate)}</p>
-                      </div>
-                      <Badge variant={t.status === 'OPEN' ? 'success' : 'neutral'}>
-                        {t.status === 'OPEN' ? 'Ouvert' : 'Fermé'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center">Aucun trimestre défini.</p>
-              )}
-            </div>
-          </div>
-        </Modal>
-      )}
-
       {/* ───── MODAL: CREATE / EDIT TERM ───── */}
       <Modal
         isOpen={isTermModalOpen}
@@ -754,7 +625,6 @@ export default function AcademicYears() {
         </form>
       </Modal>
 
-      {/* ───── CONFIRM DELETE MODALS ───── */}
       <ConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}

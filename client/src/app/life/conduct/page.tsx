@@ -63,6 +63,53 @@ const Conduct = () => {
     comment: string;
   }>();
 
+  // Grid editing state
+  const [editingConducts, setEditingConducts] = useState<Record<string, { appreciation: string, comment: string }>>({});
+
+  const handleGridChange = (studentId: string, field: 'appreciation' | 'comment', value: string) => {
+    setEditingConducts(prev => ({
+        ...prev,
+        [studentId]: {
+            ...prev[studentId],
+            [field]: value
+        }
+    }));
+  };
+
+  const handleGridSave = async (studentId: string) => {
+      if (!selectedTermId) return;
+      const data = editingConducts[studentId];
+      if (!data) return;
+      
+      try {
+          await api.post('/conducts', {
+              studentId,
+              termId: selectedTermId,
+              appreciation: data.appreciation,
+              comment: data.comment
+          });
+          success("Enregistré avec succès !");
+          fetchConducts();
+      } catch (err) {
+          error("Erreur lors de l'enregistrement");
+      }
+  };
+
+  useEffect(() => {
+    // Populate editingConducts when conducts change
+    if (selectedClassId && selectedTermId && students.length > 0) {
+        const newEditingState: Record<string, { appreciation: string, comment: string }> = {};
+        students.forEach(student => {
+            const existing = conducts.find(c => c.student.id === student.id);
+            newEditingState[student.id] = {
+                appreciation: existing?.appreciation || '',
+                comment: existing?.comment || ''
+            };
+        });
+        setEditingConducts(newEditingState);
+    }
+  }, [conducts, students, selectedClassId, selectedTermId]);
+
   useEffect(() => {
     fetchClasses();
     fetchTerms();
@@ -257,6 +304,79 @@ const Conduct = () => {
         <div className="flex justify-center items-center py-20">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-accent"></div>
         </div>
+      ) : selectedClassId && selectedTermId ? (
+          <div className="bg-brand-card rounded-xl shadow-sm border border-brand-border/50 overflow-hidden">
+              <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                      <thead className="bg-brand-sidebar">
+                          <tr>
+                              <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50">Élève</th>
+                              <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50 w-64">Appréciation</th>
+                              <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50">Commentaire</th>
+                              <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50 w-32">Action</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-brand-border/50">
+                          {students.map(student => {
+                              const existing = conducts.find(c => c.student.id === student.id);
+                              const isSaved = existing?.appreciation === editingConducts[student.id]?.appreciation && 
+                                              existing?.comment === editingConducts[student.id]?.comment;
+                              
+                              return (
+                                  <tr key={student.id} className="hover:bg-brand-sidebar/30 transition-colors">
+                                      <td className="p-4">
+                                          <div className="font-bold text-brand-text">{student.firstName} {student.lastName}</div>
+                                      </td>
+                                      <td className="p-4">
+                                          <select 
+                                              value={editingConducts[student.id]?.appreciation || ''}
+                                              onChange={(e) => handleGridChange(student.id, 'appreciation', e.target.value)}
+                                              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand-accent/50 text-sm"
+                                          >
+                                              <option value="">Choisir...</option>
+                                              <option value="Excellent">Excellent</option>
+                                              <option value="Très Bien">Très Bien</option>
+                                              <option value="Bien">Bien</option>
+                                              <option value="Assez Bien">Assez Bien</option>
+                                              <option value="Passable">Passable</option>
+                                              <option value="Insuffisant">Insuffisant</option>
+                                              <option value="Avertissement">Avertissement de conduite</option>
+                                              <option value="Blâme">Blâme de conduite</option>
+                                          </select>
+                                      </td>
+                                      <td className="p-4">
+                                          <input 
+                                              type="text"
+                                              value={editingConducts[student.id]?.comment || ''}
+                                              onChange={(e) => handleGridChange(student.id, 'comment', e.target.value)}
+                                              placeholder="Commentaire..."
+                                              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand-accent/50 text-sm"
+                                          />
+                                      </td>
+                                      <td className="p-4">
+                                          <Button 
+                                              variant={isSaved ? "secondary" : "primary"} 
+                                              onClick={() => handleGridSave(student.id)}
+                                              disabled={isSaved}
+                                              className="text-xs py-1.5"
+                                          >
+                                              {isSaved ? 'À jour' : 'Sauvegarder'}
+                                          </Button>
+                                      </td>
+                                  </tr>
+                              );
+                          })}
+                          {students.length === 0 && (
+                              <tr>
+                                  <td colSpan={4} className="p-8 text-center text-brand-text-muted">
+                                      Aucun élève dans cette classe.
+                                  </td>
+                              </tr>
+                          )}
+                      </tbody>
+                  </table>
+              </div>
+          </div>
       ) : conducts.length === 0 ? (
         <div className="bg-brand-card rounded-xl p-12 text-center border border-dashed border-brand-border/50 shadow-sm">
           <div className="bg-brand-accent/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-brand-accent/20">
@@ -264,7 +384,7 @@ const Conduct = () => {
           </div>
           <h3 className="text-xl font-bold text-brand-text mb-2">Aucune appréciation</h3>
           <p className="text-brand-text-muted max-w-sm mx-auto">
-            Sélectionnez une classe et une période pour voir les appréciations ou commencez par en créer une nouvelle.
+            Sélectionnez une classe et une période pour voir la grille de saisie, ou consultez les enregistrements récents.
           </p>
         </div>
       ) : (

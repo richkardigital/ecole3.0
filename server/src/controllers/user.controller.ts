@@ -6,17 +6,21 @@ import type { AuthRequest } from "../middleware/auth.js";
 
 const createUserSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string().min(6).optional(),
   firstName: z.string(),
   lastName: z.string(),
-  role: z.enum(["SUPER_ADMIN", "DIRECTEUR", "ENSEIGNANT", "APPRENANT", "EDUCATEUR", "EDUCATEUR"]),
+  matricule: z.string().optional(),
+  role: z.enum(["SUPER_ADMIN", "DIRECTEUR", "ENSEIGNANT", "APPRENANT", "EDUCATEUR"]),
   schoolId: z.string().optional(),
 });
 
+import { sendEmail } from "../utils/mailer.js";
+
 export const createUser = async (req: AuthRequest, res: Response) => {
   try {
-    const { email, password, firstName, lastName, role, schoolId } = createUserSchema.parse(req.body);
+    const { email, password, firstName, lastName, role, schoolId, matricule } = createUserSchema.parse(req.body);
     const currentUser = req.user;
+    const file = req.file;
 
     // RBAC for creation
     if ((currentUser?.role as string) === 'EDUCATEUR') {
@@ -34,12 +38,27 @@ export const createUser = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (matricule) {
+      const existingMatricule = await prisma.user.findUnique({ where: { matricule } });
+      if (existingMatricule) {
+        return res.status(400).json({ message: "Ce matricule est déjà utilisé" });
+      }
+    }
+
+    const finalPassword = password || "Ecole2026!";
+    const hashedPassword = await bcrypt.hash(finalPassword, 10);
 
     // If IT_ADMIN or SCHOOL_ADMIN, ensure created user is in their school
     const targetSchoolId = ((currentUser?.role as string) === 'DIRECTEUR' || (currentUser?.role as string) === 'EDUCATEUR') 
         ? currentUser.schoolId 
         : (schoolId || null);
+
+    let avatarUrl = null;
+    if (file) {
+       // Import uploadToSupabase dynamically or make sure it's imported at top
+       const { uploadToSupabase } = await import("../utils/supabase.js");
+       avatarUrl = await uploadToSupabase(file, 'avatars');
+    }
 
     const user = await prisma.user.create({
       data: {
@@ -47,12 +66,34 @@ export const createUser = async (req: AuthRequest, res: Response) => {
         password: hashedPassword,
         firstName,
         lastName,
+        matricule,
+        avatarUrl,
         role,
         schoolId: targetSchoolId,
       },
     });
 
     res.status(201).json({ id: user.id, email: user.email, role: user.role });
+
+    // Send email asynchronously
+    const loginUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <h2>Bienvenue sur Ecole Connectée !</h2>
+        <p>Bonjour ${firstName} ${lastName},</p>
+        <p>Votre compte a été créé avec succès sur la plateforme Ecole Connectée. Vous pouvez dès à présent vous connecter en utilisant les identifiants suivants :</p>
+        <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Email :</strong> ${email}</p>
+          <p style="margin: 5px 0 0 0;"><strong>Mot de passe :</strong> ${finalPassword}</p>
+        </div>
+        <p style="color: #d9534f; font-weight: bold;">⚠️ IMPORTANT : Nous vous demandons de modifier votre mot de passe dès votre première connexion pour des raisons de sécurité.</p>
+        <p>Cliquez sur le lien ci-dessous pour accéder à la plateforme :</p>
+        <a href="${loginUrl}" style="display: inline-block; background-color: #007bff; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">Se connecter</a>
+        <p style="margin-top: 30px; font-size: 12px; color: #777;">Ceci est un email automatique, merci de ne pas y répondre.</p>
+      </div>
+    `;
+    sendEmail(email, "Vos identifiants Ecole Connectée", emailHtml).catch(err => console.error("Email send failed in background:", err));
+
   } catch (error) {
     res.status(500).json({ message: "Error creating user", error });
   }
@@ -136,7 +177,7 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
                 class: true
             }
         },
-        coursesAsTeacher: {
+        courses: {
             include: {
                 class: true,
                 subject: true
@@ -159,7 +200,8 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
 export const updateUser = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { email, firstName, lastName, role, schoolId, password } = req.body; // Allow partial updates without password
+    const { email, firstName, lastName, role, schoolId, password, matricule } = req.body; // Allow partial updates without password
+    const file = req.file;
     const currentUser = req.user;
 
     if (!currentUser) return res.status(401).json({ message: "Unauthorized" });
@@ -191,15 +233,27 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
         }
     }
 
-    // Optional: Validate data if needed, or use Zod with .partial()
-    
+    // Check matricule uniqueness if changed
+    if (matricule && matricule !== targetUser.matricule) {
+      const existingMatricule = await prisma.user.findUnique({ where: { matricule } });
+      if (existingMatricule) {
+        return res.status(400).json({ message: "Ce matricule est déjà utilisé" });
+      }
+    }
+
     const updateData: any = {
         email,
         firstName,
         lastName,
+        matricule,
         role,
         schoolId: schoolId || undefined,
     };
+
+    if (file) {
+       const { uploadToSupabase } = await import("../utils/supabase.js");
+       updateData.avatarUrl = await uploadToSupabase(file, 'avatars');
+    }
 
     if (password) {
         updateData.password = await bcrypt.hash(password, 10);

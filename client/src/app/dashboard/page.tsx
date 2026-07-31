@@ -78,9 +78,10 @@ const Dashboard = () => {
     if (!user) return;
     const fetchYears = async () => {
       try {
-        const res = await api.get('/academic-years');
-        setAcademicYears(res.data);
-        const current = res.data.find((y: any) => y.isCurrent);
+        const res = await api.get('/academic/years');
+        const activeYears = res.data.filter((y: any) => y.isActive);
+        setAcademicYears(activeYears);
+        const current = activeYears.find((y: any) => y.isCurrent);
         if (current && !selectedYear) setSelectedYear(current.id);
       } catch (err) { console.error(err); }
     };

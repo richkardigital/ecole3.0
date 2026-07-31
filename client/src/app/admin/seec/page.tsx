@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DataTable } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
-import { Network, Download, Building } from 'lucide-react';
+import { Network, Download, Building, FileSpreadsheet } from 'lucide-react';
 import api from '@/lib/api';
+import * as XLSX from 'xlsx';
 
 export default function SeecPage() {
   const [schools, setSchools] = useState<any[]>([]);
@@ -25,16 +26,15 @@ export default function SeecPage() {
   }, []);
 
   const handleExport = () => {
-    const csvContent = "data:text/csv;charset=utf-8," + 
-      "Code,Nom,Ville,Adresse\n" + 
-      schools.map(s => `${s.code},${s.name},${s.ville || ''},${s.address || ''}`).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "seec_ecoles.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const ws = XLSX.utils.json_to_sheet(schools.map(s => ({
+        "Code": s.code,
+        "Établissement": s.name,
+        "Ville": s.ville || '',
+        "Type": s.teachingType?.name || 'N/A'
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Ecoles_SEEC");
+    XLSX.writeFile(wb, "seec_ecoles.xlsx");
   };
 
   const columns = [
@@ -62,8 +62,8 @@ export default function SeecPage() {
         description="Liste de toutes les écoles connectées au réseau SEEC."
       >
         <Button variant="outline" onClick={handleExport}>
-          <Download className="w-4 h-4 mr-2" />
-          Exporter (CSV)
+          <FileSpreadsheet className="w-4 h-4 mr-2" />
+          Exporter Excel
         </Button>
       </PageHeader>
 

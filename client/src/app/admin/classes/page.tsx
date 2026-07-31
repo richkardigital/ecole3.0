@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import api from '@/lib/api';
-import { Plus, Trash2, GraduationCap, Users, BookOpen, AlertCircle, Edit, Loader2, Download } from 'lucide-react';
+import { Plus, Trash2, GraduationCap, Users, BookOpen, AlertCircle, Edit, Loader2, Download, FileSpreadsheet, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
+import * as XLSX from 'xlsx';
 
 interface ClassModel {
   id: string;
@@ -32,6 +33,35 @@ const Classes = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [classToDelete, setClassToDelete] = useState<string | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedLevel, setSelectedLevel] = useState<string>('');
+  const itemsPerPage = 15;
+
+  const uniqueLevels = useMemo(() => {
+    const levels = new Set<string>();
+    classes.forEach(c => {
+      const levelName = c.level || c.niveau?.nom;
+      if (levelName) levels.add(levelName);
+    });
+    return Array.from(levels).sort();
+  }, [classes]);
+
+  const filteredClasses = useMemo(() => {
+    if (!selectedLevel) return classes;
+    return classes.filter(c => (c.level || c.niveau?.nom) === selectedLevel);
+  }, [classes, selectedLevel]);
+
+  const totalPages = Math.ceil(filteredClasses.length / itemsPerPage);
+  
+  const paginatedClasses = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredClasses.slice(start, start + itemsPerPage);
+  }, [filteredClasses, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset page when filter changes
+  }, [selectedLevel]);
+
   const fetchClasses = async () => {
     try {
       const response = await api.get('/classes');
@@ -44,16 +74,16 @@ const Classes = () => {
   };
 
   const handleExport = () => {
-    const csvContent = "data:text/csv;charset=utf-8," + 
-      "Nom,Niveau,École\n" + 
-      classes.map(c => `${c.name},${c.niveau?.nom || ''},${c.school?.name || ''}`).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "classes.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const ws = XLSX.utils.json_to_sheet(filteredClasses.map(c => ({
+        "Nom de la classe": c.name,
+        "Niveau": c.level || c.niveau?.nom || '',
+        "École": c.school?.name || '',
+        "Nombre d'élèves": c._count?.enrollments || 0,
+        "Nombre de cours": c._count?.courses || 0
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Classes");
+    XLSX.writeFile(wb, "classes.xlsx");
   };
 
   useEffect(() => {
@@ -85,9 +115,22 @@ const Classes = () => {
         subtitle="Organisez vos classes, affectez les élèves et suivez les effectifs."
         action={
             <div className="flex items-center gap-3">
+              <div className="relative hidden sm:block">
+                  <select
+                      value={selectedLevel}
+                      onChange={(e) => setSelectedLevel(e.target.value)}
+                      className="pl-9 pr-4 py-2 bg-brand-sidebar border border-brand-border rounded-lg text-sm text-brand-text focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none appearance-none"
+                  >
+                      <option value="">Tous les niveaux</option>
+                      {uniqueLevels.map(level => (
+                          <option key={level} value={level}>{level}</option>
+                      ))}
+                  </select>
+                  <Filter className="w-4 h-4 text-brand-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              </div>
               <Button variant="outline" onClick={handleExport}>
-                <Download className="w-4 h-4 mr-2" />
-                Exporter (CSV)
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Exporter Excel
               </Button>
               <Link to="/admin/classes/new">
                 <Button 
@@ -120,7 +163,7 @@ const Classes = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-border">
-                        {classes.map((cls) => (
+                        {paginatedClasses.map((cls) => (
                             <tr key={cls.id} className="hover:bg-brand-sidebar/50 transition-colors group">
                                 <td className="p-4">
                                     <div className="flex items-center gap-3">
@@ -189,6 +232,41 @@ const Classes = () => {
                     </tbody>
                 </table>
             </div>
+            
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-brand-border bg-brand-sidebar/30 gap-4">
+                <div className="text-sm text-brand-text-muted">
+                  Affichage de <span className="font-medium text-brand-text">{(currentPage - 1) * itemsPerPage + 1}</span> à <span className="font-medium text-brand-text">{Math.min(currentPage * itemsPerPage, filteredClasses.length)}</span> sur <span className="font-medium text-brand-text">{filteredClasses.length}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-sm bg-brand-card border border-brand-border rounded-lg hover:bg-brand-sidebar disabled:opacity-50 disabled:cursor-not-allowed text-brand-text transition-colors font-medium shadow-sm"
+                  >
+                    Précédent
+                  </button>
+                  <div className="flex items-center gap-1 hidden sm:flex">
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(i + 1)}
+                        className={`w-8 h-8 flex items-center justify-center text-sm font-medium rounded-lg transition-colors ${currentPage === i + 1 ? 'bg-brand-accent text-white shadow-md' : 'bg-brand-card border border-brand-border text-brand-text hover:bg-brand-sidebar'}`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-sm bg-brand-card border border-brand-border rounded-lg hover:bg-brand-sidebar disabled:opacity-50 disabled:cursor-not-allowed text-brand-text transition-colors font-medium shadow-sm"
+                  >
+                    Suivant
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
       )}
 

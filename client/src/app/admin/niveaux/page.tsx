@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/context/AuthContext';
@@ -33,6 +34,7 @@ type FormData = { nom: string; rang: number };
 export default function NiveauxPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const navigate = useNavigate();
 
   const [niveaux, setNiveaux] = useState<NiveauModel[]>([]);
   const [schools, setSchools] = useState<SchoolModel[]>([]);
@@ -42,11 +44,9 @@ export default function NiveauxPage() {
 
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const [editingNiveau, setEditingNiveau] = useState<NiveauModel | null>(null);
-  const [viewingNiveau, setViewingNiveau] = useState<NiveauModel | null>(null);
   const [deletingNiveau, setDeletingNiveau] = useState<NiveauModel | null>(null);
 
   // Form
@@ -109,14 +109,7 @@ export default function NiveauxPage() {
     setIsFormModalOpen(true);
   };
 
-  const openViewModal = async (niveau: NiveauModel) => {
-    setViewingNiveau(niveau);
-    setIsViewModalOpen(true);
-    try {
-      const res = await api.get(`/niveaux/${niveau.id}`);
-      setViewingNiveau(res.data);
-    } catch { /* keep current */ }
-  };
+
 
   const onSubmitForm = async (data: FormData) => {
     if (!data.nom.trim()) { setFormError("Le nom du niveau est requis."); return; }
@@ -285,7 +278,7 @@ export default function NiveauxPage() {
                     {/* Classes Count */}
                     <td className="py-4 px-4">
                       <button 
-                        onClick={() => openViewModal(niveau)}
+                        onClick={() => navigate(`/admin/niveaux/${niveau.id}`)}
                         className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg chip-cyan hover:opacity-80 transition-opacity"
                         title="Voir les classes rattachées"
                       >
@@ -304,7 +297,7 @@ export default function NiveauxPage() {
                     {/* Actions */}
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openViewModal(niveau)} className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors" title="Voir">
+                        <button onClick={() => navigate(`/admin/niveaux/${niveau.id}`)} className="p-2 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors" title="Voir">
                           <Eye className="w-4 h-4" />
                         </button>
                         <button onClick={() => openEditModal(niveau)} className="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Éditer">
@@ -385,59 +378,6 @@ export default function NiveauxPage() {
           </div>
         </form>
       </Modal>
-
-      {/* ───────────────────────── MODAL: VIEW DETAILS ───────────────────────── */}
-      {viewingNiveau && (
-        <Modal
-          isOpen={isViewModalOpen}
-          onClose={() => setIsViewModalOpen(false)}
-          title="Détails du niveau scolaire"
-          size="md"
-          accentColor="cyan"
-          footer={<Button variant="secondary" onClick={() => setIsViewModalOpen(false)}>Fermer</Button>}
-        >
-          <div className="space-y-5">
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="flex items-center justify-between mb-3">
-                <Badge variant={viewingNiveau.isActive ? 'success' : 'danger'}>
-                  {viewingNiveau.isActive ? 'Actif' : 'Inactif'}
-                </Badge>
-                <span className="text-[10px] font-bold text-slate-400 font-mono">Rang: #{viewingNiveau.rang || 0}</span>
-              </div>
-              <h3 className="text-xl font-black text-slate-900 mb-1">{viewingNiveau.nom}</h3>
-              <p className="text-xs font-mono text-emerald-700 font-bold mb-4">slug: {generateSlug(viewingNiveau.nom)}</p>
-              
-
-
-              <div className="pt-3 border-t border-slate-200/60 text-xs">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Classes rattachées</span>
-                <span className="font-bold text-slate-900">{viewingNiveau._count?.classes ?? viewingNiveau.classes?.length ?? 0} classe(s)</span>
-              </div>
-            </div>
-
-            {/* Attached classes */}
-            <div>
-              <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-2">
-                <SchoolIcon className="w-4 h-4 text-emerald-600" /> Liste des classes
-              </h4>
-              {viewingNiveau.classes && viewingNiveau.classes.length > 0 ? (
-                <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                  {viewingNiveau.classes.map(c => (
-                    <div key={c.id} className="p-3 rounded-xl bg-white border border-slate-200 flex items-center justify-between text-xs">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-slate-900">{c.name}</span>
-                        {c.school && <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1"><Building2 className="w-3 h-3 text-emerald-500" /> {c.school.name}</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl text-center">Aucune classe rattachée.</p>
-              )}
-            </div>
-          </div>
-        </Modal>
-      )}
 
       {/* ───────────────────────── DELETE CONFIRMATION ───────────────────────── */}
       <ConfirmationModal

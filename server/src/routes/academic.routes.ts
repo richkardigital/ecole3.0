@@ -12,7 +12,7 @@ import {
   deleteAcademicYear,
   updateTerm,
   deleteTerm,
-  toggleAcademicYearStatus,
+  toggleAcademicYearComplete,
   toggleAcademicYearActive,
   setCurrentAcademicYear,
 } from "../controllers/academic.controller.js";
@@ -31,7 +31,7 @@ router.use(requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]));
 router.post("/years", createAcademicYear);
 router.put("/years/:id", updateAcademicYear);
 router.delete("/years/:id", deleteAcademicYear);
-router.patch("/years/:id/toggle-status", toggleAcademicYearStatus);
+router.patch("/years/:id/toggle-complete", toggleAcademicYearComplete);
 router.patch("/years/:id/toggle-active", toggleAcademicYearActive);
 router.patch("/years/:id/set-current", setCurrentAcademicYear);
 

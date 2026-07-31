@@ -29,6 +29,13 @@ export default function ClassDetailsPage() {
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('');
+
+  // Course assignment states
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [isAssigningCourse, setIsAssigningCourse] = useState(false);
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState('');
   
   // Import states
   const [isImportingMode, setIsImportingMode] = useState(false);
@@ -50,14 +57,13 @@ export default function ClassDetailsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [classRes, studentsRes, coursesRes, allClassesRes] = await Promise.all([
-          api.get(`/classes`),
+        const [classRes, studentsRes, coursesRes] = await Promise.all([
+          api.get(`/classes/${classId}`),
           api.get(`/classes/${classId}/students`),
-          api.get(`/courses?classId=${classId}`),
-          api.get(`/classes`)
+          api.get(`/courses?classId=${classId}`)
         ]);
         
-        const currentClass = classRes.data.find((c: any) => c.id === classId);
+        const currentClass = classRes.data;
         if (!currentClass) {
             navigate('/admin/classes');
             return;
@@ -66,7 +72,6 @@ export default function ClassDetailsPage() {
         setCls(currentClass);
         setStudents(studentsRes.data);
         setCourses(coursesRes.data);
-        setAllClasses(allClassesRes.data);
       } catch (error) {
         console.error('Error fetching class details:', error);
       } finally {
@@ -83,6 +88,39 @@ export default function ClassDetailsPage() {
           setAllStudents(response.data);
       } catch (error) {
           console.error('Error fetching all students', error);
+      }
+  };
+
+  const fetchTeachersAndSubjects = async () => {
+      try {
+          const [techRes, subjRes] = await Promise.all([
+              api.get('/users?role=ENSEIGNANT'),
+              api.get('/subjects')
+          ]);
+          setTeachers(techRes.data);
+          setSubjects(subjRes.data);
+      } catch (err) {
+          console.error('Error fetching teachers and subjects', err);
+      }
+  };
+
+  const handleAddCourse = async () => {
+      if (!selectedTeacherId || !selectedSubjectId) return;
+      try {
+          await api.post('/courses', {
+              classId,
+              teacherId: selectedTeacherId,
+              subjectId: selectedSubjectId,
+              coefficient: 1
+          });
+          const coursesRes = await api.get(`/courses?classId=${classId}`);
+          setCourses(coursesRes.data);
+          setIsAssigningCourse(false);
+          setSelectedTeacherId('');
+          setSelectedSubjectId('');
+      } catch (error) {
+          console.error('Error adding course', error);
+          alert("Erreur lors de l'assignation du cours");
       }
   };
 
@@ -207,7 +245,8 @@ export default function ClassDetailsPage() {
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${cls.isActive ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                           {cls.isActive ? 'Active' : 'Inactive'}
                       </span>
-                      {cls.level && <span className="text-sm text-brand-text-muted">Niveau: {cls.level}</span>}
+                      {cls.niveau && <span className="text-sm text-brand-text-muted">Niveau: {cls.niveau.nom}</span>}
+                      {cls.school && <span className="text-sm text-brand-text-muted">École: {cls.school.name}</span>}
                   </div>
               </div>
           </div>
@@ -372,7 +411,14 @@ export default function ClassDetailsPage() {
                                       <button onClick={() => { setStudentToReset(student); setIsPasswordModalOpen(true); }} className="p-2 text-brand-text-muted hover:text-white bg-brand-bg hover:bg-brand-border rounded-lg transition-colors" title="Réinitialiser">
                                           <Key className="w-4 h-4" />
                                       </button>
-                                      <button onClick={() => { setStudentToTransfer(student); setIsTransferModalOpen(true); }} className="p-2 text-brand-accent hover:text-white bg-brand-accent/10 hover:bg-brand-accent rounded-lg transition-colors" title="Transférer">
+                                      <button onClick={async () => {
+                                        setStudentToTransfer(student);
+                                        try {
+                                          const res = await api.get(`/classes`);
+                                          setAllClasses(res.data);
+                                        } catch (err) {}
+                                        setIsTransferModalOpen(true);
+                                      }} className="p-2 text-brand-accent hover:text-white bg-brand-accent/10 hover:bg-brand-accent rounded-lg transition-colors" title="Transférer">
                                           <ArrowRightLeft className="w-4 h-4" />
                                       </button>
                                   </div>
@@ -391,7 +437,58 @@ export default function ClassDetailsPage() {
                   <div className="space-y-6">
                       <div className="flex justify-between items-center">
                           <h3 className="text-lg font-bold text-brand-text">Cours assignés à la classe</h3>
+                          <Button
+                              variant="primary"
+                              onClick={() => {
+                                  setIsAssigningCourse(true);
+                                  fetchTeachersAndSubjects();
+                              }}
+                              leftIcon={<Plus className="w-4 h-4" />}
+                          >
+                              Assigner un enseignant
+                          </Button>
                       </div>
+                      
+                      {isAssigningCourse && (
+                          <div className="bg-brand-sidebar border border-brand-border p-4 rounded-xl space-y-4">
+                              <h4 className="font-bold text-brand-text">Nouvelle assignation</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                      <label className="block text-sm font-medium text-brand-text-muted mb-1">Matière</label>
+                                      <select
+                                          value={selectedSubjectId}
+                                          onChange={(e) => setSelectedSubjectId(e.target.value)}
+                                          className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg outline-none text-brand-text appearance-none"
+                                      >
+                                          <option value="">Choisir une matière...</option>
+                                          {subjects.map(subj => (
+                                              <option key={subj.id} value={subj.id}>{subj.name}</option>
+                                          ))}
+                                      </select>
+                                  </div>
+                                  <div>
+                                      <label className="block text-sm font-medium text-brand-text-muted mb-1">Enseignant</label>
+                                      <select
+                                          value={selectedTeacherId}
+                                          onChange={(e) => setSelectedTeacherId(e.target.value)}
+                                          className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg outline-none text-brand-text appearance-none"
+                                      >
+                                          <option value="">Choisir un enseignant...</option>
+                                          {teachers.map(teacher => (
+                                              <option key={teacher.id} value={teacher.id}>
+                                                  {teacher.firstName} {teacher.lastName} ({teacher.email})
+                                              </option>
+                                          ))}
+                                      </select>
+                                  </div>
+                              </div>
+                              <div className="flex justify-end gap-2 mt-4">
+                                  <Button variant="ghost" onClick={() => setIsAssigningCourse(false)}>Annuler</Button>
+                                  <Button variant="primary" onClick={handleAddCourse} disabled={!selectedTeacherId || !selectedSubjectId}>Confirmer l'assignation</Button>
+                              </div>
+                          </div>
+                      )}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {courses.map(course => (
                               <div key={course.id} className="p-4 bg-brand-sidebar border border-brand-border rounded-xl">

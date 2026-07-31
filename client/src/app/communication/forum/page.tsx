@@ -2,533 +2,448 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { useSocket } from '@/context/SocketContext';
-import { MessageSquare, ThumbsUp, MoreVertical, Edit2, Trash2, Search, Filter, Plus, User, FileText, Image as ImageIcon, CheckCircle, X, CheckSquare, Clock, Calendar, MessageCircle, Paperclip } from 'lucide-react';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
+import { MessageSquare, Plus, Search, Trash2, Paperclip, FileText, ImageIcon, Send, ArrowLeft, MoreVertical, X } from 'lucide-react';
+import { supabase } from '@/lib/supabase'; // to get public URL if needed, though usually api gives full URL
+
+interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  avatarUrl?: string;
+}
+
+interface ForumComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: User;
+}
 
 interface ForumPost {
   id: string;
   title: string;
   content: string;
   category: string;
-  fileUrl?: string;
-  fileType?: string;
-  authorId: string;
+  fileUrl?: string | null;
+  fileType?: string | null;
   createdAt: string;
-  author: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-  };
-  _count?: {
-    comments: number;
-  };
-  comments?: ForumComment[];
+  author: User;
+  comments: ForumComment[];
 }
 
-interface ForumComment {
-  id: string;
-  content: string;
-  authorId: string;
-  postId?: string;
-  createdAt: string;
-  author: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-  };
-}
-
-interface PostForm {
-  title: string;
-  content: string;
-  category: string;
-  file?: FileList;
-}
-
-interface CommentForm {
-  content: string;
-}
+const CATEGORIES = [
+  { id: 'GENERAL', label: 'Général', color: 'bg-blue-500' },
+  { id: 'PEDAGOGIE', label: 'Pédagogie', color: 'bg-emerald-500' },
+  { id: 'ADMINISTRATION', label: 'Administration', color: 'bg-purple-500' },
+  { id: 'ETUDIANTS', label: 'Vie Étudiante', color: 'bg-amber-500' },
+];
 
 const Forum = () => {
   const { user } = useAuth();
-  const { toast, success, error } = useToast();
-  const { socket } = useSocket();
+  const { success, error: toastError } = useToast();
+  
   const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('ALL');
+  
   const [selectedPost, setSelectedPost] = useState<ForumPost | null>(null);
+  
+  // Create Post
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [filterCategory, setFilterCategory] = useState("ALL");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(true);
+  const { register, handleSubmit, reset } = useForm();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Comment
+  const [commentText, setCommentText] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
-  // Forms
-  const { register: registerPost, handleSubmit: handleSubmitPost, reset: resetPost } = useForm<PostForm>();
-  const { register: registerComment, handleSubmit: handleSubmitComment, reset: resetComment } = useForm<CommentForm>();
+  const fetchPosts = async () => {
+    setIsLoading(true);
+    try {
+      const res = await api.get('/forum');
+      setPosts(res.data);
+    } catch (err) {
+      toastError("Erreur lors du chargement du forum");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchPosts();
-  }, [filterCategory, searchTerm]);
+  }, []);
 
-  // Real-time updates
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleNewPost = (newPost: ForumPost) => {
-      // Apply filter check
-      if (filterCategory !== "ALL" && newPost.category !== filterCategory) return;
-      // Apply search check (basic)
-      if (searchTerm && !newPost.title.toLowerCase().includes(searchTerm.toLowerCase()) && !newPost.content.toLowerCase().includes(searchTerm.toLowerCase())) return;
-
-      setPosts((prev) => {
-        if (prev.some(p => p.id === newPost.id)) return prev;
-        return [newPost, ...prev];
-      });
-    };
-
-    const handlePostDeleted = (id: string) => {
-      setPosts((prev) => prev.filter((p) => p.id !== id));
-      if (selectedPost?.id === id) {
-        setSelectedPost(null);
-      }
-    };
-
-    const handleNewComment = (comment: ForumComment & { author: { id: string; firstName: string; lastName: string; role: string } }) => {
-      // Update comment count in list
-      setPosts((prev) =>
-        prev.map((p) => {
-          if (p.id === comment.postId) {
-            return {
-              ...p,
-              _count: {
-                ...p._count,
-                comments: (p._count?.comments || 0) + 1,
-              },
-            };
-          }
-          return p;
-        })
-      );
-
-      // If viewing the post, add comment
-      if (selectedPost?.id === comment.postId) {
-        setSelectedPost((prev) => {
-          if (!prev) return null;
-          if (prev.comments?.some(c => c.id === comment.id)) return prev;
-          return {
-            ...prev,
-            comments: [...(prev.comments || []), comment],
-            _count: {
-              ...prev._count,
-              comments: (prev._count?.comments || 0) + 1,
-            },
-          };
-        });
-      }
-    };
-
-    const handleCommentDeleted = ({ id, postId }: { id: string; postId: string }) => {
-       // Update comment count in list
-       setPosts((prev) =>
-        prev.map((p) => {
-          if (p.id === postId) {
-            return {
-              ...p,
-              _count: {
-                ...p._count,
-                comments: Math.max((p._count?.comments || 1) - 1, 0),
-              },
-            };
-          }
-          return p;
-        })
-      );
-
-      // If viewing the post, remove comment
-      if (selectedPost?.id === postId) {
-        setSelectedPost((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            comments: prev.comments?.filter((c) => c.id !== id),
-            _count: {
-              ...prev._count,
-              comments: Math.max((prev._count?.comments || 1) - 1, 0),
-            },
-          };
-        });
-      }
-    };
-
-    socket.on("forum:post_created", handleNewPost);
-    socket.on("forum:post_deleted", handlePostDeleted);
-    socket.on("forum:comment_created", handleNewComment);
-    socket.on("forum:comment_deleted", handleCommentDeleted);
-
-    return () => {
-      socket.off("forum:post_created", handleNewPost);
-      socket.off("forum:post_deleted", handlePostDeleted);
-      socket.off("forum:comment_created", handleNewComment);
-      socket.off("forum:comment_deleted", handleCommentDeleted);
-    };
-  }, [socket, filterCategory, searchTerm, selectedPost?.id]);
-
-  const fetchPosts = async () => {
-    setLoading(true);
+  const refreshPost = async (postId: string) => {
     try {
-      const params: any = {};
-      if (filterCategory !== "ALL") params.category = filterCategory;
-      if (searchTerm) params.search = searchTerm;
-      
-      const res = await api.get('/forum', { params });
-      setPosts(res.data);
-    } catch (error) {
-      console.error("Error fetching posts", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPostDetails = async (id: string) => {
-    try {
-      const res = await api.get(`/forum/${id}`);
+      const res = await api.get(`/forum/${postId}`);
       setSelectedPost(res.data);
-    } catch (error) {
-      console.error("Error fetching post details", error);
+      setPosts(prev => prev.map(p => p.id === postId ? res.data : p));
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const onCreatePost = async (data: PostForm) => {
+  const onSubmitPost = async (data: any) => {
+    setIsSubmitting(true);
     try {
       const formData = new FormData();
       formData.append('title', data.title);
       formData.append('content', data.content);
       formData.append('category', data.category);
-      if (data.file && data.file[0]) {
-        formData.append('file', data.file[0]);
+      if (selectedFile) {
+        formData.append('file', selectedFile);
       }
-
-      await api.post('/forum', formData, {
+      
+      const res = await api.post('/forum', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      resetPost();
+      
+      success("Discussion créée avec succès");
+      setPosts([res.data, ...posts]);
       setIsCreateModalOpen(false);
-      fetchPosts();
-    } catch (error) {
-      console.error("Error creating post", error);
+      reset();
+      setSelectedFile(null);
+    } catch (err) {
+      toastError("Erreur lors de la création de la discussion");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const onAddComment = async (data: CommentForm) => {
-    if (!selectedPost) return;
+  const onSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentText.trim() || !selectedPost) return;
+    
+    setIsSubmittingComment(true);
     try {
-      await api.post(`/forum/${selectedPost.id}/comments`, data);
-      resetComment();
-      fetchPostDetails(selectedPost.id); // Refresh comments
-    } catch (error) {
-      console.error("Error adding comment", error);
+      await api.post(`/forum/${selectedPost.id}/comments`, { content: commentText });
+      setCommentText('');
+      await refreshPost(selectedPost.id);
+    } catch (err) {
+      toastError("Erreur lors de l'envoi du commentaire");
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
-  const onDeletePost = async (id: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer ce sujet ?")) return;
+  const deletePost = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Voulez-vous vraiment supprimer cette discussion ?")) return;
     try {
       await api.delete(`/forum/${id}`);
+      setPosts(posts.filter(p => p.id !== id));
       if (selectedPost?.id === id) setSelectedPost(null);
-      fetchPosts();
-    } catch (error) {
-      console.error("Error deleting post", error);
+      success("Discussion supprimée");
+    } catch (err) {
+      toastError("Erreur lors de la suppression");
     }
   };
-
-  const onDeleteComment = async (commentId: string) => {
+  
+  const deleteComment = async (commentId: string) => {
     if (!confirm("Supprimer ce commentaire ?")) return;
     try {
       await api.delete(`/forum/comments/${commentId}`);
-      if (selectedPost) fetchPostDetails(selectedPost.id);
+      if (selectedPost) await refreshPost(selectedPost.id);
       success("Commentaire supprimé");
     } catch (err) {
-      console.error("Error deleting comment", err);
-      error("Erreur lors de la suppression du commentaire");
+      toastError("Erreur lors de la suppression");
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <PageHeader 
-        title="Forum" 
-        subtitle="Espace d'échange et de partage de ressources pour toute l'école."
-        icon={<MessageSquare className="w-6 h-6 text-brand-accent" />}
-        action={
-          <Button variant="primary" onClick={() => setIsCreateModalOpen(true)} leftIcon={<Plus className="w-4 h-4" />}>
-            Nouveau Sujet
-          </Button>
-        }
-      />
+  const filteredPosts = posts.filter(p => 
+    (activeCategory === 'ALL' || p.category === activeCategory) &&
+    (p.title.toLowerCase().includes(searchQuery.toLowerCase()) || p.content.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
-      {/* Explanatory Box */}
-      <div className="bg-brand-accent/10 border border-brand-accent/20 rounded-xl p-4 text-sm text-brand-accent">
-        <p className="font-semibold mb-2">Types de publications autorisés :</p>
-        <p className="opacity-90">
-          Ici vous pouvez publier les emplois du temps, des agendas de devoirs, des informations de kermesse, 
-          congés scolaires, examen blanc, devoir de niveau, le programme par matières...
-        </p>
-      </div>
+  const getInitials = (fName: string, lName: string) => `${fName?.[0] || ''}${lName?.[0] || ''}`.toUpperCase();
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 bg-brand-card p-4 rounded-xl shadow-sm border border-brand-border/50">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-muted w-5 h-5" />
-          <input 
-            type="text" 
-            placeholder="Rechercher un sujet..." 
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-brand-border/50 bg-brand-sidebar text-brand-text focus:ring-2 focus:ring-brand-accent/50 outline-none transition-all"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+  const renderFilePreview = (url: string, type: string) => {
+    if (!url) return null;
+    const isImage = type?.includes('image');
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors w-fit group">
+        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
+          {isImage ? <ImageIcon className="w-5 h-5 text-blue-500" /> : <FileText className="w-5 h-5 text-red-500" />}
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="text-brand-text-muted w-5 h-5" />
-          <select 
-            className="px-4 py-2 rounded-lg border border-brand-border/50 bg-brand-sidebar text-brand-text outline-none focus:ring-2 focus:ring-brand-accent/50 transition-all cursor-pointer"
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-          >
-            <option value="ALL">Toutes catégories</option>
-            <option value="GENERAL">Général</option>
-            <option value="HOMEWORK">Devoirs</option>
-            <option value="COURSE">Cours</option>
-            <option value="ANNOUNCEMENT">Annonces</option>
-          </select>
+        <div>
+          <p className="text-sm font-bold text-slate-700 group-hover:text-brand-accent transition-colors">Pièce jointe</p>
+          <p className="text-xs text-slate-500">Cliquez pour ouvrir</p>
         </div>
-      </div>
+      </a>
+    );
+  };
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Posts List */}
-        <div className="lg:col-span-1 space-y-4 max-h-[calc(100vh-250px)] overflow-y-auto pr-2 custom-scrollbar">
-          {loading ? (
-            <div className="text-center py-10 text-brand-text-muted">Chargement...</div>
-          ) : posts.length === 0 ? (
-            <div className="text-center py-10 text-brand-text-muted">Aucun sujet trouvé.</div>
-          ) : (
-            posts.map(post => (
-              <div 
-                key={post.id}
-                onClick={() => fetchPostDetails(post.id)}
-                className={`cursor-pointer p-4 rounded-xl border transition hover:shadow-md ${selectedPost?.id === post.id ? 'bg-brand-accent/10 border-brand-accent' : 'bg-brand-card border-brand-border/50'}`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
-                    post.category === 'ANNOUNCEMENT' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                    post.category === 'HOMEWORK' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                    post.category === 'COURSE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                    'bg-white/5 text-brand-text-muted border-brand-border/50'
-                  }`}>
-                    {post.category === 'ANNOUNCEMENT' ? 'Annonce' :
-                     post.category === 'HOMEWORK' ? 'Devoir' :
-                     post.category === 'COURSE' ? 'Cours' : 'Général'}
-                  </span>
-                  <span className="text-xs text-brand-text-muted flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {format(new Date(post.createdAt), 'dd/MM', { locale: fr })}
-                  </span>
-                </div>
-                <h3 className="font-semibold text-brand-text mb-1 line-clamp-1">{post.title}</h3>
-                <p className="text-sm text-brand-text-muted line-clamp-2 mb-3">{post.content}</p>
-                <div className="flex justify-between items-center text-xs text-brand-text-muted">
-                  <div className="flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    {post.author.firstName} {post.author.lastName}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MessageCircle className="w-3 h-3" />
-                    {post._count?.comments || 0}
-                  </div>
-                </div>
+  if (selectedPost) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <button 
+          onClick={() => setSelectedPost(null)}
+          className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm w-fit"
+        >
+          <ArrowLeft className="w-4 h-4" /> Retour aux discussions
+        </button>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-full bg-brand-sidebar border-2 border-slate-100 flex items-center justify-center font-bold text-brand-accent text-lg shrink-0 overflow-hidden">
+                {selectedPost.author.avatarUrl ? (
+                   <img src={selectedPost.author.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                   getInitials(selectedPost.author.firstName, selectedPost.author.lastName)
+                )}
               </div>
-            ))
-          )}
+              <div>
+                <h1 className="text-xl font-bold text-slate-900">{selectedPost.title}</h1>
+                <p className="text-sm text-slate-500 mt-1">
+                  Par <span className="font-semibold text-slate-700">{selectedPost.author.firstName} {selectedPost.author.lastName}</span> • {new Date(selectedPost.createdAt).toLocaleString('fr-FR')}
+                </p>
+              </div>
+            </div>
+            {CATEGORIES.find(c => c.id === selectedPost.category) && (
+              <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${CATEGORIES.find(c => c.id === selectedPost.category)?.color}`}>
+                {CATEGORIES.find(c => c.id === selectedPost.category)?.label}
+              </span>
+            )}
+          </div>
+          <div className="mt-6 text-slate-700 whitespace-pre-wrap leading-relaxed">
+            {selectedPost.content}
+          </div>
+          {selectedPost.fileUrl && renderFilePreview(selectedPost.fileUrl, selectedPost.fileType || '')}
         </div>
 
-        {/* Post Details */}
-        <div className="lg:col-span-2">
-          {selectedPost ? (
-            <div className="bg-brand-card rounded-xl shadow-sm border border-brand-border/50 flex flex-col h-full max-h-[calc(100vh-250px)]">
-              <div className="p-6 border-b border-brand-border/50 shrink-0">
-                <div className="flex justify-between items-start">
-                  <h2 className="text-2xl font-bold text-brand-text mb-2">{selectedPost.title}</h2>
-                  {(user?.id === selectedPost.authorId || user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR') && (
-                    <button onClick={() => onDeletePost(selectedPost.id)} className="text-red-400 hover:bg-red-400/10 p-2 rounded-lg transition-colors">
-                      <Trash2 className="w-5 h-5" />
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-brand-accent" />
+            Réponses ({selectedPost.comments.length})
+          </h3>
+          
+          <div className="space-y-6 mb-8">
+            {selectedPost.comments.map(comment => (
+              <div key={comment.id} className="flex gap-4 group">
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm shrink-0 overflow-hidden">
+                    {comment.author.avatarUrl ? (
+                        <img src={comment.author.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                        getInitials(comment.author.firstName, comment.author.lastName)
+                    )}
+                </div>
+                <div className="flex-1 bg-slate-50 rounded-2xl p-4 border border-slate-100 relative">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="font-bold text-sm text-slate-800">{comment.author.firstName} {comment.author.lastName}</span>
+                    <span className="text-xs text-slate-400 font-medium">{new Date(comment.createdAt).toLocaleString('fr-FR')}</span>
+                  </div>
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{comment.content}</p>
+                  
+                  {(user?.role === 'SUPER_ADMIN' || user?.id === comment.author.id) && (
+                    <button 
+                      onClick={() => deleteComment(comment.id)}
+                      className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-4 text-sm text-brand-text-muted mb-4">
-                  <span className="flex items-center gap-1">
-                    <User className="w-4 h-4" />
-                    {selectedPost.author.firstName} {selectedPost.author.lastName}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    {format(new Date(selectedPost.createdAt), 'dd MMM yyyy à HH:mm', { locale: fr })}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium border ${
-                    selectedPost.category === 'ANNOUNCEMENT' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                    selectedPost.category === 'HOMEWORK' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                    selectedPost.category === 'COURSE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                    'bg-white/5 text-brand-text-muted border-brand-border/50'
-                  }`}>
-                    {selectedPost.category === 'ANNOUNCEMENT' ? 'Annonce' :
-                     selectedPost.category === 'HOMEWORK' ? 'Devoir' :
-                     selectedPost.category === 'COURSE' ? 'Cours' : 'Général'}
-                  </span>
-                </div>
-                <div className="prose prose-invert max-w-none text-brand-text">
-                  <p className="whitespace-pre-wrap">{selectedPost.content}</p>
-                </div>
-                {selectedPost.fileUrl && (
-                  <div className="mt-4 p-3 bg-brand-sidebar rounded-lg flex items-center gap-3 border border-brand-border/50 w-fit">
-                    <Paperclip className="w-4 h-4 text-brand-accent" />
-                    <a href={selectedPost.fileUrl} target="_blank" rel="noreferrer" className="text-brand-accent hover:underline text-sm font-medium">
-                      Voir la pièce jointe
-                    </a>
-                  </div>
-                )}
               </div>
+            ))}
+            {selectedPost.comments.length === 0 && (
+              <p className="text-center text-slate-400 py-4 text-sm font-medium">Aucun commentaire pour l'instant. Soyez le premier !</p>
+            )}
+          </div>
 
-              {/* Comments */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                <h3 className="font-bold text-brand-text flex items-center gap-2 sticky top-0 bg-brand-card z-10 pb-2">
-                  <MessageCircle className="w-5 h-5 text-brand-accent" />
-                  Commentaires ({selectedPost.comments?.length || 0})
-                </h3>
-                {selectedPost.comments?.map(comment => (
-                  <div key={comment.id} className="flex gap-3 group">
-                    <div className="w-8 h-8 rounded-full bg-brand-accent/20 text-brand-accent flex items-center justify-center font-bold text-xs shrink-0">
-                      {comment.author.firstName[0]}{comment.author.lastName[0]}
-                    </div>
-                    <div className="flex-1">
-                      <div className="bg-brand-sidebar border border-brand-border/30 p-3 rounded-xl rounded-tl-none">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-semibold text-sm text-brand-text">
-                            {comment.author.firstName} {comment.author.lastName}
-                          </span>
-                          <span className="text-xs text-brand-text-muted">
-                            {format(new Date(comment.createdAt), 'dd MMM HH:mm', { locale: fr })}
-                          </span>
-                        </div>
-                        <p className="text-sm text-brand-text whitespace-pre-wrap">{comment.content}</p>
-                      </div>
-                      {(user?.id === comment.authorId || user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR') && (
-                        <button 
-                          onClick={() => onDeleteComment(comment.id)}
-                          className="text-xs text-red-400 hover:text-red-300 mt-1 opacity-0 group-hover:opacity-100 transition pl-1"
-                        >
-                          Supprimer
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <form onSubmit={onSubmitComment} className="flex gap-4 items-start">
+            <div className="w-10 h-10 rounded-full bg-brand-sidebar flex items-center justify-center font-bold text-brand-accent text-sm shrink-0 overflow-hidden">
+                 {user?.avatarUrl ? (
+                        <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                        getInitials(user?.firstName || '', user?.lastName || '')
+                  )}
+            </div>
+            <div className="flex-1 relative">
+              <textarea
+                value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                placeholder="Écrivez votre réponse..."
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all resize-none min-h-[100px]"
+              />
+              <button
+                type="submit"
+                disabled={isSubmittingComment || !commentText.trim()}
+                className="absolute bottom-3 right-3 bg-brand-accent hover:bg-brand-accent/90 disabled:opacity-50 text-white p-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold shadow-sm"
+              >
+                <Send className="w-4 h-4" /> Envoyer
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
-              {/* Comment Input */}
-              <div className="p-4 border-t border-brand-border/50 bg-brand-sidebar rounded-b-xl shrink-0">
-                <form onSubmit={handleSubmitComment(onAddComment)} className="flex gap-2">
-                  <input
-                    {...registerComment('content', { required: true })}
-                    type="text"
-                    placeholder="Écrire un commentaire..."
-                    className="flex-1 px-4 py-2.5 rounded-full border border-brand-border/50 bg-brand-card text-brand-text focus:ring-2 focus:ring-brand-accent/50 outline-none transition-all text-sm"
-                  />
-                  <button type="submit" className="p-2.5 bg-brand-accent text-white rounded-full hover:bg-brand-accent-hover transition shadow-sm hover:shadow-md">
-                    <SendIcon className="w-4 h-4" />
-                  </button>
-                </form>
-              </div>
-            </div>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-brand-text-muted p-10 bg-brand-card rounded-xl border-2 border-dashed border-brand-border/50">
-              <MessageSquare className="w-16 h-16 mb-4 opacity-20 text-brand-accent" />
-              <p className="text-lg font-medium">Sélectionnez un sujet pour voir les détails</p>
-            </div>
-          )}
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      <PageHeader
+        title="Forum de Discussion"
+        description="Échangez avec la communauté scolaire."
+      >
+        <Button variant="primary" onClick={() => setIsCreateModalOpen(true)} leftIcon={<Plus className="w-4 h-4" />}>
+          Nouvelle Discussion
+        </Button>
+      </PageHeader>
+
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="relative w-full md:w-96">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Rechercher dans le forum..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all"
+          />
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto hide-scrollbar">
+          <button
+            onClick={() => setActiveCategory('ALL')}
+            className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeCategory === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+          >
+            Tous
+          </button>
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeCategory === cat.id ? `${cat.color} text-white` : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              {cat.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        title="Nouveau Sujet"
-      >
-        <form onSubmit={handleSubmitPost(onCreatePost)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Titre</label>
-            <input
-              {...registerPost('title', { required: true })}
-              className="w-full px-4 py-2.5 rounded-lg border border-brand-border/50 bg-brand-sidebar text-brand-text focus:ring-2 focus:ring-brand-accent/50 outline-none transition-all text-sm"
-              placeholder="Sujet de la discussion"
-            />
+      <div className="grid grid-cols-1 gap-4">
+        {isLoading ? (
+          <div className="py-20 text-center text-slate-400 font-medium">Chargement des discussions...</div>
+        ) : filteredPosts.length === 0 ? (
+          <div className="py-20 text-center bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center gap-3">
+            <MessageSquare className="w-10 h-10 text-slate-300" />
+            <p className="text-slate-500 font-medium">Aucune discussion trouvée.</p>
+            <Button variant="secondary" onClick={() => setIsCreateModalOpen(true)}>Lancer une discussion</Button>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Catégorie</label>
-            <select
-              {...registerPost('category')}
-              className="w-full px-4 py-2.5 rounded-lg border border-brand-border/50 bg-brand-sidebar text-brand-text focus:ring-2 focus:ring-brand-accent/50 outline-none transition-all text-sm"
+        ) : (
+          filteredPosts.map(post => (
+            <div 
+              key={post.id} 
+              onClick={() => setSelectedPost(post)}
+              className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-accent/30 transition-all cursor-pointer group flex items-start gap-4 relative"
             >
-              <option value="GENERAL">Général</option>
-              <option value="HOMEWORK">Devoirs</option>
-              <option value="COURSE">Cours</option>
-              <option value="ANNOUNCEMENT">Annonce</option>
-            </select>
-          </div>
+              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-lg shrink-0 overflow-hidden">
+                {post.author.avatarUrl ? (
+                    <img src={post.author.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                    getInitials(post.author.firstName, post.author.lastName)
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-lg font-bold text-slate-900 truncate group-hover:text-brand-accent transition-colors">{post.title}</h3>
+                  {CATEGORIES.find(c => c.id === post.category) && (
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold text-white uppercase tracking-wider shrink-0 ${CATEGORIES.find(c => c.id === post.category)?.color}`}>
+                      {CATEGORIES.find(c => c.id === post.category)?.label}
+                    </span>
+                  )}
+                  {post.fileUrl && <Paperclip className="w-3.5 h-3.5 text-slate-400" />}
+                </div>
+                <p className="text-sm text-slate-500 line-clamp-2 mb-3">{post.content}</p>
+                <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
+                  <span className="flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> {post.comments.length} réponses</span>
+                  <span>•</span>
+                  <span>Par <strong className="text-slate-600">{post.author.firstName} {post.author.lastName}</strong></span>
+                  <span>•</span>
+                  <span>{new Date(post.createdAt).toLocaleDateString('fr-FR')} à {new Date(post.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit'})}</span>
+                </div>
+              </div>
+              {(user?.role === 'SUPER_ADMIN' || user?.id === post.author.id) && (
+                <button 
+                  onClick={(e) => deletePost(post.id, e)}
+                  className="absolute top-5 right-5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1.5 hover:bg-red-50 rounded-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          ))
+        )}
+      </div>
 
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Contenu</label>
-            <textarea
-              {...registerPost('content', { required: true })}
-              rows={4}
-              className="w-full px-4 py-2.5 rounded-lg border border-brand-border/50 bg-brand-sidebar text-brand-text focus:ring-2 focus:ring-brand-accent/50 outline-none transition-all text-sm resize-none custom-scrollbar"
-              placeholder="De quoi voulez-vous parler ?"
-            />
-          </div>
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => !isSubmitting && setIsCreateModalOpen(false)}></div>
+          <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl relative z-10 animate-fade-in-down border border-slate-200">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <h2 className="text-lg font-bold text-slate-900">Nouvelle Discussion</h2>
+              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-700 bg-slate-100 p-1.5 rounded-lg transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit(onSubmitPost)} className="p-5 space-y-5">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Titre de la discussion</label>
+                <input 
+                  {...register('title', { required: true })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all"
+                  placeholder="Ex: Question sur le TP de Mathématiques..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Catégorie</label>
+                <select 
+                  {...register('category', { required: true })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all appearance-none"
+                >
+                  {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Pièce jointe (Optionnel)</label>
-            <input
-              {...registerPost('file')}
-              type="file"
-              className="w-full px-4 py-2.5 rounded-lg border border-brand-border/50 bg-brand-sidebar text-brand-text text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-brand-accent/10 file:text-brand-accent hover:file:bg-brand-accent/20 transition-all"
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Message</label>
+                <textarea 
+                  {...register('content', { required: true })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all min-h-[120px] resize-none"
+                  placeholder="Détaillez votre message..."
+                />
+              </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-brand-border/30">
-            <Button variant="secondary" onClick={() => setIsCreateModalOpen(false)}>
-              Annuler
-            </Button>
-            <Button type="submit" variant="primary">
-              Publier
-            </Button>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Pièce jointe (Optionnel)</label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold cursor-pointer transition-colors border border-slate-200">
+                    <Paperclip className="w-4 h-4" />
+                    <span>Choisir un fichier</span>
+                    <input type="file" className="hidden" onChange={e => setSelectedFile(e.target.files?.[0] || null)} />
+                  </label>
+                  {selectedFile && <span className="text-sm font-medium text-brand-accent truncate max-w-[200px]">{selectedFile.name}</span>}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <Button variant="ghost" type="button" onClick={() => setIsCreateModalOpen(false)}>Annuler</Button>
+                <Button variant="primary" type="submit" isLoading={isSubmitting}>Publier</Button>
+              </div>
+            </form>
           </div>
-        </form>
-      </Modal>
+        </div>
+      )}
     </div>
   );
 };
-
-const SendIcon = ({ className }: { className?: string }) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
 
 export default Forum;

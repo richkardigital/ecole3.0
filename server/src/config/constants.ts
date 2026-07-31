@@ -16,4 +16,4 @@ export const ROLE_HIERARCHY = {
   [ROLES.APPRENANT]: 20,
 };
 
-export const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10MB
+export const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100MB

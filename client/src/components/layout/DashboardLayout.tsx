@@ -4,6 +4,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { Menu, ChevronRight, GraduationCap } from 'lucide-react';
 import NotificationCenter from '@/components/NotificationCenter';
 import { useAuth } from '@/context/AuthContext';
+import FlashNewsBanner from '@/components/layout/FlashNewsBanner';
 
 const ROLE_CONFIG = {
   SUPER_ADMIN: { label: 'Super Admin', accentFrom: '#ef4444', accentTo: '#dc2626', textColor: '#dc2626', bg: '#FEF2F2', border: '#FECDD3' },
@@ -76,6 +77,8 @@ const MainLayout = () => {
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden lg:ml-64 relative z-10">
         
+        <FlashNewsBanner />
+
         {/* ── TOPBAR ── */}
         <header
           className="h-14 flex items-center justify-between px-4 md:px-6 shrink-0 sticky top-0 z-30"

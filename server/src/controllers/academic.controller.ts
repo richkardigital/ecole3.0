@@ -175,36 +175,6 @@ export const updateAcademicYear = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const toggleAcademicYearStatus = async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const current = await prisma.academicYear.findUnique({ where: { id } });
-    if (!current) {
-      return res.status(404).json({ message: "Année scolaire introuvable" });
-    }
-
-    const newStatus = current.status === "EN_COURS" ? "ACHEVE" : "EN_COURS";
-
-    const year = await prisma.academicYear.update({
-      where: { id },
-      data: {
-        status: newStatus,
-        isActive: newStatus === "EN_COURS",
-      },
-      include: {
-        terms: { orderBy: { startDate: "asc" } },
-        schools: { select: { id: true, name: true, ville: true, code: true } },
-        _count: { select: { classes: true } },
-      },
-    });
-
-    res.json(year);
-  } catch (error) {
-    res.status(500).json({ message: "Erreur lors du changement de statut" });
-  }
-};
-
 export const toggleAcademicYearActive = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -216,7 +186,11 @@ export const toggleAcademicYearActive = async (req: AuthRequest, res: Response) 
 
     const year = await prisma.academicYear.update({
       where: { id },
-      data: { isActive: !current.isActive },
+      data: {
+        isActive: !current.isActive,
+        // If we deactivate it, and it was current, we should probably unset isCurrent, but let's keep it simple.
+        isCurrent: current.isActive ? false : current.isCurrent,
+      },
       include: {
         terms: { orderBy: { startDate: "asc" } },
         schools: { select: { id: true, name: true, ville: true, code: true } },
@@ -226,7 +200,38 @@ export const toggleAcademicYearActive = async (req: AuthRequest, res: Response) 
 
     res.json(year);
   } catch (error) {
-    res.status(500).json({ message: "Erreur lors du changement d'activation" });
+    res.status(500).json({ message: "Erreur lors de l'activation/inactivation" });
+  }
+};
+
+export const toggleAcademicYearComplete = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const current = await prisma.academicYear.findUnique({ where: { id } });
+    if (!current) {
+      return res.status(404).json({ message: "Année scolaire introuvable" });
+    }
+
+    const willBeCompleted = current.status !== "ACHEVE";
+
+    const year = await prisma.academicYear.update({
+      where: { id },
+      data: {
+        status: willBeCompleted ? "ACHEVE" : "CREE",
+        isActive: false,
+        isCurrent: false,
+      },
+      include: {
+        terms: { orderBy: { startDate: "asc" } },
+        schools: { select: { id: true, name: true, ville: true, code: true } },
+        _count: { select: { classes: true } },
+      },
+    });
+
+    res.json(year);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la clôture/réouverture" });
   }
 };
 
@@ -251,7 +256,7 @@ export const setCurrentAcademicYear = async (req: AuthRequest, res: Response) =>
       data: { isCurrent: true, isActive: true, status: "EN_COURS" },
       include: {
         terms: { orderBy: { startDate: "asc" } },
-        school: { select: { id: true, name: true, ville: true, code: true } },
+        schools: { select: { id: true, name: true, ville: true, code: true } },
         _count: { select: { classes: true } },
       },
     });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import { Plus, Trash2, User, Edit2, Lock, Unlock, School as SchoolIcon, Loader2, BookOpen, Download, Eye } from 'lucide-react';
+import { Plus, Trash2, User, Edit2, Lock, Unlock, School as SchoolIcon, Loader2, BookOpen, FileSpreadsheet, Eye } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -48,16 +49,17 @@ const Schools = () => {
   });
 
   const handleExport = () => {
-    const csvContent = "data:text/csv;charset=utf-8," + 
-      "Code,Nom,Ville,Adresse,Type,Directeur\n" + 
-      schools.map(s => `${s.code || ''},${s.name},${s.ville || ''},${s.address || ''},${s.teachingType?.name || ''},${s.manager ? s.manager.firstName + ' ' + s.manager.lastName : ''}`).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "ecoles.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const ws = XLSX.utils.json_to_sheet(schools.map(s => ({
+        "Code": s.code || '',
+        "Nom": s.name,
+        "Ville": s.ville || '',
+        "Adresse": s.address || '',
+        "Type": s.teachingType?.name || '',
+        "Directeur": s.manager ? s.manager.firstName + ' ' + s.manager.lastName : ''
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Ecoles");
+    XLSX.writeFile(wb, "ecoles.xlsx");
   };
 
   const fetchSchools = async () => {
@@ -118,8 +120,8 @@ const Schools = () => {
                 Trier: {sortOrder === 'desc' ? 'Récentes' : 'Anciennes'}
               </Button>
               <Button variant="outline" onClick={handleExport}>
-                <Download className="w-4 h-4 mr-2" />
-                Exporter (CSV)
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Exporter Excel
               </Button>
               <div className="relative group">
                 <Link to="/admin/schools/new">

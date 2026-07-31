@@ -38,6 +38,7 @@ import teachingTypeRoutes from './routes/teaching-type.routes.js';
 import schoolTypeRoutes from './routes/school-type.routes.js';
 import niveauRoutes from './routes/niveau.routes.js';
 import uploadRoutes from "./routes/upload.routes.js";
+import resourceRoutes from "./routes/resource.routes.js";
 
 const app = express();
 
@@ -102,6 +103,8 @@ app.use("/api/audit-logs", auditLogRoutes);     // Logs d'audit
 app.use("/api/teaching-types", teachingTypeRoutes); // Types d'enseignement
 app.use("/api/school-types", schoolTypeRoutes);     // Types d'établissement
 app.use("/api/niveaux", niveauRoutes);             // Niveaux scolaires
+app.use("/api/upload", uploadRoutes);
+app.use("/api/resources", resourceRoutes);             // Ressources pédagogiques
 app.use("/api/academic-years", academicRoutes);     // Alias Années scolaires
 app.use("/api/uploads", uploadRoutes);             // Upload de fichiers
 

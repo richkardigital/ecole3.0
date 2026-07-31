@@ -41,6 +41,7 @@ enum TermStatus {
 }
 
 enum AcademicYearStatus {
+  CREE
   EN_COURS
   ACHEVE
 }
@@ -170,6 +171,7 @@ model User {
   isOnline  Boolean  @default(false)
 
   // Profil enrichi
+  matricule String?  @unique
   phone     String?
   birthDate DateTime?
   avatarUrl String?
@@ -235,7 +237,7 @@ model AcademicYear {
   endDate   DateTime
   isCurrent Boolean            @default(false)
   isActive  Boolean            @default(true)
-  status    AcademicYearStatus @default(EN_COURS)
+  status    AcademicYearStatus @default(CREE)
 
   schools School[] @relation("SchoolAcademicYears")
 
@@ -427,6 +429,7 @@ model Resource {
   // Portée de la ressource
   isGlobal       Boolean @default(false) // Visible par toutes les écoles du même niveau
   isDownloadable Boolean @default(true)
+  isPublished    Boolean @default(false) // Validation par l'administrateur
 
   // Relations
   courseId  String?

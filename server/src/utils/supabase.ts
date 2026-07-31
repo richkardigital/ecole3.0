@@ -6,6 +6,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
@@ -63,10 +64,28 @@ export const uploadToSupabase = async (file: Express.Multer.File, bucket: string
     }
   }
 
-  // Fallback to local file if it exists (diskStorage)
-  if (file.filename) {
-    console.log('Using local file fallback:', file.filename);
-    return `/uploads/${file.filename}`;
+  // Fallback to local file if Supabase fails or isn't configured
+  if (file) {
+    console.log('Using local file fallback');
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${fileExt}`;
+    const uploadDir = path.join(process.cwd(), 'uploads');
+    
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
+    const localPath = path.join(uploadDir, fileName);
+    
+    let fileBuffer = file.buffer;
+    if (!fileBuffer && file.path) {
+      fileBuffer = fs.readFileSync(file.path);
+    }
+    
+    if (fileBuffer) {
+       fs.writeFileSync(localPath, fileBuffer);
+       return `/uploads/${fileName}`;
+    }
   }
 
   return null;

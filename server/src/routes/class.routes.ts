@@ -3,6 +3,8 @@ import { Router } from "express";
 import { authenticate } from "../middleware/auth.js";
 import { requireRole } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
+import { requireRole } from "../middleware/rbac.js";
+import { upload } from "../middleware/upload.js";
 import {
   createClass,
   getClasses,
@@ -12,7 +14,8 @@ import {
   importStudents,
   updateClass,
   transferStudent,
-  previewImportStudents
+  previewImportStudents,
+  getClassById
 } from "../controllers/class.controller.js";
 
 const router = Router();
@@ -31,6 +34,7 @@ router.delete("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDU
 // Teachers and Students can view classes (Students only their own, implemented in filtering logic ideally)
 // For now, let's allow all authenticated users to view classes (filtering by school is done in controller)
 router.get("/", getClasses);
+router.get("/:id", getClassById);
 router.get("/:id/students", getClassStudents);
 
 export default router;
