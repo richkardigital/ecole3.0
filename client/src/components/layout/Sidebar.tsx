@@ -173,7 +173,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/admin/forum" icon={MessageCircle} isActive={p === '/admin/forum'}>Forum d'entraide</NavItem>
               </NavSection>
               <div className="pt-2 space-y-1" style={{ borderTop: '1px solid #F1F5F9' }}>
-                <NavItem to="/admin/audit-logs" icon={ClipboardList} isActive={p === '/admin/audit-logs'}>Logs d'Audit</NavItem>
                 <NavItem to="/admin/settings" icon={Settings} isActive={p === '/admin/settings'}>Paramètres Système</NavItem>
               </div>
             </>

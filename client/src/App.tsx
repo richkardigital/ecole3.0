@@ -36,7 +36,6 @@ import Meetings from '@/app/academic/meetings/page';
 import Absences from '@/app/life/absences/page';
 import Conduct from '@/app/life/conduct/page';
 import Settings from '@/app/admin/settings/page';
-import AuditLogs from '@/app/admin/audit-logs/page';
 import Corrections from '@/app/academic/corrections/page';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import MainLayout from '@/components/layout/DashboardLayout';
@@ -103,7 +102,6 @@ function App() {
                     <Route path="/admin/schools/new" element={<NewSchoolPage />} />
                     <Route path="/admin/schools/:id" element={<SchoolDetailsPage />} />
                     <Route path="/admin/schools/:id/edit" element={<EditSchoolPage />} />
-                    <Route path="/admin/audit-logs" element={<AuditLogs />} />
                     <Route path="/admin/teaching-types" element={<TeachingTypesPage />} />
                     <Route path="/admin/school-types" element={<SchoolTypesPage />} />
                     <Route path="/admin/academic-years" element={<AcademicYears />} />

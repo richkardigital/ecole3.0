@@ -170,22 +170,32 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
           select: {
             id: true,
             name: true,
+            typeEtablissement: true,
+            teachingType: {
+                select: { name: true }
+            }
           }
         },
         enrollments: {
             include: {
-                class: true
+                class: {
+                    include: { niveau: true }
+                }
             }
         },
         courses: {
             include: {
-                class: true,
+                class: {
+                    include: { niveau: true }
+                },
                 subject: true
             }
         },
         teacherClasses: {
             include: {
-                class: true,
+                class: {
+                    include: { niveau: true }
+                },
                 subject: true
             }
         }

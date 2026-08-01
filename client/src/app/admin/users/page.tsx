@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Edit, Trash2, ArrowLeft, Users as UsersIcon, GraduationCap, School, UserCog, Eye, EyeOff, Loader2, Download, FileSpreadsheet, FileText, MessageCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowLeft, Users as UsersIcon, GraduationCap, School, UserCog, Eye, EyeOff, Loader2, Download, FileSpreadsheet, FileText, MessageCircle, Search, Filter } from 'lucide-react';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -20,10 +20,13 @@ interface User {
   schoolId?: string | null;
   school?: {
     name: string;
+    typeEtablissement?: string;
+    teachingType?: { name: string };
   };
   enrollments?: {
     class: {
         name: string;
+        niveau?: { nom: string };
     }
   }[];
   courses?: {
@@ -51,6 +54,11 @@ const Users = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [levelFilter, setLevelFilter] = useState('ALL');
+  const [teachingTypeFilter, setTeachingTypeFilter] = useState('ALL');
+  const [schoolTypeFilter, setSchoolTypeFilter] = useState('ALL');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -122,15 +130,48 @@ const Users = () => {
       setSelectedGroupId(null);
     }
     setCurrentPage(1);
+    setSearchQuery('');
+    setLevelFilter('ALL');
+    setTeachingTypeFilter('ALL');
+    setSchoolTypeFilter('ALL');
   }, [selectedGroupId, selectedGroup]);
 
-  const paginatedUsers = useMemo(() => {
+  const filteredUsers = useMemo(() => {
     if (!selectedGroup) return [];
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return selectedGroup.users.slice(startIndex, startIndex + itemsPerPage);
-  }, [selectedGroup, currentPage]);
+    let list = selectedGroup.users;
 
-  const totalPages = selectedGroup ? Math.ceil(selectedGroup.users.length / itemsPerPage) : 0;
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        list = list.filter(u => 
+            u.firstName.toLowerCase().includes(q) || 
+            u.lastName.toLowerCase().includes(q) || 
+            u.email.toLowerCase().includes(q) ||
+            (u.matricule && u.matricule.toLowerCase().includes(q))
+        );
+    }
+
+    if (selectedGroupId === 'student' && levelFilter !== 'ALL') {
+        list = list.filter(u => u.enrollments?.some(e => e.class.niveau?.nom === levelFilter));
+    }
+
+    if ((selectedGroupId === 'teacher' || selectedGroupId === 'student')) {
+        if (teachingTypeFilter !== 'ALL') {
+            list = list.filter(u => u.school?.teachingType?.name === teachingTypeFilter);
+        }
+        if (schoolTypeFilter !== 'ALL') {
+            list = list.filter(u => u.school?.typeEtablissement === schoolTypeFilter);
+        }
+    }
+
+    return list;
+  }, [selectedGroup, searchQuery, levelFilter, teachingTypeFilter, schoolTypeFilter]);
+
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredUsers.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredUsers, currentPage]);
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
 
   const fetchUsers = async () => {
     try {
@@ -631,6 +672,56 @@ const Users = () => {
         </div>
       ) : (
         <div className="bg-brand-card shadow-lg rounded-2xl overflow-hidden border border-brand-border">
+          {/* Filters Bar */}
+          <div className="p-4 border-b border-brand-border/50 bg-brand-sidebar/30 flex flex-col md:flex-row gap-4 items-center justify-between">
+             <div className="relative w-full md:w-80">
+                 <Search className="w-4 h-4 text-brand-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                 <input 
+                     type="text"
+                     placeholder="Rechercher par nom, email..."
+                     value={searchQuery}
+                     onChange={e => setSearchQuery(e.target.value)}
+                     className="w-full pl-9 pr-4 py-2 text-sm bg-brand-card border border-brand-border rounded-xl text-brand-text outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all"
+                 />
+             </div>
+             <div className="flex gap-2 w-full md:w-auto">
+                 {selectedGroupId === 'student' && (
+                     <select 
+                         value={levelFilter}
+                         onChange={e => setLevelFilter(e.target.value)}
+                         className="px-3 py-2 text-sm bg-brand-card border border-brand-border rounded-xl text-brand-text outline-none focus:border-brand-accent transition-all cursor-pointer"
+                     >
+                         <option value="ALL">Tous les niveaux</option>
+                         {Array.from(new Set(selectedGroup?.users.flatMap(u => u.enrollments?.map(e => e.class.niveau?.nom)).filter(Boolean))).map(lvl => (
+                             <option key={lvl} value={lvl}>{lvl}</option>
+                         ))}
+                     </select>
+                 )}
+                 {(selectedGroupId === 'teacher' || selectedGroupId === 'student') && (
+                     <>
+                     <select 
+                         value={teachingTypeFilter}
+                         onChange={e => setTeachingTypeFilter(e.target.value)}
+                         className="px-3 py-2 text-sm bg-brand-card border border-brand-border rounded-xl text-brand-text outline-none focus:border-brand-accent transition-all cursor-pointer"
+                     >
+                         <option value="ALL">Tous types d'enseignement</option>
+                         {Array.from(new Set(selectedGroup?.users.map(u => u.school?.teachingType?.name).filter(Boolean))).map(tt => (
+                             <option key={tt} value={tt}>{tt}</option>
+                         ))}
+                     </select>
+                     <select 
+                         value={schoolTypeFilter}
+                         onChange={e => setSchoolTypeFilter(e.target.value)}
+                         className="px-3 py-2 text-sm bg-brand-card border border-brand-border rounded-xl text-brand-text outline-none focus:border-brand-accent transition-all cursor-pointer"
+                     >
+                         <option value="ALL">Tous types d'établissements</option>
+                         <option value="PRIVE">Privé</option>
+                         <option value="PUBLIC">Public</option>
+                     </select>
+                     </>
+                 )}
+             </div>
+          </div>
           <div className="overflow-x-auto custom-scrollbar">
             <table className="min-w-full divide-y divide-brand-border">
               <thead className="bg-brand-sidebar">
@@ -736,7 +827,7 @@ const Users = () => {
           {totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-brand-border bg-brand-sidebar/30 gap-4">
               <div className="text-sm text-brand-text-muted">
-                Affichage de <span className="font-medium text-brand-text">{(currentPage - 1) * itemsPerPage + 1}</span> à <span className="font-medium text-brand-text">{Math.min(currentPage * itemsPerPage, selectedGroup?.users.length || 0)}</span> sur <span className="font-medium text-brand-text">{selectedGroup?.users.length}</span>
+                Affichage de <span className="font-medium text-brand-text">{filteredUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> à <span className="font-medium text-brand-text">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> sur <span className="font-medium text-brand-text">{filteredUsers.length}</span>
               </div>
               <div className="flex gap-2">
                 <button
