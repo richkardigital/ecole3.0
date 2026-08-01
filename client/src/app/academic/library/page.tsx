@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Link } from 'react-router-dom';
-import api from '@/lib/api';
+import api, { getFileUrl } from '@/lib/api';
 import {
   Search, FileText, Video, Download, ExternalLink, Filter, Plus,
   Trash2, Eye, BookOpen, GraduationCap, CheckCircle2, XCircle, Sparkles, Building2
@@ -283,7 +283,7 @@ export default function LibraryPage() {
 
                 <div className="flex items-center gap-2">
                   <a 
-                    href={material.url} 
+                    href={getFileUrl(material.url)} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 hover:text-emerald-800 transition-colors"

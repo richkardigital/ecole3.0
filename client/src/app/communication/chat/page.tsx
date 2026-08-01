@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import { useSocket } from '@/context/SocketContext';
-import api from '@/lib/api';
-import { Send, User, Users, Circle, Paperclip, FileText, X, ArrowLeft, MessageSquare } from 'lucide-react';
+import api, { getFileUrl } from '@/lib/api';
+import { Send, User, Users, Circle, Paperclip, FileText, X, ArrowLeft, MessageSquare, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 
@@ -43,6 +44,8 @@ const Chat = () => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [showContactList, setShowContactList] = useState(true);
+    const [searchParams] = useSearchParams();
+    const [searchQuery, setSearchQuery] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -146,6 +149,16 @@ const Chat = () => {
     useEffect(() => {
         fetchContacts();
     }, []);
+
+    useEffect(() => {
+        const userId = searchParams.get('userId');
+        if (userId && contacts.length > 0 && !selectedContact) {
+            const contact = contacts.find(c => c.id === userId);
+            if (contact) {
+                setSelectedContact(contact);
+            }
+        }
+    }, [searchParams, contacts, selectedContact]);
 
     useEffect(() => {
         if (selectedContact) {
@@ -335,18 +348,18 @@ const Chat = () => {
         
         if (msg.attachmentType === 'IMAGE') {
             return (
-                <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="block mt-2">
-                    <img src={msg.attachmentUrl} alt="attachment" className="max-w-[200px] rounded-lg border border-gray-200" />
+                <a href={getFileUrl(msg.attachmentUrl)} target="_blank" rel="noopener noreferrer" className="block mt-2">
+                    <img src={getFileUrl(msg.attachmentUrl)} alt="attachment" className="max-w-[200px] rounded-lg border border-gray-200" />
                 </a>
             );
         } else if (msg.attachmentType === 'VIDEO') {
             return (
-                <video src={msg.attachmentUrl} controls className="max-w-[200px] mt-2 rounded-lg" />
+                <video src={getFileUrl(msg.attachmentUrl)} controls className="max-w-[200px] mt-2 rounded-lg" />
             );
         } else {
             return (
                     <a 
-                        href={msg.attachmentUrl} 
+                        href={getFileUrl(msg.attachmentUrl)} 
                         target="_blank" 
                         rel="noopener noreferrer" 
                         className="flex items-center gap-2 mt-2 p-2 bg-brand-sidebar rounded text-brand-accent hover:underline"
@@ -372,9 +385,21 @@ const Chat = () => {
                         <span className="text-[10px] text-brand-text-muted font-medium uppercase tracking-wider">{isSupabaseConnected ? 'Connecté' : 'Déconnecté'}</span>
                     </div>
                 </div>
+                <div className="p-3 border-b border-brand-border/50 bg-brand-sidebar/50">
+                    <div className="relative">
+                        <Search className="w-4 h-4 text-brand-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                            type="text"
+                            placeholder="Rechercher un contact..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 bg-brand-card border border-brand-border/50 rounded-lg text-sm text-brand-text outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all"
+                        />
+                    </div>
+                </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    {contacts.length > 0 ? (
-                        contacts.map(contact => (
+                    {contacts.filter(c => (c.name || `${c.firstName} ${c.lastName}`).toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
+                        contacts.filter(c => (c.name || `${c.firstName} ${c.lastName}`).toLowerCase().includes(searchQuery.toLowerCase())).map(contact => (
                             <div 
                                 key={contact.id}
                                 onClick={() => setSelectedContact(contact)}

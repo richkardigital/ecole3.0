@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Edit, Trash2, ArrowLeft, Users as UsersIcon, GraduationCap, School, UserCog, Eye, EyeOff, Loader2, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowLeft, Users as UsersIcon, GraduationCap, School, UserCog, Eye, EyeOff, Loader2, Download, FileSpreadsheet, FileText, MessageCircle } from 'lucide-react';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -45,6 +46,7 @@ interface UserGroup {
 
 const Users = () => {
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -689,6 +691,18 @@ const Users = () => {
                     )}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                         <div className="flex justify-end gap-2">
+                            {(currentUser?.role !== 'SUPER_ADMIN' || u.id !== currentUser?.id) && (
+                              <button 
+                                  onClick={() => {
+                                      const prefix = currentUser?.role === 'SUPER_ADMIN' ? '/admin' : currentUser?.role === 'DIRECTEUR' ? '/directeur' : currentUser?.role === 'EDUCATEUR' ? '/educateur' : '';
+                                      navigate(`${prefix}/chat?userId=${u.id}`);
+                                  }}
+                                  className="p-2 text-brand-accent hover:text-white bg-brand-sidebar hover:bg-brand-accent rounded-lg transition border border-transparent hover:border-brand-accent"
+                                  title="Envoyer un message"
+                              >
+                                  <MessageCircle className="w-4 h-4" />
+                              </button>
+                            )}
                             {(currentUser?.role === 'SUPER_ADMIN' || 
                               (currentUser?.role === 'DIRECTEUR' && u.role !== 'SUPER_ADMIN') ||
                               (currentUser?.role === 'EDUCATEUR' && (u.role === 'ENSEIGNANT' || u.role === 'APPRENANT' || u.id === currentUser?.id))) && (
