@@ -164,10 +164,15 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
 
         let contacts: any[] = [];
 
-        // Si Directeur ou Super Admin, on renvoie tous les utilisateurs (sauf soi-même)
-        if ((role as string) === 'DIRECTEUR' || (role as string) === 'SUPER_ADMIN') {
+        if ((role as string) === 'SUPER_ADMIN') {
             contacts = await prisma.user.findMany({
                 where: { id: { not: userId } },
+                select: { id: true, firstName: true, lastName: true, role: true, isOnline: true }
+            });
+        }
+        else if ((role as string) === 'DIRECTEUR' || (role as string) === 'EDUCATEUR') {
+            contacts = await prisma.user.findMany({
+                where: { id: { not: userId }, schoolId: req.user?.schoolId },
                 select: { id: true, firstName: true, lastName: true, role: true, isOnline: true }
             });
         }
@@ -201,11 +206,12 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
                  }
              });
 
-             // Aussi récupérer les autres enseignants et les directeurs
+             // Aussi récupérer les autres enseignants et les directeurs de la même école
              const colleagues = await prisma.user.findMany({
                  where: {
                      role: { in: ['ENSEIGNANT', 'DIRECTEUR'] },
-                     id: { not: userId }
+                     id: { not: userId },
+                     schoolId: req.user?.schoolId || undefined
                  },
                  select: { id: true, firstName: true, lastName: true, role: true, isOnline: true }
              });

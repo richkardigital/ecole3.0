@@ -7,7 +7,7 @@ import { uploadToSupabase } from "../utils/supabase.js";
 const createPostSchema = z.object({
   title: z.string().min(3),
   content: z.string().min(1),
-  category: z.enum(["GENERAL", "HOMEWORK", "COURSE", "ANNOUNCEMENT"]).default("GENERAL"),
+  category: z.enum(["GENERAL", "PEDAGOGIE", "ADMINISTRATION", "ETUDIANTS"]).default("GENERAL"),
 });
 
 const createCommentSchema = z.object({
@@ -72,6 +72,15 @@ export const getPosts = async (req: AuthRequest, res: Response) => {
         { title: { contains: String(search), mode: "insensitive" } },
         { content: { contains: String(search), mode: "insensitive" } },
       ];
+    }
+
+    if (req.user?.role !== 'SUPER_ADMIN') {
+        where.author = {
+            OR: [
+                { schoolId: req.user?.schoolId },
+                { role: 'SUPER_ADMIN' }
+            ]
+        };
     }
 
     const posts = await prisma.forumPost.findMany({

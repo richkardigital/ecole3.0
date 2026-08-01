@@ -219,10 +219,9 @@ export const deleteSchool = async (req: Request, res: Response) => {
     if (!id) return res.status(400).json({ message: "ID required" });
 
     await prisma.$transaction(async (prisma) => {
-        // Unlink all users from this school
-        await prisma.user.updateMany({
-            where: { schoolId: String(id) },
-            data: { schoolId: null }
+        // Delete all users linked to this school (will cascade to courses, enrollments, etc.)
+        await prisma.user.deleteMany({
+            where: { schoolId: String(id) }
         });
 
         // Delete related data (simplified for now, assuming cascade or empty)

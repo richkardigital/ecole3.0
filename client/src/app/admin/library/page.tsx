@@ -37,6 +37,7 @@ type FormData = {
 export default function LibraryPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isEnseignant = user?.role === 'ENSEIGNANT';
   const isApprenant = user?.role === 'APPRENANT';
   const canAdd = isAdmin || isEnseignant;
@@ -397,8 +398,7 @@ export default function LibraryPage() {
                           <Eye className="w-4 h-4" />
                         </button>
                         
-                        {isAdmin && (
-                          <>
+                        {isSuperAdmin && (
                             <button 
                               onClick={() => togglePublish(resource)}
                               className={`p-2 rounded-lg transition-colors ${resource.isPublished ? 'text-emerald-500 hover:bg-emerald-50' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`}
@@ -406,6 +406,9 @@ export default function LibraryPage() {
                             >
                               {resource.isPublished ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                             </button>
+                        )}
+                        {isAdmin && (
+                          <>
                             <button 
                               onClick={() => openEditModal(resource)}
                               className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"

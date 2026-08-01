@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { BookOpen, ArrowLeft, Paperclip, CheckCircle2, Clock, Check, XCircle } from 'lucide-react';
+import { BookOpen, ArrowLeft, Paperclip, CheckCircle2, Clock, Check, XCircle, Download, Save, Users, FileText, Upload } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
-import { Download } from 'lucide-react';
 
 interface ParticipantModel {
   id: string;
@@ -42,11 +41,13 @@ interface AssignmentData {
   description: string;
   published: boolean;
   attachments: string[];
+  correctionUrl?: string;
   questions: {
     id: string;
     text: string;
     type: string;
     points: number;
+    expectedAnswer?: string;
     options: {
       id: string;
       text: string;
@@ -70,10 +71,20 @@ export default function GlobalAssignmentDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
 
-  const [gradingParticipant, setGradingParticipant] = useState<ParticipantModel | null>(null);
-  const [gradeValue, setGradeValue] = useState<string>('');
-  const [gradeComment, setGradeComment] = useState<string>('');
-  const [isSubmittingGrade, setIsSubmittingGrade] = useState(false);
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'INFO' | 'PARTICIPANTS'>('INFO');
+
+  // Inline grading
+  const [inlineGrades, setInlineGrades] = useState<Record<string, { value: string, comment: string }>>({});
+  const [savingGradeId, setSavingGradeId] = useState<string | null>(null);
+
+  // Correction
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingCorrection, setUploadingCorrection] = useState(false);
+  
+  // Quiz correction state: array of updated questions
+  const [quizCorrection, setQuizCorrection] = useState<any[]>([]);
+  const [savingQuiz, setSavingQuiz] = useState(false);
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -82,6 +93,21 @@ export default function GlobalAssignmentDetailsPage() {
           const res = await api.get(`/assignments/${id}`);
           setAssignment(res.data);
           
+          if (res.data.published) {
+            setActiveTab('PARTICIPANTS');
+          }
+          
+          if (res.data.questions) {
+            // Initialize quiz correction state
+            const initialQuizState = res.data.questions.map((q: any) => ({
+              id: q.id,
+              type: q.type,
+              expectedAnswer: q.expectedAnswer || '',
+              options: q.options?.map((o: any) => ({ id: o.id, isCorrect: o.isCorrect })) || []
+            }));
+            setQuizCorrection(initialQuizState);
+          }
+
           // Load classes for filtering
           const classRes = await api.get('/classes');
           setClasses(classRes.data);
@@ -102,6 +128,20 @@ export default function GlobalAssignmentDetailsPage() {
       const url = selectedClass ? `/assignments/${id}/participants?classId=${selectedClass}` : `/assignments/${id}/participants`;
       const res = await api.get(url);
       setParticipants(res.data);
+      
+      // Initialize inline grades state
+      const initialGrades: Record<string, { value: string, comment: string }> = {};
+      res.data.forEach((p: ParticipantModel) => {
+        if (p.submissions[0]?.grade) {
+          initialGrades[p.id] = {
+            value: p.submissions[0].grade.value.toString(),
+            comment: p.submissions[0].grade.comment || ''
+          };
+        } else {
+          initialGrades[p.id] = { value: '', comment: '' };
+        }
+      });
+      setInlineGrades(initialGrades);
     } catch (error) {
       toast.error("Erreur lors de la récupération des participants");
     } finally {
@@ -110,39 +150,85 @@ export default function GlobalAssignmentDetailsPage() {
   };
 
   useEffect(() => {
-    if (assignment && assignment.published && new Date(assignment.dueDate) < new Date()) {
+    if (assignment && assignment.published && activeTab === 'PARTICIPANTS') {
       fetchParticipants();
     }
-  }, [assignment?.published, assignment?.dueDate, selectedClass]);
+  }, [assignment?.published, selectedClass, activeTab]);
 
-  const handleGradeSubmit = async () => {
-    if (!gradingParticipant || !gradeValue) return;
+  const handleInlineGradeChange = (studentId: string, field: 'value' | 'comment', val: string) => {
+    setInlineGrades(prev => ({
+      ...prev,
+      [studentId]: { ...prev[studentId], [field]: val }
+    }));
+  };
+
+  const saveInlineGrade = async (participantId: string) => {
+    const gradeData = inlineGrades[participantId];
+    if (!gradeData || !gradeData.value) return;
+    
     try {
-      setIsSubmittingGrade(true);
+      setSavingGradeId(participantId);
       await api.post(`/assignments/${id}/grade`, {
-        studentId: gradingParticipant.id,
-        value: Number(gradeValue),
-        comment: gradeComment
+        studentId: participantId,
+        value: Number(gradeData.value),
+        comment: gradeData.comment
       });
-      toast.success("Note enregistrée avec succès");
-      setGradingParticipant(null);
-      fetchParticipants(); // Refresh the list
+      toast.success("Note enregistrée");
+      // Optionally re-fetch participants, but local state is already ok.
     } catch (error) {
       toast.error("Erreur lors de l'enregistrement de la note");
     } finally {
-      setIsSubmittingGrade(false);
+      setSavingGradeId(null);
     }
   };
 
-  const openGradeModal = (participant: ParticipantModel) => {
-    setGradingParticipant(participant);
-    const existingSubmission = participant.submissions[0];
-    if (existingSubmission?.grade) {
-      setGradeValue(existingSubmission.grade.value.toString());
-      setGradeComment(existingSubmission.grade.comment || '');
-    } else {
-      setGradeValue('');
-      setGradeComment('');
+  const handleCorrectionUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadingCorrection(true);
+      const res = await api.post(`/assignments/${id}/correction-file`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      toast.success("Fichier de correction ajouté avec succès");
+      setAssignment(prev => prev ? { ...prev, correctionUrl: res.data.correctionUrl } : null);
+    } catch (error) {
+      toast.error("Erreur lors de l'ajout de la correction");
+    } finally {
+      setUploadingCorrection(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleQuizOptionChange = (questionId: string, optionId: string) => {
+    setQuizCorrection(prev => prev.map(q => {
+      if (q.id === questionId) {
+        return {
+          ...q,
+          options: q.options.map((o: any) => ({ ...o, isCorrect: o.id === optionId }))
+        };
+      }
+      return q;
+    }));
+  };
+
+  const handleQuizExpectedAnswerChange = (questionId: string, value: string) => {
+    setQuizCorrection(prev => prev.map(q => q.id === questionId ? { ...q, expectedAnswer: value } : q));
+  };
+
+  const saveQuizCorrection = async () => {
+    try {
+      setSavingQuiz(true);
+      await api.put(`/assignments/${id}/correction-quiz`, { questions: quizCorrection });
+      toast.success("Correction du questionnaire enregistrée");
+    } catch (error) {
+      toast.error("Erreur lors de l'enregistrement de la correction");
+    } finally {
+      setSavingQuiz(false);
     }
   };
 
@@ -150,7 +236,7 @@ export default function GlobalAssignmentDetailsPage() {
     return <div className="p-8 text-center text-red-500">Accès non autorisé.</div>;
   }
 
-  if (loading) {
+  if (loading || !assignment) {
     return (
       <div className="p-6 md:p-8 lg:p-10 max-w-5xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500 pb-32">
         <div className="flex justify-center p-12"><div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div></div>
@@ -158,18 +244,16 @@ export default function GlobalAssignmentDetailsPage() {
     );
   }
 
-  if (!assignment) return null;
-
   return (
-    <div className="p-6 md:p-8 lg:p-10 max-w-5xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500 pb-32">
+    <div className="p-6 md:p-8 lg:p-10 max-w-6xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500 pb-32">
       <Button variant="ghost" onClick={() => navigate('/admin/assignments')} className="mb-4 text-brand-text-muted hover:text-brand-text">
-        <ArrowLeft className="w-4 h-4 mr-2" /> Retour
+        <ArrowLeft className="w-4 h-4 mr-2" /> Retour aux devoirs
       </Button>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <PageHeader 
-          title="Détails de l'Évaluation" 
-          description="Consultez les informations, fichiers et questions de cette évaluation globale."
+          title={assignment.title}
+          description={`${assignment.type} - ${assignment.niveau?.nom || ''}`}
           icon={<BookOpen className="w-8 h-8 text-brand-primary" />}
         />
         
@@ -186,173 +270,192 @@ export default function GlobalAssignmentDetailsPage() {
         </div>
       </div>
 
-      <div className="bg-brand-surface-card rounded-2xl border border-brand-border/50 shadow-sm overflow-hidden">
-        
-        <div className="p-6 space-y-6">
-          <h3 className="text-lg font-bold text-brand-text mb-4">Informations de base</h3>
-          
-          <div className="grid md:grid-cols-2 gap-y-6 gap-x-12">
-            <div>
-              <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Titre</p>
-              <p className="text-brand-text font-medium text-lg">{assignment.title}</p>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Type</p>
-              <p className="text-brand-text font-medium">{assignment.type}</p>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Niveau Scolaire</p>
-              <p className="text-brand-text font-medium">{assignment.niveau?.nom || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Matière</p>
-              <p className="text-brand-text font-medium">{assignment.subject?.name || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Date d'échéance</p>
-              <p className="text-brand-text font-medium">
-                {new Date(assignment.dueDate).toLocaleString('fr-FR', {
-                  day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                })}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Année Scolaire</p>
-              <p className="text-brand-text font-medium">{assignment.academicYear?.name || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Trimestre / Semestre</p>
-              <p className="text-brand-text font-medium">{assignment.term?.name || '-'}</p>
-            </div>
-          </div>
+      {/* Tabs */}
+      <div className="flex space-x-1 bg-brand-surface p-1 rounded-xl border border-brand-border/50">
+        <button
+          onClick={() => setActiveTab('INFO')}
+          className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+            activeTab === 'INFO'
+              ? 'bg-white text-brand-primary shadow-sm'
+              : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-surface-card/50'
+          }`}
+        >
+          <FileText className="w-4 h-4" /> Informations & Sujet
+        </button>
+        <button
+          onClick={() => setActiveTab('PARTICIPANTS')}
+          disabled={!assignment.published}
+          className={`flex-1 py-3 px-4 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+            !assignment.published ? 'opacity-50 cursor-not-allowed' :
+            activeTab === 'PARTICIPANTS'
+              ? 'bg-white text-brand-primary shadow-sm'
+              : 'text-brand-text-muted hover:text-brand-text hover:bg-brand-surface-card/50'
+          }`}
+        >
+          <Users className="w-4 h-4" /> Participants & Notes {!assignment.published && '(Non publié)'}
+        </button>
+      </div>
 
-          {assignment.description && (
-            <div className="mt-6">
-              <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-2">Consignes et Description</p>
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-brand-text whitespace-pre-wrap">
-                {assignment.description}
+      {activeTab === 'INFO' && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="bg-brand-surface-card rounded-2xl border border-brand-border/50 shadow-sm overflow-hidden">
+            <div className="p-6 space-y-6">
+              <h3 className="text-lg font-bold text-brand-text mb-4">Informations de base</h3>
+              
+              <div className="grid md:grid-cols-2 gap-y-6 gap-x-12">
+                <div>
+                  <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Matière</p>
+                  <p className="text-brand-text font-medium">{assignment.subject?.name || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Date d'échéance</p>
+                  <p className="text-brand-text font-medium">
+                    {new Date(assignment.dueDate).toLocaleString('fr-FR', {
+                      day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Année Scolaire</p>
+                  <p className="text-brand-text font-medium">{assignment.academicYear?.name || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Trimestre / Semestre</p>
+                  <p className="text-brand-text font-medium">{assignment.term?.name || '-'}</p>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
 
-        {(!assignment.questions || assignment.questions.length === 0 || (assignment.attachments && assignment.attachments.length > 0)) && (
-          <div className="p-6 border-t border-brand-border/50">
-            <h3 className="text-lg font-bold text-brand-text mb-4">Fichiers Joints</h3>
-            
-            <div className="flex flex-wrap gap-3">
-              {assignment.attachments && assignment.attachments.length > 0 ? (
-                assignment.attachments.map((url, index) => (
-                  <a 
-                    key={index}
-                    href={`${import.meta.env.VITE_API_URL}${url}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 bg-brand-surface px-4 py-3 rounded-lg border border-brand-border hover:border-brand-primary transition-colors group cursor-pointer"
-                  >
-                    <Paperclip className="w-5 h-5 text-brand-text-muted group-hover:text-brand-primary transition-colors" />
-                    <span className="text-sm font-medium text-brand-text max-w-[250px] truncate group-hover:text-brand-primary transition-colors">
-                      {url.split('/').pop()}
-                    </span>
-                  </a>
-                ))
-              ) : (
-                <p className="text-sm text-brand-text-muted italic w-full">Aucun fichier joint pour cette évaluation.</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Action Button: Ajouter la correction */}
-        <div className="p-6 border-t border-brand-border/50 bg-brand-surface/30">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate(`/admin/assignments/${assignment.id}/edit`)} 
-            className="text-blue-500 hover:text-blue-600 hover:bg-blue-50"
-          >
-            <Paperclip className="w-4 h-4 mr-2" />
-            Ajouter une correction
-          </Button>
-        </div>
-
-        {(!assignment.attachments || assignment.attachments.length === 0 || (assignment.questions && assignment.questions.length > 0)) && (
-          <div className="p-6 border-t border-brand-border/50 bg-slate-50/50">
-            <h3 className="text-lg font-bold text-brand-text mb-6">Questionnaire intégré</h3>
-
-            <div className="space-y-6">
-              {assignment.questions && assignment.questions.length > 0 ? (
-                assignment.questions.map((question, index) => (
-                  <div key={question.id} className="bg-white p-6 rounded-xl border border-brand-border shadow-sm">
-                    
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div>
-                        <span className="inline-block px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-bold uppercase tracking-wider mb-2">
-                          Question {index + 1}
-                        </span>
-                        <div 
-                          className="text-lg font-medium text-brand-text prose prose-sm max-w-none"
-                          dangerouslySetInnerHTML={{ __html: question.text }}
-                        />
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className="inline-flex px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-bold uppercase">
-                          {question.type === 'MULTIPLE_CHOICE' ? 'QCM' : 'Ouverte'}
-                        </span>
-                        <span className="text-sm font-bold text-brand-text-muted">
-                          {question.points} point{question.points > 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    </div>
-
-                    {question.type === 'MULTIPLE_CHOICE' && question.options && question.options.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        {question.options.map((opt, optIndex) => (
-                          <div 
-                            key={opt.id} 
-                            className={`flex items-center gap-3 p-3 rounded-lg border ${
-                              opt.isCorrect 
-                                ? 'bg-green-50 border-green-200' 
-                                : 'bg-brand-surface border-brand-border'
-                            }`}
-                          >
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${
-                              opt.isCorrect ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300'
-                            }`}>
-                              {opt.isCorrect && <Check className="w-3 h-3" />}
-                            </div>
-                            <span className={`text-sm ${opt.isCorrect ? 'font-medium text-green-900' : 'text-brand-text'}`}>
-                              {opt.text}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {question.type === 'OPEN' && (
-                      <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200 border-dashed">
-                        <p className="text-sm text-brand-text-muted italic">Espace de réponse libre pour l'élève.</p>
-                      </div>
-                    )}
+              {assignment.description && (
+                <div className="mt-6">
+                  <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-2">Consignes</p>
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-brand-text whitespace-pre-wrap">
+                    {assignment.description}
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-12 border-2 border-dashed border-brand-border rounded-xl bg-white">
-                  <p className="text-sm font-medium text-brand-text-muted">Aucune question n'a été ajoutée à ce questionnaire.</p>
                 </div>
               )}
             </div>
+
+            {(!assignment.questions || assignment.questions.length === 0 || (assignment.attachments && assignment.attachments.length > 0)) && (
+              <div className="p-6 border-t border-brand-border/50">
+                <h3 className="text-lg font-bold text-brand-text mb-4">Fichiers Joints & Corrigé</h3>
+                
+                <div className="space-y-4">
+                  {assignment.attachments && assignment.attachments.length > 0 ? (
+                    assignment.attachments.map((url, index) => (
+                      <a 
+                        key={index}
+                        href={`${import.meta.env.VITE_API_URL}${url}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 bg-brand-surface px-4 py-3 rounded-lg border border-brand-border hover:border-brand-primary transition-colors inline-flex"
+                      >
+                        <Paperclip className="w-5 h-5 text-brand-text-muted" />
+                        <span className="text-sm font-medium text-brand-text">{url.split('/').pop()}</span>
+                      </a>
+                    ))
+                  ) : (
+                    <p className="text-sm text-brand-text-muted italic">Aucun fichier joint.</p>
+                  )}
+                </div>
+
+                <div className="mt-6 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                  <h4 className="text-sm font-bold text-blue-900 mb-3">Fichier de correction</h4>
+                  {assignment.correctionUrl ? (
+                    <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-blue-200">
+                      <a href={`${import.meta.env.VITE_API_URL}${assignment.correctionUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline text-sm font-medium">
+                        <Download className="w-4 h-4" /> Télécharger le corrigé actuel
+                      </a>
+                      <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} isLoading={uploadingCorrection}>
+                        Remplacer
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button variant="primary" onClick={() => fileInputRef.current?.click()} isLoading={uploadingCorrection}>
+                      <Upload className="w-4 h-4 mr-2" /> Ajouter la correction (Fichier)
+                    </Button>
+                  )}
+                  <input type="file" ref={fileInputRef} className="hidden" onChange={handleCorrectionUpload} />
+                </div>
+              </div>
+            )}
+
+            {(!assignment.attachments || assignment.attachments.length === 0 || (assignment.questions && assignment.questions.length > 0)) && (
+              <div className="p-6 border-t border-brand-border/50 bg-slate-50/50">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-bold text-brand-text">Questionnaire & Correction</h3>
+                  <Button variant="primary" onClick={saveQuizCorrection} isLoading={savingQuiz}>
+                    <Save className="w-4 h-4 mr-2" /> Enregistrer la correction
+                  </Button>
+                </div>
+
+                <div className="space-y-6">
+                  {assignment.questions && assignment.questions.length > 0 ? (
+                    assignment.questions.map((question, index) => {
+                      const qState = quizCorrection.find(q => q.id === question.id);
+                      return (
+                        <div key={question.id} className="bg-white p-6 rounded-xl border border-brand-border shadow-sm">
+                          <div className="flex items-start justify-between gap-4 mb-4">
+                            <div>
+                              <span className="inline-block px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-bold uppercase tracking-wider mb-2">
+                                Question {index + 1}
+                              </span>
+                              <div className="text-base font-medium text-brand-text prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: question.text }} />
+                            </div>
+                            <span className="text-sm font-bold text-brand-text-muted whitespace-nowrap">{question.points} pt{question.points > 1 ? 's' : ''}</span>
+                          </div>
+
+                          <div className="mt-4 p-4 bg-brand-surface rounded-lg border border-brand-border/50">
+                            <h4 className="text-xs font-bold text-brand-text-muted uppercase mb-3">Définir la bonne réponse</h4>
+                            
+                            {question.type === 'MULTIPLE_CHOICE' && question.options && (
+                              <div className="space-y-2">
+                                {question.options.map(opt => {
+                                  const isChecked = qState?.options.find((o: any) => o.id === opt.id)?.isCorrect;
+                                  return (
+                                    <label key={opt.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isChecked ? 'bg-green-50 border-green-200' : 'bg-white border-brand-border hover:bg-slate-50'}`}>
+                                      <input 
+                                        type="radio" 
+                                        name={`q-${question.id}`} 
+                                        checked={isChecked || false}
+                                        onChange={() => handleQuizOptionChange(question.id, opt.id)}
+                                        className="w-4 h-4 text-green-600 focus:ring-green-500" 
+                                      />
+                                      <span className={`text-sm ${isChecked ? 'font-medium text-green-900' : 'text-brand-text'}`}>{opt.text}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {question.type === 'OPEN' && (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={qState?.expectedAnswer || ''}
+                                  onChange={(e) => handleQuizExpectedAnswerChange(question.id, e.target.value)}
+                                  placeholder="Saisissez la réponse attendue ou les éléments de correction pour cette question..."
+                                  className="w-full p-3 bg-white border border-brand-border rounded-lg text-sm text-brand-text focus:ring-2 focus:ring-brand-primary min-h-[100px]"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-center text-sm text-brand-text-muted">Aucune question.</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-      </div>
-
-      {/* Participants & Correction Section */}
-      {assignment.published && new Date(assignment.dueDate) < new Date() && (
-        <div className="bg-brand-surface-card rounded-2xl border border-brand-border/50 p-6 shadow-sm mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {activeTab === 'PARTICIPANTS' && (
+        <div className="bg-brand-surface-card rounded-2xl border border-brand-border/50 p-6 shadow-sm animate-in fade-in duration-300">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <h2 className="text-xl font-bold text-brand-text flex items-center">
-              <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500" />
-              Liste des participants & Correction
+            <h2 className="text-lg font-bold text-brand-text flex items-center">
+              Participants & Saisie des Notes
             </h2>
             <select
               value={selectedClass}
@@ -369,28 +472,29 @@ export default function GlobalAssignmentDetailsPage() {
           {loadingParticipants ? (
             <div className="flex justify-center p-8"><div className="w-6 h-6 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div></div>
           ) : participants.length === 0 ? (
-            <p className="text-brand-text-muted text-center italic py-8">Aucun participant trouvé.</p>
+            <p className="text-brand-text-muted text-center italic py-8">Aucun participant trouvé pour cette évaluation.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-brand-border/50 text-brand-text-muted text-sm">
-                    <th className="py-3 px-4 font-semibold">Élève</th>
-                    <th className="py-3 px-4 font-semibold">Classe</th>
-                    <th className="py-3 px-4 font-semibold">Statut Rendu</th>
-                    <th className="py-3 px-4 font-semibold">Note</th>
-                    <th className="py-3 px-4 font-semibold text-right">Action</th>
+                  <tr className="border-b border-brand-border/50 text-brand-text-muted text-xs uppercase tracking-wider">
+                    <th className="py-3 px-4 font-bold">Élève</th>
+                    <th className="py-3 px-4 font-bold">Classe</th>
+                    <th className="py-3 px-4 font-bold">Statut</th>
+                    <th className="py-3 px-4 font-bold">Note / Commentaire</th>
+                    <th className="py-3 px-4 font-bold text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {participants.map(p => {
                     const submission = p.submissions[0];
                     const hasSubmitted = submission && submission.content !== 'NON_RENDU';
-                    const grade = submission?.grade;
+                    const gradeState = inlineGrades[p.id] || { value: '', comment: '' };
+                    const isSaving = savingGradeId === p.id;
                     
                     return (
                       <tr key={p.id} className="border-b border-brand-border/30 hover:bg-brand-surface/50 transition-colors">
-                        <td className="py-3 px-4">
+                        <td className="py-4 px-4">
                           <div className="flex items-center gap-3">
                             {p.avatarUrl ? (
                               <img src={p.avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
@@ -399,13 +503,20 @@ export default function GlobalAssignmentDetailsPage() {
                                 {p.firstName[0]}
                               </div>
                             )}
-                            <div className="font-medium text-brand-text">{p.firstName} {p.lastName}</div>
+                            <div>
+                              <div className="font-medium text-brand-text text-sm">{p.firstName} {p.lastName}</div>
+                              {hasSubmitted && submission.fileUrl && (
+                                <a href={`${import.meta.env.VITE_API_URL}${submission.fileUrl}`} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline flex items-center mt-1">
+                                  <Download className="w-3 h-3 mr-1" /> Voir la copie
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-brand-text-muted text-sm">
+                        <td className="py-4 px-4 text-brand-text-muted text-sm">
                           {p.enrollments[0]?.class?.name || '-'}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-4 px-4">
                           {hasSubmitted ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
                               <Check className="w-3 h-3 mr-1" /> Rendu
@@ -416,14 +527,27 @@ export default function GlobalAssignmentDetailsPage() {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 font-medium text-brand-text">
-                          {grade ? (
-                            <span className="text-blue-500">{grade.value} pts</span>
-                          ) : '-'}
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={gradeState.value}
+                              onChange={(e) => handleInlineGradeChange(p.id, 'value', e.target.value)}
+                              placeholder="Note"
+                              className="w-20 px-2 py-1.5 text-sm bg-white border border-brand-border rounded-md focus:ring-2 focus:ring-brand-primary"
+                            />
+                            <span className="text-sm font-medium text-brand-text-muted">/ {assignment.questions?.reduce((acc, q) => acc + q.points, 0) || 20}</span>
+                          </div>
                         </td>
-                        <td className="py-3 px-4 text-right">
-                          <Button variant="outline" size="sm" onClick={() => openGradeModal(p)}>
-                            {grade ? 'Modifier note' : 'Corriger'}
+                        <td className="py-4 px-4 text-right">
+                          <Button 
+                            variant="primary" 
+                            size="sm" 
+                            onClick={() => saveInlineGrade(p.id)}
+                            isLoading={isSaving}
+                            disabled={!gradeState.value}
+                          >
+                            <Save className="w-4 h-4 mr-1" /> Enregistrer
                           </Button>
                         </td>
                       </tr>
@@ -435,69 +559,6 @@ export default function GlobalAssignmentDetailsPage() {
           )}
         </div>
       )}
-
-      {/* Grading Modal */}
-      {gradingParticipant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-brand-surface border border-brand-border rounded-2xl p-6 md:p-8 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-bold text-brand-text mb-2">
-              Correction : {gradingParticipant.firstName} {gradingParticipant.lastName}
-            </h3>
-            
-            {gradingParticipant.submissions[0] && gradingParticipant.submissions[0].content !== 'NON_RENDU' ? (
-              <div className="mb-6 bg-brand-surface-card p-4 rounded-xl border border-brand-border">
-                <p className="text-sm font-medium text-brand-text-muted mb-2">Contenu du rendu :</p>
-                {gradingParticipant.submissions[0].fileUrl ? (
-                  <a href={gradingParticipant.submissions[0].fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-brand-primary hover:underline font-medium">
-                    <Download className="w-4 h-4" />
-                    Télécharger la pièce jointe
-                  </a>
-                ) : (
-                  <div className="text-brand-text text-sm whitespace-pre-wrap">
-                    {gradingParticipant.submissions[0].content}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="mb-6 p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 text-sm">
-                Cet élève n'a pas rendu son devoir. Vous pouvez lui attribuer une note (ex: 0).
-              </div>
-            )}
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-brand-text mb-1">Note (Points)</label>
-                <input
-                  type="number"
-                  value={gradeValue}
-                  onChange={(e) => setGradeValue(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-brand-surface-card border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-primary/50 text-brand-text"
-                  placeholder="Ex: 15"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-brand-text mb-1">Commentaire de correction (Optionnel)</label>
-                <textarea
-                  value={gradeComment}
-                  onChange={(e) => setGradeComment(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-brand-surface-card border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-primary/50 text-brand-text min-h-[100px]"
-                  placeholder="Appréciation, conseils..."
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setGradingParticipant(null)} disabled={isSubmittingGrade}>
-                Annuler
-              </Button>
-              <Button onClick={handleGradeSubmit} disabled={isSubmittingGrade || !gradeValue}>
-                {isSubmittingGrade ? 'Enregistrement...' : 'Enregistrer la note'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

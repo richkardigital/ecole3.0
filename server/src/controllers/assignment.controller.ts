@@ -185,11 +185,17 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
 
         const classIds = classes.map(c => c.id);
 
-        // Find the actual Niveau ID for global assignments
-        const niveauParams = await prisma.niveau.findFirst({
-            where: { nom: String(level), schoolId: schoolId || undefined }
+        // Find the actual Niveau IDs for global assignments (including school-specific and global)
+        const niveaux = await prisma.niveau.findMany({
+            where: { 
+                nom: String(level),
+                OR: [
+                    { schoolId: schoolId || undefined },
+                    { schoolId: null }
+                ]
+            }
         });
-        const niveauIds = niveauParams ? [niveauParams.id] : [];
+        const niveauIds = niveaux.map(n => n.id);
 
         if (classIds.length === 0 && niveauIds.length === 0) {
             return res.json([]);
@@ -771,3 +777,59 @@ export const gradeStudentAssignment = async (req: AuthRequest, res: Response) =>
   }
 };
 
+export const uploadCorrectionFile = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ message: "Veuillez fournir un fichier de correction." });
+    }
+    
+    const correctionUrl = `/uploads/${req.file.filename}`;
+    
+    const assignment = await prisma.assignment.update({
+      where: { id: String(id) },
+      data: { correctionUrl }
+    });
+    
+    res.json(assignment);
+  } catch (error) {
+    console.error("Error uploading correction file", error);
+    res.status(500).json({ message: "Erreur lors de l'upload du corrigé", error });
+  }
+};
+
+export const updateCorrectionQuiz = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params; // assignmentId
+    const { questions } = req.body; // Array of { id, type, expectedAnswer, options: [{ id, isCorrect }] }
+    
+    if (!questions || !Array.isArray(questions)) {
+      return res.status(400).json({ message: "Format invalide" });
+    }
+    
+    // Perform updates in a transaction
+    await prisma.$transaction(async (tx) => {
+      for (const q of questions) {
+        if (q.type === 'OPEN') {
+          await tx.assignmentQuestion.update({
+            where: { id: String(q.id) },
+            data: { expectedAnswer: q.expectedAnswer || null }
+          });
+        } else if (q.type === 'MULTIPLE_CHOICE' && q.options) {
+          for (const opt of q.options) {
+            await tx.assignmentOption.update({
+              where: { id: String(opt.id) },
+              data: { isCorrect: Boolean(opt.isCorrect) }
+            });
+          }
+        }
+      }
+    });
+    
+    res.json({ message: "Correction enregistrée avec succès" });
+  } catch (error) {
+    console.error("Error updating quiz correction", error);
+    res.status(500).json({ message: "Erreur lors de l'enregistrement de la correction", error });
+  }
+};

@@ -140,6 +140,8 @@ function App() {
                   <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'DIRECTEUR']} />}>
                     <Route path="/directeur/dashboard" element={<Dashboard />} />
                     <Route path="/directeur/classes" element={<Classes />} />
+                    <Route path="/directeur/classes/:id" element={<ClassDetailsPage />} />
+                    <Route path="/directeur/classes/:id/edit" element={<EditClassPage />} />
                     <Route path="/directeur/users" element={<Users />} />
                     <Route path="/directeur/academic-years" element={<AcademicYears />} />
                     <Route path="/directeur/subjects" element={<Subjects />} />

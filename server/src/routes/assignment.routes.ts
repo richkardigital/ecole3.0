@@ -16,6 +16,8 @@ import {
   updateAssignment,
   getAssignmentParticipants,
   gradeStudentAssignment,
+  uploadCorrectionFile,
+  updateCorrectionQuiz,
 } from "../controllers/assignment.controller.js";
 
 const router = Router();
@@ -29,6 +31,10 @@ router.get("/:id", getAssignmentById);
 router.put("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT]), updateAssignment);
 router.patch("/:id/publish", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT]), publishAssignment);
 router.delete("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), deleteAssignment);
+
+// Corrections
+router.post("/:id/correction-file", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.single('file'), uploadCorrectionFile);
+router.put("/:id/correction-quiz", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), updateCorrectionQuiz);
 
 // Student submits
 router.post("/:id/submit", requireRole([ROLES.APPRENANT]), upload.single('file'), submitAssignment);

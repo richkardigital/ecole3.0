@@ -187,8 +187,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               </NavSection>
               <NavSection title="Mon Établissement">
                 <NavItem to="/directeur/classes" icon={School} isActive={p === '/directeur/classes'}>Classes & Effectifs</NavItem>
-                <NavItem to="/directeur/users" icon={Users} isActive={p === '/directeur/users'}>Enseignants & Éducateurs</NavItem>
-                <NavItem to="/directeur/academic-years" icon={Calendar} isActive={p === '/directeur/academic-years'}>Années Scolaires</NavItem>
+                <NavItem to="/directeur/users" icon={Users} isActive={p === '/directeur/users'}>Mes utilisateurs</NavItem>
                 <NavItem to="/directeur/subjects" icon={BookOpen} isActive={p === '/directeur/subjects'}>Matières & Coefs</NavItem>
               </NavSection>
               <NavSection title="Pédagogie">

@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, GraduationCap, Users, BookOpen, Key, ArrowRightLeft, Edit2, Upload, Plus, AlertCircle, CheckCircle } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Users, BookOpen, Key, ArrowRightLeft, Edit2, Upload, Plus, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 
 interface Student {
     id: string;
@@ -15,6 +16,9 @@ interface Student {
 }
 
 export default function ClassDetailsPage() {
+  const { user } = useAuth();
+  const basePath = user?.role === 'SUPER_ADMIN' ? '/admin' : '/directeur';
+  
   const navigate = useNavigate();
   const params = useParams();
   const classId = params.id as string;
@@ -28,7 +32,8 @@ export default function ClassDetailsPage() {
   // Student management states
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [isAddingStudent, setIsAddingStudent] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [studentSearch, setStudentSearch] = useState('');
 
   // Course assignment states
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -36,6 +41,8 @@ export default function ClassDetailsPage() {
   const [isAssigningCourse, setIsAssigningCourse] = useState(false);
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
+  const [teacherSearch, setTeacherSearch] = useState('');
+  const [subjectSearch, setSubjectSearch] = useState('');
   
   // Import states
   const [isImportingMode, setIsImportingMode] = useState(false);
@@ -65,7 +72,7 @@ export default function ClassDetailsPage() {
         
         const currentClass = classRes.data;
         if (!currentClass) {
-            navigate('/admin/classes');
+            navigate(`${basePath}/classes`);
             return;
         }
 
@@ -124,20 +131,34 @@ export default function ClassDetailsPage() {
       }
   };
 
-  const handleAddStudent = async () => {
-      if (!selectedStudentId) return;
+  const handleDeleteCourse = async (courseId: string) => {
+      if (!confirm("Voulez-vous vraiment retirer cette affectation de cours ?")) return;
       try {
-          await api.post('/classes/enroll', {
-              classId,
-              studentId: selectedStudentId
-          });
+          await api.delete(`/courses/${courseId}`);
+          const coursesRes = await api.get(`/courses?classId=${classId}`);
+          setCourses(coursesRes.data);
+      } catch (error) {
+          console.error("Error deleting course", error);
+          alert("Erreur lors de la suppression de l'affectation.");
+      }
+  };
+
+  const handleAddStudent = async () => {
+      if (selectedStudentIds.length === 0) return;
+      try {
+          await Promise.all(
+              selectedStudentIds.map(studentId => 
+                  api.post('/classes/enroll', { classId, studentId })
+              )
+          );
           const response = await api.get(`/classes/${classId}/students`);
           setStudents(response.data);
           setIsAddingStudent(false);
-          setSelectedStudentId('');
+          setSelectedStudentIds([]);
+          setStudentSearch('');
       } catch (error) {
           console.error('Error enrolling student', error);
-          alert("Erreur lors de l'ajout de l'élève");
+          alert("Erreur lors de l'ajout des élèves");
       }
   };
 
@@ -188,6 +209,34 @@ export default function ClassDetailsPage() {
     }
   };
 
+  const handleDownloadStudentTemplate = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const sampleData = [
+        {
+          'Nom': 'Kouassi',
+          'Prénom': 'Emmanuel',
+          'Email': 'emmanuel.kouassi@example.com',
+          'Mot de passe': 'password123'
+        },
+        {
+          'Nom': 'Diallo',
+          'Prénom': 'Awa',
+          'Email': 'awa.diallo@example.com',
+          'Mot de passe': 'password123'
+        }
+      ];
+
+      const worksheet = XLSX.utils.json_to_sheet(sampleData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Élèves");
+      XLSX.writeFile(workbook, "modele_importation_eleves.xlsx");
+    } catch (error) {
+      console.error("Erreur lors du téléchargement du modèle", error);
+      alert("Erreur lors de la génération du modèle Excel.");
+    }
+  };
+
   const confirmTransfer = async () => {
       if (!studentToTransfer || !targetClassId) return;
       try {
@@ -232,7 +281,7 @@ export default function ClassDetailsPage() {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link to="/admin/classes" className="p-2 hover:bg-brand-sidebar rounded-lg transition-colors text-brand-text-muted hover:text-brand-text">
+          <Link to={`${basePath}/classes`} className="p-2 hover:bg-brand-sidebar rounded-lg transition-colors text-brand-text-muted hover:text-brand-text">
               <ArrowLeft className="w-5 h-5" />
           </Link>
           <div className="flex items-center gap-4">
@@ -318,6 +367,10 @@ export default function ClassDetailsPage() {
                                           Format: Nom, Prénom, Email, Mot de passe
                                       </div>
                                   </div>
+                                  <Button variant="outline" onClick={handleDownloadStudentTemplate} size="sm">
+                                      <Download className="w-3.5 h-3.5 mr-1.5" />
+                                      Modèle Excel
+                                  </Button>
                               </div>
 
                               {!importPreviewData.length ? (
@@ -372,25 +425,109 @@ export default function ClassDetailsPage() {
 
                       {/* ADD STUDENT ZONE */}
                       {isAddingStudent && (
-                          <div className="bg-brand-sidebar border border-brand-border p-4 rounded-xl space-y-3">
-                              <label className="block text-sm font-medium text-brand-text-muted">Sélectionner un élève existant</label>
-                              <select
-                                  value={selectedStudentId}
-                                  onChange={(e) => setSelectedStudentId(e.target.value)}
-                                  className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg outline-none text-brand-text appearance-none"
-                              >
-                                  <option value="">Choisir un élève...</option>
-                                  {allStudents
+                          <div className="bg-brand-sidebar border border-brand-border p-5 rounded-2xl space-y-4 shadow-lg">
+                              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                                  <label className="block text-sm font-bold text-brand-text">Rechercher et sélectionner des élèves à inscrire</label>
+                                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-accent/10 text-brand-accent border border-brand-accent/20">
+                                      {selectedStudentIds.length} élève(s) sélectionné(s)
+                                  </span>
+                              </div>
+
+                              {/* SEARCH INPUT */}
+                              <div className="relative">
+                                  <Search className="w-4 h-4 text-brand-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                                  <input 
+                                      type="text"
+                                      placeholder="Rechercher par nom, prénom ou email..."
+                                      value={studentSearch}
+                                      onChange={(e) => setStudentSearch(e.target.value)}
+                                      className="w-full pl-9 pr-4 py-2.5 bg-brand-bg border border-brand-border rounded-xl outline-none text-brand-text text-sm focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all"
+                                  />
+                              </div>
+
+                              {/* LIST OF AVAILABLE STUDENTS */}
+                              {(() => {
+                                  const availableStudents = allStudents
                                       .filter(s => !students.some(active => active.id === s.id))
-                                      .map(student => (
-                                      <option key={student.id} value={student.id}>
-                                          {student.firstName} {student.lastName} ({student.email})
-                                      </option>
-                                  ))}
-                              </select>
-                              <div className="flex justify-end gap-2 mt-4">
-                                  <Button variant="ghost" onClick={() => setIsAddingStudent(false)}>Annuler</Button>
-                                  <Button variant="primary" onClick={handleAddStudent} disabled={!selectedStudentId}>Ajouter à la classe</Button>
+                                      .filter(s => {
+                                          if (!studentSearch.trim()) return true;
+                                          const q = studentSearch.toLowerCase();
+                                          return (
+                                              (s.firstName || '').toLowerCase().includes(q) ||
+                                              (s.lastName || '').toLowerCase().includes(q) ||
+                                              (s.email || '').toLowerCase().includes(q)
+                                          );
+                                      });
+
+                                  const allAvailableSelected = availableStudents.length > 0 && availableStudents.every(s => selectedStudentIds.includes(s.id));
+
+                                  const toggleSelectAll = () => {
+                                      if (allAvailableSelected) {
+                                          setSelectedStudentIds(prev => prev.filter(id => !availableStudents.some(s => s.id === id)));
+                                      } else {
+                                          const newIds = new Set([...selectedStudentIds, ...availableStudents.map(s => s.id)]);
+                                          setSelectedStudentIds(Array.from(newIds));
+                                      }
+                                  };
+
+                                  return (
+                                      <div className="space-y-2">
+                                          <div className="flex justify-between items-center px-1">
+                                              <span className="text-xs text-brand-text-muted">{availableStudents.length} élève(s) trouvé(s)</span>
+                                              {availableStudents.length > 0 && (
+                                                  <button 
+                                                      type="button" 
+                                                      onClick={toggleSelectAll} 
+                                                      className="text-xs font-bold text-brand-accent hover:underline"
+                                                  >
+                                                      {allAvailableSelected ? 'Tout décocher' : 'Tout sélectionner'}
+                                                  </button>
+                                              )}
+                                          </div>
+                                          <div className="max-h-56 overflow-y-auto border border-brand-border rounded-xl bg-brand-bg divide-y divide-brand-border/50">
+                                              {availableStudents.map(student => {
+                                                  const isChecked = selectedStudentIds.includes(student.id);
+                                                  return (
+                                                      <label 
+                                                          key={student.id} 
+                                                          className={`flex items-center justify-between p-3 cursor-pointer hover:bg-brand-sidebar/60 transition-colors ${isChecked ? 'bg-brand-accent/5' : ''}`}
+                                                      >
+                                                          <div className="flex items-center gap-3">
+                                                              <input 
+                                                                  type="checkbox"
+                                                                  checked={isChecked}
+                                                                  onChange={() => {
+                                                                      if (isChecked) {
+                                                                          setSelectedStudentIds(prev => prev.filter(id => id !== student.id));
+                                                                      } else {
+                                                                          setSelectedStudentIds(prev => [...prev, student.id]);
+                                                                      }
+                                                                  }}
+                                                                  className="w-4 h-4 rounded border-brand-border text-brand-accent focus:ring-brand-accent"
+                                                              />
+                                                              <div>
+                                                                  <p className="font-bold text-brand-text text-sm">{student.firstName} {student.lastName}</p>
+                                                                  <p className="text-xs text-brand-text-muted">{student.email}</p>
+                                                              </div>
+                                                          </div>
+                                                      </label>
+                                                  );
+                                              })}
+                                              {availableStudents.length === 0 && (
+                                                  <div className="p-6 text-center text-sm text-brand-text-muted">
+                                                      Aucun élève disponible trouvé pour cette recherche.
+                                                  </div>
+                                              )}
+                                          </div>
+                                      </div>
+                                  );
+                              })()}
+
+                              <div className="flex justify-end gap-2 pt-2 border-t border-brand-border/50">
+                                  <Button variant="ghost" onClick={() => { setIsAddingStudent(false); setSelectedStudentIds([]); setStudentSearch(''); }}>Annuler</Button>
+                                  <Button variant="primary" onClick={handleAddStudent} disabled={selectedStudentIds.length === 0}>
+                                      Inscrire {selectedStudentIds.length > 0 ? `(${selectedStudentIds.length})` : ''} à la classe
+                                  </Button>
                               </div>
                           </div>
                       )}
@@ -450,40 +587,79 @@ export default function ClassDetailsPage() {
                       </div>
                       
                       {isAssigningCourse && (
-                          <div className="bg-brand-sidebar border border-brand-border p-4 rounded-xl space-y-4">
-                              <h4 className="font-bold text-brand-text">Nouvelle assignation</h4>
+                          <div className="bg-brand-sidebar border border-brand-border p-5 rounded-2xl space-y-4 shadow-lg">
+                              <h4 className="font-bold text-brand-text">Nouvelle assignation d'enseignant à une matière</h4>
+                              
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {/* MATIERE WITH SEARCH */}
                                   <div>
-                                      <label className="block text-sm font-medium text-brand-text-muted mb-1">Matière</label>
+                                      <label className="block text-sm font-medium text-brand-text-muted mb-1">Matière *</label>
+                                      <div className="relative mb-2">
+                                          <Search className="w-3.5 h-3.5 text-brand-text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                          <input
+                                              type="text"
+                                              placeholder="Filtrer les matières..."
+                                              value={subjectSearch}
+                                              onChange={(e) => setSubjectSearch(e.target.value)}
+                                              className="w-full pl-8 pr-3 py-1.5 bg-brand-bg border border-brand-border rounded-lg text-xs outline-none text-brand-text focus:border-brand-accent transition-all"
+                                          />
+                                      </div>
                                       <select
                                           value={selectedSubjectId}
                                           onChange={(e) => setSelectedSubjectId(e.target.value)}
-                                          className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg outline-none text-brand-text appearance-none"
+                                          className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg outline-none text-brand-text appearance-none text-sm"
                                       >
                                           <option value="">Choisir une matière...</option>
-                                          {subjects.map(subj => (
-                                              <option key={subj.id} value={subj.id}>{subj.name}</option>
-                                          ))}
+                                          {subjects
+                                              .filter(s => !subjectSearch.trim() || s.name.toLowerCase().includes(subjectSearch.toLowerCase()))
+                                              .map(subj => (
+                                                  <option key={subj.id} value={subj.id}>{subj.name}</option>
+                                              ))
+                                          }
                                       </select>
                                   </div>
+
+                                  {/* TEACHER WITH SEARCH */}
                                   <div>
-                                      <label className="block text-sm font-medium text-brand-text-muted mb-1">Enseignant</label>
+                                      <label className="block text-sm font-medium text-brand-text-muted mb-1">Enseignant *</label>
+                                      <div className="relative mb-2">
+                                          <Search className="w-3.5 h-3.5 text-brand-text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                          <input
+                                              type="text"
+                                              placeholder="Filtrer les enseignants par nom/email..."
+                                              value={teacherSearch}
+                                              onChange={(e) => setTeacherSearch(e.target.value)}
+                                              className="w-full pl-8 pr-3 py-1.5 bg-brand-bg border border-brand-border rounded-lg text-xs outline-none text-brand-text focus:border-brand-accent transition-all"
+                                          />
+                                      </div>
                                       <select
                                           value={selectedTeacherId}
                                           onChange={(e) => setSelectedTeacherId(e.target.value)}
-                                          className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg outline-none text-brand-text appearance-none"
+                                          className="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg outline-none text-brand-text appearance-none text-sm"
                                       >
                                           <option value="">Choisir un enseignant...</option>
-                                          {teachers.map(teacher => (
-                                              <option key={teacher.id} value={teacher.id}>
-                                                  {teacher.firstName} {teacher.lastName} ({teacher.email})
-                                              </option>
-                                          ))}
+                                          {teachers
+                                              .filter(t => {
+                                                  if (!teacherSearch.trim()) return true;
+                                                  const q = teacherSearch.toLowerCase();
+                                                  return (
+                                                      t.firstName.toLowerCase().includes(q) ||
+                                                      t.lastName.toLowerCase().includes(q) ||
+                                                      t.email.toLowerCase().includes(q)
+                                                  );
+                                              })
+                                              .map(teacher => (
+                                                  <option key={teacher.id} value={teacher.id}>
+                                                      {teacher.firstName} {teacher.lastName} ({teacher.email})
+                                                  </option>
+                                              ))
+                                          }
                                       </select>
                                   </div>
                               </div>
-                              <div className="flex justify-end gap-2 mt-4">
-                                  <Button variant="ghost" onClick={() => setIsAssigningCourse(false)}>Annuler</Button>
+
+                              <div className="flex justify-end gap-2 mt-4 pt-2 border-t border-brand-border/50">
+                                  <Button variant="ghost" onClick={() => { setIsAssigningCourse(false); setTeacherSearch(''); setSubjectSearch(''); }}>Annuler</Button>
                                   <Button variant="primary" onClick={handleAddCourse} disabled={!selectedTeacherId || !selectedSubjectId}>Confirmer l'assignation</Button>
                               </div>
                           </div>
@@ -491,12 +667,21 @@ export default function ClassDetailsPage() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {courses.map(course => (
-                              <div key={course.id} className="p-4 bg-brand-sidebar border border-brand-border rounded-xl">
-                                  <h4 className="font-bold text-brand-text text-lg">{course.subject.name}</h4>
-                                  <p className="text-sm text-brand-text-muted mt-1 flex items-center gap-2">
-                                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                      Prof: {course.teacher.firstName} {course.teacher.lastName}
-                                  </p>
+                              <div key={course.id} className="p-4 bg-brand-sidebar border border-brand-border rounded-xl flex items-center justify-between">
+                                  <div>
+                                      <h4 className="font-bold text-brand-text text-lg">{course.subject?.name || 'Matière'}</h4>
+                                      <p className="text-sm text-brand-text-muted mt-1 flex items-center gap-2">
+                                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                          Prof: {course.teacher?.firstName} {course.teacher?.lastName}
+                                      </p>
+                                  </div>
+                                  <button 
+                                      onClick={() => handleDeleteCourse(course.id)}
+                                      className="p-2 text-brand-text-muted hover:text-red-400 bg-brand-bg hover:bg-red-500/10 rounded-lg transition-colors"
+                                      title="Retirer l'affectation"
+                                  >
+                                      <Trash2 className="w-4 h-4" />
+                                  </button>
                               </div>
                           ))}
                           {courses.length === 0 && (

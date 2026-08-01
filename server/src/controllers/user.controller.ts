@@ -119,8 +119,12 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
         }
         whereClause.schoolId = currentUser.schoolId;
         
-        // Exclude SUPER_ADMIN
-        whereClause.role = { not: 'SUPER_ADMIN' };
+        // Exclude SUPER_ADMIN while respecting requested role
+        if (role) {
+            whereClause.role = role;
+        } else {
+            whereClause.role = { not: 'SUPER_ADMIN' };
+        }
     } else if ((currentUser?.role as string) === 'SUPER_ADMIN') {
         // Super Admin can see everyone
         // If schoolId query param is provided, it's already in whereClause

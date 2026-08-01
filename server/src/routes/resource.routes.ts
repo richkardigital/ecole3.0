@@ -18,8 +18,8 @@ router.post("/", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNA
 // Update resource (Admin, Directeur, Educateur, Enseignant)
 router.put("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT]), upload.single('file'), updateResource);
 
-// Toggle publish (Admin, Directeur)
-router.patch("/:id/toggle-publish", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), togglePublishResource);
+// Toggle publish (Admin only)
+router.patch("/:id/toggle-publish", requireRole([ROLES.SUPER_ADMIN]), togglePublishResource);
 
 // Delete resource (Admin, Directeur, Educateur)
 router.delete("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT]), deleteResource);

@@ -224,62 +224,72 @@ const Absences = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {absences.map((absence) => (
-            <div key={absence.id} className="bg-brand-card rounded-xl p-5 shadow-sm border border-brand-border/50 hover:border-brand-accent/30 hover:shadow-md transition-all group flex flex-col">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-brand-accent/10 border border-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-lg shadow-sm">
-                    {absence.student.firstName[0]}{absence.student.lastName[0]}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-brand-text leading-tight">
-                      {absence.student.firstName} {absence.student.lastName}
-                    </h3>
-                    <div className="flex items-center gap-1.5 text-xs text-brand-text-muted mt-1">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {new Date(absence.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </div>
-                  </div>
-                </div>
-                <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                  absence.justified 
-                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
-                    : 'bg-red-500/10 text-red-500 border-red-500/20'
-                }`}>
-                  {absence.justified ? 'Justifiée' : 'Non justifiée'}
-                </div>
-              </div>
-
-              {absence.reason && (
-                <div className="bg-brand-sidebar border border-brand-border/30 rounded-lg p-3 mb-4 flex-1">
-                  <p className="text-sm text-brand-text-muted italic">
-                    "{absence.reason}"
-                  </p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-4 border-t border-brand-border/30 mt-auto">
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => openEditModal(absence)}
-                    className="p-2 text-brand-text-muted hover:text-brand-accent hover:bg-brand-accent/10 rounded-lg transition-colors"
-                  >
-                    <Edit className="w-4.5 h-4.5" />
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteClick(absence)}
-                    className="p-2 text-brand-text-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4.5 h-4.5" />
-                  </button>
-                </div>
-                <div className="flex items-center gap-1 text-xs font-medium text-brand-accent cursor-pointer group-hover:underline">
-                  Détails <ChevronRight className="w-4 h-4" />
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="bg-brand-card rounded-2xl shadow-lg border border-brand-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-brand-sidebar border-b border-brand-border">
+                <tr>
+                  <th className="p-4 font-semibold text-brand-text-muted text-sm whitespace-nowrap">Élève</th>
+                  <th className="p-4 font-semibold text-brand-text-muted text-sm whitespace-nowrap">Date</th>
+                  <th className="p-4 font-semibold text-brand-text-muted text-sm">Motif</th>
+                  <th className="p-4 font-semibold text-brand-text-muted text-sm whitespace-nowrap">Statut</th>
+                  <th className="p-4 font-semibold text-brand-text-muted text-sm whitespace-nowrap text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-border">
+                {absences.map((absence) => (
+                  <tr key={absence.id} className="hover:bg-brand-sidebar/50 transition-colors group">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-brand-accent/10 border border-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-xs shadow-sm shrink-0">
+                          {absence.student.firstName[0]}{absence.student.lastName[0]}
+                        </div>
+                        <span className="font-bold text-brand-text">
+                          {absence.student.firstName} {absence.student.lastName}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-brand-text-muted text-sm">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {new Date(absence.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </div>
+                    </td>
+                    <td className="p-4 text-brand-text-muted text-sm max-w-[200px] truncate" title={absence.reason || ''}>
+                      {absence.reason || '-'}
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                        absence.justified 
+                          ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' 
+                          : 'bg-red-500/10 text-red-500 border-red-500/20'
+                      }`}>
+                        {absence.justified ? 'Justifiée' : 'Non justifiée'}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => openEditModal(absence)}
+                          className="p-2 text-brand-text-muted hover:text-white bg-brand-bg hover:bg-brand-sidebar rounded-lg transition-colors border border-transparent hover:border-brand-border"
+                          title="Modifier"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteClick(absence)}
+                          className="p-2 text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors border border-transparent hover:border-red-500/30"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

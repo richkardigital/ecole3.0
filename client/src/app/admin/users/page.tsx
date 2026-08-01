@@ -90,13 +90,16 @@ const Users = () => {
       else if (u.role === 'APPRENANT') students.push(u);
     });
 
-    const result: UserGroup[] = [
-      { id: 'super_admin', title: 'Super Admin', count: superAdmins.length, type: 'admin', users: superAdmins },
-      { id: 'directeur', title: 'Directeur', count: directeurs.length, type: 'admin', users: directeurs },
+    const result: UserGroup[] = [];
+    if (currentUser?.role === 'SUPER_ADMIN') {
+        result.push({ id: 'super_admin', title: 'Super Admin', count: superAdmins.length, type: 'admin', users: superAdmins });
+        result.push({ id: 'directeur', title: 'Directeur', count: directeurs.length, type: 'admin', users: directeurs });
+    }
+    result.push(
       { id: 'educateur', title: 'Éducateur', count: educateurs.length, type: 'admin', users: educateurs },
       { id: 'enseignant', title: 'Enseignant', count: teachers.length, type: 'teacher', users: teachers },
       { id: 'eleve', title: 'Élève inscrit', count: students.length, type: 'student', users: students },
-    ];
+    );
 
     return result;
   }, [users]);
@@ -225,6 +228,46 @@ const Users = () => {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const sampleData = [
+        {
+          'Prénom': 'Jean',
+          'Nom': 'Dupont',
+          'Email': 'jean.dupont@example.com',
+          'Rôle': 'Enseignant',
+          'Téléphone': '+2250700000000',
+          'Matricule': 'ENS-2026-001'
+        },
+        {
+          'Prénom': 'Marie',
+          'Nom': 'Kouassi',
+          'Email': 'marie.kouassi@example.com',
+          'Rôle': 'Éducateur',
+          'Téléphone': '+2250700000001',
+          'Matricule': 'EDU-2026-001'
+        },
+        {
+          'Prénom': 'Alexandre',
+          'Nom': 'Traoré',
+          'Email': 'alexandre.traore@example.com',
+          'Rôle': 'Apprenant',
+          'Téléphone': '+2250700000002',
+          'Matricule': 'MAT-2026-001'
+        }
+      ];
+
+      const worksheet = XLSX.utils.json_to_sheet(sampleData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Modèle Utilisateurs");
+      XLSX.writeFile(workbook, "modele_importation_utilisateurs.xlsx");
+    } catch (error) {
+      console.error("Erreur lors de la génération du modèle", error);
+      alert("Erreur lors de la génération du modèle Excel.");
+    }
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -250,6 +293,7 @@ const Users = () => {
           setIsSubmitLoading(true);
           let successCount = 0;
           let errorCount = 0;
+          let errorDetails: string[] = [];
 
           // Parcourir chaque ligne et créer l'utilisateur
           for (const row of json) {
@@ -292,14 +336,21 @@ const Users = () => {
 
                 await api.post('/users', formDataPayload, { headers: { 'Content-Type': 'multipart/form-data' } });
                 successCount++;
-             } catch (err) {
+             } catch (err: any) {
                  console.error("Erreur ajout utilisateur:", err);
                  errorCount++;
+                 errorDetails.push(`Ligne ${json.indexOf(row) + 2}: ${err.response?.data?.message || err.message}`);
              }
           }
 
-          alert(`Import terminé. Succès: ${successCount}. Erreurs: ${errorCount}.`);
+          if (errorCount > 0) {
+             alert(`Import terminé.\nSuccès: ${successCount}\nErreurs: ${errorCount}\n\nDétails des erreurs:\n${errorDetails.slice(0, 10).join('\\n')}${errorDetails.length > 10 ? '\\n...' : ''}`);
+          } else {
+             alert(`Import terminé avec succès. ${successCount} utilisateurs ajoutés.`);
+          }
+          
           fetchUsers();
+          setIsImportModalOpen(false);
         } catch (error) {
           console.error("Erreur lors de la lecture du fichier Excel", error);
           alert("Erreur lors de la lecture du fichier Excel.");
@@ -606,6 +657,10 @@ const Users = () => {
                         style={{ display: 'none' }}
                         onChange={handleImportExcel}
                     />
+                    <Button variant="outline" onClick={handleDownloadTemplate} title="Télécharger le modèle de fichier Excel d'importation">
+                        <Download className="w-4 h-4 mr-2" />
+                        Modèle Excel
+                    </Button>
                     <Button variant="outline" onClick={() => fileInputRef.current?.click()} isLoading={isSubmitLoading}>
                         <FileSpreadsheet className="w-4 h-4 mr-2" />
                         Importer Excel

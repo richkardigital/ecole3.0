@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { MessageSquare, Plus, Search, Trash2, Paperclip, FileText, ImageIcon, Send, ArrowLeft, MoreVertical, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase'; // to get public URL if needed, though usually api gives full URL
+import api, { getFileUrl } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 interface User {
   id: string;
@@ -167,7 +167,7 @@ const Forum = () => {
     if (!url) return null;
     const isImage = type?.includes('image');
     return (
-      <a href={url} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors w-fit group">
+      <a href={getFileUrl(url)} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors w-fit group">
         <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-sm">
           {isImage ? <ImageIcon className="w-5 h-5 text-blue-500" /> : <FileText className="w-5 h-5 text-red-500" />}
         </div>

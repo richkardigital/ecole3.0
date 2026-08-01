@@ -28,6 +28,7 @@ interface Conduct {
   id: string;
   appreciation: string | null;
   comment: string | null;
+  grade?: number;
   student: {
     id: string;
     firstName: string;
@@ -64,9 +65,9 @@ const Conduct = () => {
   }>();
 
   // Grid editing state
-  const [editingConducts, setEditingConducts] = useState<Record<string, { appreciation: string, comment: string }>>({});
+  const [editingConducts, setEditingConducts] = useState<Record<string, { appreciation: string, comment: string, grade: string }>>({});
 
-  const handleGridChange = (studentId: string, field: 'appreciation' | 'comment', value: string) => {
+  const handleGridChange = (studentId: string, field: 'appreciation' | 'comment' | 'grade', value: string) => {
     setEditingConducts(prev => ({
         ...prev,
         [studentId]: {
@@ -86,7 +87,8 @@ const Conduct = () => {
               studentId,
               termId: selectedTermId,
               appreciation: data.appreciation,
-              comment: data.comment
+              comment: data.comment,
+              grade: data.grade ? Number(data.grade) : null
           });
           success("Enregistré avec succès !");
           fetchConducts();
@@ -98,12 +100,13 @@ const Conduct = () => {
   useEffect(() => {
     // Populate editingConducts when conducts change
     if (selectedClassId && selectedTermId && students.length > 0) {
-        const newEditingState: Record<string, { appreciation: string, comment: string }> = {};
+        const newEditingState: Record<string, { appreciation: string, comment: string, grade: string }> = {};
         students.forEach(student => {
             const existing = conducts.find(c => c.student.id === student.id);
             newEditingState[student.id] = {
                 appreciation: existing?.appreciation || '',
-                comment: existing?.comment || ''
+                comment: existing?.comment || '',
+                grade: existing?.grade ? String(existing.grade) : ''
             };
         });
         setEditingConducts(newEditingState);
@@ -311,6 +314,7 @@ const Conduct = () => {
                       <thead className="bg-brand-sidebar">
                           <tr>
                               <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50">Élève</th>
+                              <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50 w-24">Note /20</th>
                               <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50 w-64">Appréciation</th>
                               <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50">Commentaire</th>
                               <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50 w-32">Action</th>
@@ -326,6 +330,15 @@ const Conduct = () => {
                                   <tr key={student.id} className="hover:bg-brand-sidebar/30 transition-colors">
                                       <td className="p-4">
                                           <div className="font-bold text-brand-text">{student.firstName} {student.lastName}</div>
+                                      </td>
+                                      <td className="p-4">
+                                          <input 
+                                              type="number"
+                                              value={editingConducts[student.id]?.grade || ''}
+                                              onChange={(e) => handleGridChange(student.id, 'grade', e.target.value)}
+                                              placeholder="/20"
+                                              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand-accent/50 text-sm"
+                                          />
                                       </td>
                                       <td className="p-4">
                                           <select 
@@ -368,7 +381,7 @@ const Conduct = () => {
                           })}
                           {students.length === 0 && (
                               <tr>
-                                  <td colSpan={4} className="p-8 text-center text-brand-text-muted">
+                                  <td colSpan={5} className="p-8 text-center text-brand-text-muted">
                                       Aucun élève dans cette classe.
                                   </td>
                               </tr>

@@ -102,7 +102,7 @@ export const createResource = async (req: AuthRequest, res: Response) => {
         type,
         niveauId,
         isGlobal: true, 
-        isPublished: (req.user?.role === "SUPER_ADMIN" || req.user?.role === "DIRECTEUR"), // Auto-publish for admins
+        isPublished: req.user?.role === "SUPER_ADMIN", // Auto-publish for SUPER_ADMIN only
         createdById: req.user?.id,
       },
       include: {

@@ -504,6 +504,7 @@ model AssignmentQuestion {
   text          String
   type          String   @default("MULTIPLE_CHOICE")
   points        Int      @default(1)
+  expectedAnswer String? @db.Text
   
   assignmentId  String
   assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
@@ -793,6 +794,7 @@ model Conduct {
   id           String  @id @default(uuid())
   appreciation String?
   comment      String?
+  grade        Float?
 
   studentId String
   student   User @relation(fields: [studentId], references: [id], onDelete: Cascade)

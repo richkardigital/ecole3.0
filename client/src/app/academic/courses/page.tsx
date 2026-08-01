@@ -98,8 +98,11 @@ const Courses = () => {
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get('/courses');
-      const data: CourseModel[] = response.data;
+      const [coursesRes, niveauxRes] = await Promise.all([
+        api.get('/courses'),
+        (isSuperAdmin || isDirecteur) ? api.get('/niveaux') : Promise.resolve({ data: [] })
+      ]);
+      const data: CourseModel[] = coursesRes.data;
       setCourses(data);
 
       // Extract unique schools, academic years, and subjects for filtering
@@ -122,7 +125,6 @@ const Courses = () => {
         );
         setYearsList(uniqueYears);
 
-        const niveauxRes = await api.get('/niveaux');
         setNiveauxList(niveauxRes.data);
       }
     } catch (error) {
@@ -326,8 +328,8 @@ const Courses = () => {
         }
         icon={<BookOpen className="w-6 h-6 text-brand-accent" />}
         action={
-          // Super Admin: NO creation buttons (as per Audio 2)
-          isSuperAdmin ? null : (
+          // Super Admin & Directeur: NO creation buttons
+          (isSuperAdmin || isDirecteur) ? null : (
             <div className="flex gap-3">
               <Button
                 variant="secondary"

@@ -319,7 +319,8 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
       class: {
         include: {
           school: { select: { id: true, name: true, code: true } },
-          academicYear: { select: { id: true, name: true, isCurrent: true } }
+          academicYear: { select: { id: true, name: true, isCurrent: true } },
+          niveau: true
         }
       },
       subject: true,
@@ -368,15 +369,29 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
       courses = await prisma.course.findMany({
         where: {
           ...classIdFilter,
-          OR: [
+          AND: [
             {
               class: {
-                enrollments: {
-                  some: { studentId: userId }
+                academicYear: {
+                  OR: [
+                    { isCurrent: true },
+                    { status: 'EN_COURS' }
+                  ]
                 }
               }
             },
-            ...(schoolId ? [{ class: { schoolId } }] : [])
+            {
+              OR: [
+                {
+                  class: {
+                    enrollments: {
+                      some: { studentId: userId }
+                    }
+                  }
+                },
+                ...(schoolId ? [{ class: { schoolId } }] : [])
+              ]
+            }
           ]
         },
         include: courseInclude

@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import api from '@/lib/api';
 import { Plus, Trash2, GraduationCap, Users, BookOpen, AlertCircle, Edit, Loader2, Download, FileSpreadsheet, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -27,6 +28,9 @@ interface Student {
 }
 
 const Classes = () => {
+  const { user } = useAuth();
+  const basePath = user?.role === 'SUPER_ADMIN' ? '/admin' : '/directeur';
+  
   const [classes, setClasses] = useState<ClassModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -132,14 +136,15 @@ const Classes = () => {
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Exporter Excel
               </Button>
-              <Link to="/admin/classes/new">
-                <Button 
-                    variant="primary"
-                    leftIcon={<Plus className="w-4 h-4" />}
-                >
-                    Ajouter une classe
-                </Button>
-              </Link>
+              <div className="flex gap-3">
+              {user?.role === 'SUPER_ADMIN' && (
+                <Link to="/admin/classes/new">
+                    <Button variant="primary" leftIcon={<Plus className="w-5 h-5" />}>
+                        Nouvelle classe
+                    </Button>
+                </Link>
+              )}
+            </div>
             </div>
         }
       />
@@ -174,22 +179,22 @@ const Classes = () => {
                                     </div>
                                 </td>
                                 <td className="p-4">
-                                    {cls.level ? (
+                                    {cls.niveau?.nom || cls.level ? (
                                         <span className="px-3 py-1 bg-brand-sidebar border border-brand-border rounded-full text-xs font-bold text-brand-text-muted">
-                                            {cls.level}
+                                            {cls.niveau?.nom || cls.level}
                                         </span>
                                     ) : (
                                         <span className="text-brand-text-muted">-</span>
                                     )}
                                 </td>
                                 <td className="p-4 text-center">
-                                    <Link to={`/admin/classes/${cls.id}`} className="inline-flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors font-bold text-sm">
+                                    <Link to={`${basePath}/classes/${cls.id}`} className="inline-flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-colors font-bold text-sm">
                                         <Users className="w-4 h-4" />
                                         {cls._count?.enrollments || 0}
                                     </Link>
                                 </td>
                                 <td className="p-4 text-center">
-                                    <Link to={`/admin/classes/${cls.id}`} className="inline-flex items-center justify-center gap-2 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg transition-colors font-bold text-sm">
+                                    <Link to={`${basePath}/classes/${cls.id}`} className="inline-flex items-center justify-center gap-2 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg transition-colors font-bold text-sm">
                                         <BookOpen className="w-4 h-4" />
                                         {cls._count?.courses || 0}
                                     </Link>
@@ -201,12 +206,12 @@ const Classes = () => {
                                 </td>
                                 <td className="p-4">
                                     <div className="flex items-center justify-end gap-2">
-                                        <Link to={`/admin/classes/${cls.id}`}>
+                                        <Link to={`${basePath}/classes/${cls.id}`}>
                                             <button className="p-2 text-brand-text-muted hover:text-white bg-brand-bg hover:bg-brand-sidebar rounded-lg transition-colors border border-transparent hover:border-brand-border" title="Voir détails">
                                                 <AlertCircle className="w-4 h-4" />
                                             </button>
                                         </Link>
-                                        <Link to={`/admin/classes/${cls.id}/edit`}>
+                                        <Link to={`${basePath}/classes/${cls.id}/edit`}>
                                             <button className="p-2 text-brand-text-muted hover:text-white bg-brand-bg hover:bg-brand-sidebar rounded-lg transition-colors border border-transparent hover:border-brand-border" title="Modifier">
                                                 <Edit className="w-4 h-4" />
                                             </button>
