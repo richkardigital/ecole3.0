@@ -20,7 +20,7 @@ interface User {
   schoolId?: string | null;
   school?: {
     name: string;
-    typeEtablissement?: string;
+    schoolType?: { name: string };
     teachingType?: { name: string };
   };
   enrollments?: {
@@ -163,7 +163,7 @@ const Users = () => {
             list = list.filter(u => u.school?.teachingType?.name === teachingTypeFilter);
         }
         if (schoolTypeFilter !== 'ALL') {
-            list = list.filter(u => u.school?.typeEtablissement === schoolTypeFilter);
+            list = list.filter(u => u.school?.schoolType?.name === schoolTypeFilter);
         }
     }
 
@@ -723,8 +723,9 @@ const Users = () => {
                          className="px-3 py-2 text-sm bg-brand-card border border-brand-border rounded-xl text-brand-text outline-none focus:border-brand-accent transition-all cursor-pointer"
                      >
                          <option value="ALL">Tous types d'établissements</option>
-                         <option value="PRIVE">Privé</option>
-                         <option value="PUBLIC">Public</option>
+                         {Array.from(new Set(selectedGroup?.users.map(u => u.school?.schoolType?.name).filter(Boolean))).map(st => (
+                             <option key={st} value={st}>{st}</option>
+                         ))}
                      </select>
                      </>
                  )}

@@ -170,7 +170,7 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
           select: {
             id: true,
             name: true,
-            typeEtablissement: true,
+            schoolType: { select: { name: true } },
             teachingType: {
                 select: { name: true }
             }

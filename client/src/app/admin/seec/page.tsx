@@ -56,7 +56,7 @@ export default function SeecPage() {
       ) 
     },
     { key: 'ville', header: 'Ville' },
-    { key: 'typeEtablissement', header: 'Secteur', render: (row: any) => row.typeEtablissement === 'PRIVE' ? 'Privé' : row.typeEtablissement === 'PUBLIC' ? 'Public' : 'N/A' },
+    { key: 'schoolType', header: 'Secteur', render: (row: any) => row.schoolType?.name || 'N/A' },
     { key: 'teachingType', header: 'Type', render: (row: any) => row.teachingType?.name || 'N/A' },
   ];
 
@@ -64,7 +64,7 @@ export default function SeecPage() {
     const q = searchQuery.toLowerCase();
     const matchSearch = s.name.toLowerCase().includes(q) || (s.code && s.code.toLowerCase().includes(q)) || (s.ville && s.ville.toLowerCase().includes(q));
     const matchTT = teachingTypeFilter === 'ALL' || s.teachingType?.name === teachingTypeFilter;
-    const matchST = schoolTypeFilter === 'ALL' || s.typeEtablissement === schoolTypeFilter;
+    const matchST = schoolTypeFilter === 'ALL' || s.schoolType?.name === schoolTypeFilter;
     return matchSearch && matchTT && matchST;
   });
 
@@ -109,8 +109,9 @@ export default function SeecPage() {
                    className="px-3 py-2 text-sm bg-brand-card border border-brand-border rounded-xl text-brand-text outline-none focus:border-brand-accent transition-all cursor-pointer"
                >
                    <option value="ALL">Tous secteurs</option>
-                   <option value="PRIVE">Privé</option>
-                   <option value="PUBLIC">Public</option>
+                   {Array.from(new Set(schools.map(s => s.schoolType?.name).filter(Boolean))).map(st => (
+                       <option key={st as string} value={st as string}>{st as string}</option>
+                   ))}
                </select>
            </div>
         </div>

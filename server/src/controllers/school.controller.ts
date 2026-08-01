@@ -116,6 +116,7 @@ export const getSchools = async (req: Request, res: Response) => {
           select: { users: true, classes: true },
         },
         teachingType: true,
+        schoolType: true,
       },
     });
     res.json(schools);
