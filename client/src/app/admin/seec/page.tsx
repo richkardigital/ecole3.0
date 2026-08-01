@@ -51,7 +51,7 @@ export default function SeecPage() {
           <div className="w-8 h-8 rounded-lg bg-brand-accent/10 text-brand-accent flex items-center justify-center">
             <Building className="w-4 h-4" />
           </div>
-          <span className="font-medium text-white">{row.name}</span>
+          <span className="font-medium text-brand-text">{row.name}</span>
         </div>
       ) 
     },

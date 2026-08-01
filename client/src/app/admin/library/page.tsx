@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import api from '@/lib/api';
+import api, { getFileUrl } from '@/lib/api';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -723,7 +723,7 @@ export default function LibraryPage() {
 
             <div className="pt-2">
               <a 
-                href={selectedResource.url} 
+                href={selectedResource.type !== 'LIEN' ? getFileUrl(selectedResource.url) : selectedResource.url} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-all shadow-md"

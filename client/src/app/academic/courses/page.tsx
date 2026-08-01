@@ -66,12 +66,14 @@ const Courses = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState('ALL');
   const [selectedYearFilter, setSelectedYearFilter] = useState('ALL');
-  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('ALL');
+  const [selectedNiveauFilter, setSelectedNiveauFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   // Unique options for filters
   const [schoolsList, setSchoolsList] = useState<Option[]>([]);
   const [yearsList, setYearsList] = useState<Option[]>([]);
-  const [subjectsList, setSubjectsList] = useState<Option[]>([]);
+  const [niveauxList, setNiveauxList] = useState<Option[]>([]);
 
   // Modals state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,14 +122,8 @@ const Courses = () => {
         );
         setYearsList(uniqueYears);
 
-        const uniqueSubjects = Array.from(
-          new Map(
-            data
-              .filter(c => c.subject)
-              .map(c => [c.subject!.id, { id: c.subject!.id, name: c.subject!.name }])
-          ).values()
-        );
-        setSubjectsList(uniqueSubjects);
+        const niveauxRes = await api.get('/niveaux');
+        setNiveauxList(niveauxRes.data);
       }
     } catch (error) {
       console.error('Error fetching courses', error);
@@ -304,10 +300,13 @@ const Courses = () => {
 
     const matchesSchool = selectedSchoolFilter === 'ALL' || c.class?.school?.id === selectedSchoolFilter;
     const matchesYear = selectedYearFilter === 'ALL' || !c.class?.academicYear?.id || c.class?.academicYear?.id === selectedYearFilter;
-    const matchesSubject = selectedSubjectFilter === 'ALL' || c.subject?.id === selectedSubjectFilter;
+    const matchesNiveau = selectedNiveauFilter === 'ALL' || c.class?.level === selectedNiveauFilter || c.class?.niveau?.nom === selectedNiveauFilter;
 
-    return matchesSearch && matchesSchool && matchesYear && matchesSubject;
+    return matchesSearch && matchesSchool && matchesYear && matchesNiveau;
   });
+
+  const paginatedCourses = filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
 
   const getDetailPath = (courseId: string) => {
     if (isSuperAdmin) return `/admin/courses/${courseId}`;
@@ -400,18 +399,18 @@ const Courses = () => {
               </div>
             )}
 
-            {/* Filter by Subject */}
-            {subjectsList.length > 0 && (
+            {/* Filter by Niveau */}
+            {niveauxList.length > 0 && (
               <div className="flex items-center gap-1.5">
-                <Book className="w-3.5 h-3.5 text-brand-muted" />
+                <GraduationCap className="w-3.5 h-3.5 text-brand-muted" />
                 <select
-                  value={selectedSubjectFilter}
-                  onChange={(e) => setSelectedSubjectFilter(e.target.value)}
+                  value={selectedNiveauFilter}
+                  onChange={(e) => { setSelectedNiveauFilter(e.target.value); setCurrentPage(1); }}
                   className="bg-brand-surface border border-brand-border/50 rounded-lg px-2.5 py-1.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent max-w-[150px] truncate"
                 >
-                  <option value="ALL">Toutes les matières</option>
-                  {subjectsList.map(sub => (
-                    <option key={sub.id} value={sub.id}>{sub.name}</option>
+                  <option value="ALL">Tous les niveaux</option>
+                  {niveauxList.map(n => (
+                    <option key={n.id} value={n.nom || n.name}>{n.nom || n.name}</option>
                   ))}
                 </select>
               </div>
@@ -450,7 +449,7 @@ const Courses = () => {
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-brand-accent" />
         </div>
-      ) : filteredCourses.length === 0 ? (
+      ) : paginatedCourses.length === 0 ? (
         <div className="p-12 text-center text-brand-muted bg-brand-card rounded-xl border border-brand-border/50 flex flex-col items-center gap-3">
           <Book className="w-12 h-12 text-brand-border opacity-50" />
           <p className="text-base font-semibold text-brand-text">Aucun cours trouvé</p>
@@ -474,7 +473,7 @@ const Courses = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-border/30">
-                {filteredCourses.map(course => (
+                {paginatedCourses.map((course) => (
                   <tr 
                     key={course.id} 
                     className="hover:bg-white/5 transition-colors cursor-pointer"
@@ -577,7 +576,7 @@ const Courses = () => {
       ) : (
         /* GRID CARDS VIEW */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredCourses.map((course) => (
+          {paginatedCourses.map((course) => (
             <div 
               key={course.id} 
               className="bg-brand-card rounded-2xl shadow-lg overflow-hidden cursor-pointer hover:shadow-brand-accent/10 hover:-translate-y-1 transition-all duration-300 border border-brand-border group relative flex flex-col"
@@ -640,6 +639,31 @@ const Courses = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-brand-card border border-brand-border rounded-xl mt-4 gap-4">
+          <div className="text-sm text-brand-text-muted">
+            Affichage de <span className="font-medium text-brand-text">{filteredCourses.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> à <span className="font-medium text-brand-text">{Math.min(currentPage * itemsPerPage, filteredCourses.length)}</span> sur <span className="font-medium text-brand-text">{filteredCourses.length}</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 text-sm bg-brand-surface border border-brand-border text-brand-text rounded-md hover:bg-brand-sidebar disabled:opacity-50 transition-colors"
+            >
+              Précédent
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 text-sm bg-brand-surface border border-brand-border text-brand-text rounded-md hover:bg-brand-sidebar disabled:opacity-50 transition-colors"
+            >
+              Suivant
+            </button>
+          </div>
         </div>
       )}
 

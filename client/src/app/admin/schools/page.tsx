@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import { Plus, Trash2, User, Edit2, Lock, Unlock, School as SchoolIcon, Loader2, BookOpen, FileSpreadsheet, Eye } from 'lucide-react';
+import { Plus, Trash2, User, Edit2, Lock, Unlock, School as SchoolIcon, Loader2, BookOpen, FileSpreadsheet, Eye, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -21,6 +21,7 @@ interface School {
   managerId?: string;
   teachingTypeId?: string;
   teachingType?: { id: string; name: string };
+  schoolType?: { id: string; name: string };
   manager?: {
     id: string;
     firstName: string;
@@ -42,7 +43,21 @@ const Schools = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [schoolToDelete, setSchoolToDelete] = useState<string | null>(null);
 
-  const sortedSchools = [...schools].sort((a, b) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [teachingTypeFilter, setTeachingTypeFilter] = useState('ALL');
+  const [schoolTypeFilter, setSchoolTypeFilter] = useState('ALL');
+
+  const filteredSchools = schools.filter(s => {
+    const q = searchQuery.toLowerCase();
+    const matchSearch = s.name.toLowerCase().includes(q) || 
+                        (s.code && s.code.toLowerCase().includes(q)) || 
+                        (s.ville && s.ville.toLowerCase().includes(q));
+    const matchTT = teachingTypeFilter === 'ALL' || s.teachingType?.name === teachingTypeFilter;
+    const matchST = schoolTypeFilter === 'ALL' || s.schoolType?.name === schoolTypeFilter;
+    return matchSearch && matchTT && matchST;
+  });
+
+  const sortedSchools = [...filteredSchools].sort((a, b) => {
     const dateA = new Date(a.createdAt || 0).getTime();
     const dateB = new Date(b.createdAt || 0).getTime();
     return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
@@ -143,6 +158,40 @@ const Schools = () => {
           </div>
       ) : (
           <div className="bg-brand-card shadow-lg rounded-2xl overflow-hidden border border-brand-border">
+            <div className="p-4 border-b border-brand-border/50 bg-brand-sidebar/30 flex flex-col md:flex-row gap-4 items-center justify-between">
+               <div className="relative w-full md:w-80">
+                   <Search className="w-4 h-4 text-brand-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                   <input 
+                       type="text"
+                       placeholder="Rechercher une école, ville, code..."
+                       value={searchQuery}
+                       onChange={e => setSearchQuery(e.target.value)}
+                       className="w-full pl-9 pr-4 py-2 text-sm bg-brand-card border border-brand-border rounded-xl text-brand-text outline-none focus:border-brand-accent focus:ring-1 focus:ring-brand-accent transition-all"
+                   />
+               </div>
+               <div className="flex gap-2 w-full md:w-auto">
+                   <select 
+                       value={teachingTypeFilter}
+                       onChange={e => setTeachingTypeFilter(e.target.value)}
+                       className="px-3 py-2 text-sm bg-brand-card border border-brand-border rounded-xl text-brand-text outline-none focus:border-brand-accent transition-all cursor-pointer"
+                   >
+                       <option value="ALL">Tous types d'enseignement</option>
+                       {Array.from(new Set(schools.map(s => s.teachingType?.name).filter(Boolean))).map(tt => (
+                           <option key={tt as string} value={tt as string}>{tt as string}</option>
+                       ))}
+                   </select>
+                   <select 
+                       value={schoolTypeFilter}
+                       onChange={e => setSchoolTypeFilter(e.target.value)}
+                       className="px-3 py-2 text-sm bg-brand-card border border-brand-border rounded-xl text-brand-text outline-none focus:border-brand-accent transition-all cursor-pointer"
+                   >
+                       <option value="ALL">Tous secteurs</option>
+                       {Array.from(new Set(schools.map(s => s.schoolType?.name).filter(Boolean))).map(st => (
+                           <option key={st as string} value={st as string}>{st as string}</option>
+                       ))}
+                   </select>
+               </div>
+            </div>
             <div className="overflow-x-auto custom-scrollbar">
                 <table className="min-w-full divide-y divide-brand-border">
                 <thead className="bg-brand-sidebar">
