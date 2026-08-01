@@ -60,6 +60,10 @@ const Chat = () => {
     // Supabase Realtime for new messages
     useEffect(() => {
         if (!user) return;
+        if (!supabase) {
+            console.warn('[Chat] Supabase client is null, realtime disabled');
+            return;
+        }
 
         console.log('[Supabase] Subscribing to Message table...');
         const channel = supabase
@@ -364,8 +368,8 @@ const Chat = () => {
                 <div className="p-4 border-b border-brand-border/50 bg-brand-sidebar flex items-center justify-between">
                     <h2 className="font-semibold text-brand-text">Discussions</h2>
                     <div className="flex items-center gap-1.5">
-                        <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-emerald-500' : 'bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`}></div>
-                        <span className="text-[10px] text-brand-text-muted font-medium uppercase tracking-wider">{isRealtimeConnected ? 'Connecté' : 'Déconnecté'}</span>
+                        <div className={`w-2 h-2 rounded-full ${isSupabaseConnected ? 'bg-emerald-500' : 'bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`}></div>
+                        <span className="text-[10px] text-brand-text-muted font-medium uppercase tracking-wider">{isSupabaseConnected ? 'Connecté' : 'Déconnecté'}</span>
                     </div>
                 </div>
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -437,11 +441,11 @@ const Chat = () => {
                                                     ? 'bg-brand-accent text-white rounded-br-none shadow-[0_4px_12px_rgba(0,0,0,0.1)]' 
                                                     : 'bg-brand-card text-brand-text shadow-sm rounded-bl-none border border-brand-border/50'
                                             }`}>
-                                                {!isMe && <p className="text-[11px] font-bold mb-1 text-brand-accent">{msg.sender.firstName} {msg.sender.lastName}</p>}
+                                                {!isMe && <p className="text-[11px] font-bold mb-1 text-brand-accent">{msg.sender?.firstName || 'Utilisateur'} {msg.sender?.lastName || ''}</p>}
                                                 <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                                                 {renderAttachment(msg)}
                                                 <p className={`text-[9px] mt-1 text-right font-medium ${isMe ? 'text-white/70' : 'text-brand-text-muted'}`}>
-                                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                                 </p>
                                             </div>
                                         </div>

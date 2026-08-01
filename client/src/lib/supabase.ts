@@ -4,21 +4,11 @@
  * et les uploads utilisent le fallback local du serveur (/uploads/).
  */
 
+import { createClient } from '@supabase/supabase-js';
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-let supabase: any = null;
-
-if (supabaseUrl && supabaseAnonKey) {
-  // Supabase est configuré — on importe dynamiquement
-  import('@supabase/supabase-js').then(({ createClient }) => {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
-    console.log('[Supabase] Client initialisé');
-  }).catch(() => {
-    console.warn('[Supabase] Module non disponible, mode local actif');
-  });
-} else {
-  console.info('[Supabase] Credentials non configurées → mode local (uploads via /uploads/)');
-}
-
-export { supabase };
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
