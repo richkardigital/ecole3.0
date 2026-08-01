@@ -150,11 +150,15 @@ const Users = () => {
         );
     }
 
-    if (selectedGroupId === 'student' && levelFilter !== 'ALL') {
-        list = list.filter(u => u.enrollments?.some(e => e.class.niveau?.nom === levelFilter));
+    if ((selectedGroupId === 'eleve' || selectedGroupId === 'enseignant') && levelFilter !== 'ALL') {
+        if (selectedGroupId === 'eleve') {
+            list = list.filter(u => u.enrollments?.some(e => e.class.niveau?.nom === levelFilter));
+        } else {
+            list = list.filter(u => u.teacherClasses?.some(tc => tc.class.niveau?.nom === levelFilter));
+        }
     }
 
-    if ((selectedGroupId === 'teacher' || selectedGroupId === 'student')) {
+    if (selectedGroupId !== 'super_admin') {
         if (teachingTypeFilter !== 'ALL') {
             list = list.filter(u => u.school?.teachingType?.name === teachingTypeFilter);
         }
@@ -685,19 +689,23 @@ const Users = () => {
                  />
              </div>
              <div className="flex gap-2 w-full md:w-auto">
-                 {selectedGroupId === 'student' && (
+                 {(selectedGroupId === 'eleve' || selectedGroupId === 'enseignant') && (
                      <select 
                          value={levelFilter}
                          onChange={e => setLevelFilter(e.target.value)}
                          className="px-3 py-2 text-sm bg-brand-card border border-brand-border rounded-xl text-brand-text outline-none focus:border-brand-accent transition-all cursor-pointer"
                      >
                          <option value="ALL">Tous les niveaux</option>
-                         {Array.from(new Set(selectedGroup?.users.flatMap(u => u.enrollments?.map(e => e.class.niveau?.nom)).filter(Boolean))).map(lvl => (
+                         {Array.from(new Set(selectedGroup?.users.flatMap(u => 
+                             selectedGroupId === 'eleve' 
+                             ? u.enrollments?.map(e => e.class.niveau?.nom)
+                             : u.teacherClasses?.map(tc => tc.class.niveau?.nom)
+                         ).filter(Boolean))).map(lvl => (
                              <option key={lvl} value={lvl}>{lvl}</option>
                          ))}
                      </select>
                  )}
-                 {(selectedGroupId === 'teacher' || selectedGroupId === 'student') && (
+                 {selectedGroupId !== 'super_admin' && (
                      <>
                      <select 
                          value={teachingTypeFilter}
