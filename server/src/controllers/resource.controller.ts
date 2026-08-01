@@ -14,7 +14,7 @@ export const getResources = async (req: AuthRequest, res: Response) => {
     // Filter by student level if APPRENANT
     if (req.user?.role === "APPRENANT") {
       const enrollment = await prisma.enrollment.findFirst({
-        where: { userId: req.user.id },
+        where: { studentId: req.user.id },
         include: { class: true }
       });
       if (enrollment && enrollment.class.niveauId) {
@@ -164,7 +164,7 @@ export const togglePublishResource = async (req: AuthRequest, res: Response) => 
 export const updateResource = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, niveauId, linkUrl } = req.body;
+    const { title, description, niveauId, type, url, isActive } = req.body;
     const file = req.file;
 
     const existingResource = await prisma.resource.findUnique({ where: { id } });

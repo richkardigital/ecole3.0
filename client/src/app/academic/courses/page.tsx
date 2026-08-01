@@ -36,6 +36,7 @@ interface CourseModel {
     schoolId?: string;
     school?: { id: string; name: string; code?: string };
     academicYear?: { id: string; name: string; isCurrent?: boolean };
+    niveau?: { id: string; nom: string };
   };
   subject?: { id: string; name: string; code?: string };
   teacher?: { id: string; firstName: string; lastName: string; email?: string };
@@ -47,6 +48,7 @@ interface Option {
   name: string;
   firstName?: string;
   lastName?: string;
+  nom?: string;
 }
 
 const Courses = () => {

@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, GraduationCap, Users, BookOpen, Key, ArrowRightLeft, Edit2, Upload, Plus, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Users, BookOpen, Key, ArrowRightLeft, Edit2, Upload, Plus, AlertCircle, CheckCircle, Trash2, Download, Search } from 'lucide-react';
 
 interface Student {
     id: string;

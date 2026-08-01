@@ -35,6 +35,7 @@ interface User {
   teacherClasses?: {
     class: {
       name: string;
+      niveau?: { nom: string };
     }
   }[];
 }
@@ -350,7 +351,9 @@ const Users = () => {
           }
           
           fetchUsers();
-          setIsImportModalOpen(false);
+          if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+          }
         } catch (error) {
           console.error("Erreur lors de la lecture du fichier Excel", error);
           alert("Erreur lors de la lecture du fichier Excel.");
