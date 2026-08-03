@@ -119,7 +119,7 @@ const QuestionField = ({ qIndex, control, register, onRemove }: any) => {
 export default function EditQuizPage() {
     const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
     const navigate = useNavigate();
-    const { addToast } = useToast();
+    const { toast: addToast } = useToast();
     const [isLoading, setIsLoading] = useState(true);
     
     const { register, control, handleSubmit, reset, formState: { errors } } = useForm<QuizForm>();
@@ -176,7 +176,7 @@ export default function EditQuizPage() {
             }
 
             await api.put(`/quizzes/${quizId}`, { ...data, courseId });
-            addToast("QCM modifié avec succès", "success");
+            addToast("success", "QCM modifié avec succès");
             navigate(`/enseignant/courses/${courseId}`);
         } catch (err: any) {
             console.error(err);

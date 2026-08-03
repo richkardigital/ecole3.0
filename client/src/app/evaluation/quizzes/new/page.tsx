@@ -119,7 +119,7 @@ const QuestionField = ({ qIndex, control, register, onRemove }: any) => {
 export default function NewQuizPage() {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
-    const { addToast } = useToast();
+    const { toast: addToast } = useToast();
     
     const { register, control, handleSubmit, formState: { errors } } = useForm<QuizForm>({
         defaultValues: {
@@ -158,7 +158,7 @@ export default function NewQuizPage() {
             }
 
             await api.post('/quizzes', { ...data, courseId });
-            addToast("QCM créé avec succès", "success");
+            addToast("success", "QCM créé avec succès");
             navigate(`/enseignant/courses/${courseId}`);
         } catch (err: any) {
             console.error(err);

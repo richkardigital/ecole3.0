@@ -328,9 +328,9 @@ export default function LibraryPage() {
                     </td>
                     <td className="py-4 px-4">
                       {resource.isPublished ? (
-                         <Badge variant="success" className="bg-emerald-50 text-emerald-600 border-emerald-200"><CheckCircle2 className="w-3 h-3 mr-1" />Publié</Badge>
+                         <Badge variant="success"><CheckCircle2 className="w-3 h-3 mr-1" />Publié</Badge>
                       ) : (
-                         <Badge variant="warning" className="bg-amber-50 text-amber-600 border-amber-200">En attente</Badge>
+                         <Badge variant="warning">En attente</Badge>
                       )}
                     </td>
                     <td className="py-4 px-4 text-slate-600 font-medium">

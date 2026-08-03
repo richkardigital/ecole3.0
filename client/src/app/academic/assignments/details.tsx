@@ -15,11 +15,13 @@ interface AssignmentModel {
   title: string;
   description?: string;
   dueDate: string;
-  course: {
-    id: string;
-    subject: { name: string };
-    class: { name: string };
+  course?: {
+    id?: string;
+    subject?: { name: string };
+    class?: { name: string };
   };
+  subject?: { name: string };
+  niveau?: { name: string };
   submissions?: {
     id: string;
     content?: string;

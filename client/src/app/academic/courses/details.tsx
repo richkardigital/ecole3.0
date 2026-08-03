@@ -41,6 +41,7 @@ interface MaterialModel {
     url: string;
     createdAt: string;
     source?: string;
+    chapterId?: string;
 }
 
 interface ChapterModel {
