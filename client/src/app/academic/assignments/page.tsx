@@ -34,7 +34,7 @@ export default function AssignmentsPage() {
     { 
       key: 'niveau',
       header: 'Niveau', 
-      render: (row: any) => row.niveau?.name || 'N/A' 
+      render: (row: any) => row.niveau?.nom || row.niveau?.name || 'N/A' 
     },
     { 
       key: 'dueDate',

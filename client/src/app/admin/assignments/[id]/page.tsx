@@ -32,7 +32,7 @@ interface AssignmentData {
   title: string;
   type: string;
   niveauId: string;
-  niveau?: { id: string, nom: string };
+  niveau?: { id: string; nom: string; name?: string };
   subjectId?: string;
   subject?: { id: string, name: string };
   academicYear?: { id: string; name: string };
@@ -307,6 +307,10 @@ export default function GlobalAssignmentDetailsPage() {
                 <div>
                   <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Matière</p>
                   <p className="text-brand-text font-medium">{assignment.subject?.name || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Niveau</p>
+                  <p className="text-brand-text font-medium">{assignment.niveau?.nom || assignment.niveau?.name || '-'}</p>
                 </div>
                 <div>
                   <p className="text-sm font-bold text-brand-text-muted uppercase tracking-wider mb-1">Date d'échéance</p>

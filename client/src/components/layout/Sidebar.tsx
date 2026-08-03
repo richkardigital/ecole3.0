@@ -256,7 +256,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               <NavSection title="Communication">
                 <NavItem to="/enseignant/chat" icon={MessageCircle} isActive={p === '/enseignant/chat'}>Messagerie</NavItem>
                 <NavItem to="/enseignant/forum" icon={MessageCircle} isActive={p === '/enseignant/forum'}>Forum Enseignants</NavItem>
-                <NavItem to="/enseignant/shared-resources" icon={Network} isActive={p === '/enseignant/shared-resources'}>Épreuves SEEC</NavItem>
+                <NavItem to="/enseignant/shared-resources" icon={Network} isActive={p === '/enseignant/shared-resources'}>Réseau SEEC</NavItem>
               </NavSection>
               <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
                 <NavItem to="/enseignant/settings" icon={Settings} isActive={p === '/enseignant/settings'}>Mon Profil</NavItem>

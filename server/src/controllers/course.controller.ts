@@ -937,7 +937,7 @@ export const getSharedMaterials = async (req: AuthRequest, res: Response) => {
   try {
     const role = req.user?.role;
     if (!role) return res.status(401).json({ message: "Unauthorized" });
-    if (!["APPRENANT", "ENSEIGNANT", "DIRECTEUR", "EDUCATEUR"].includes(role)) {
+    if (!["SUPER_ADMIN", "APPRENANT", "ENSEIGNANT", "DIRECTEUR", "EDUCATEUR"].includes(role)) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -946,11 +946,7 @@ export const getSharedMaterials = async (req: AuthRequest, res: Response) => {
     const q = String(req.query.q || "").trim();
     const type = String(req.query.type || "").trim();
 
-    if (role !== "APPRENANT" && !schoolId) {
-        return res.status(400).json({ message: "schoolId required" });
-    }
-
-    if (schoolId) {
+    if (schoolId && schoolId !== "ALL") {
         const school = await prisma.school.findUnique({
             where: { id: schoolId },
             select: { id: true, isActive: true },

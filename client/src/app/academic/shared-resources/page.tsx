@@ -94,10 +94,9 @@ const SharedResources = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedSchoolId && user?.role !== 'APPRENANT') {
+    if (!selectedSchoolId) {
       setClasses([]);
       setSelectedClassId('ALL');
-      setMaterials([]);
       return;
     }
     
@@ -119,7 +118,6 @@ const SharedResources = () => {
   }, [selectedSchoolId]);
 
   useEffect(() => {
-    if (!selectedSchoolId && user?.role !== 'APPRENANT') return;
 
     const fetchMaterials = async () => {
       setLoadingMaterials(true);

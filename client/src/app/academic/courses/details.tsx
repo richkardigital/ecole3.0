@@ -456,15 +456,7 @@ const CourseDetails = () => {
                 Chapitres & Contenu
                 {activeTab === 'CONTENT' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
             </button>
-            {user?.role !== 'APPRENANT' && (
-              <button
-                  className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'RESOURCES' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
-                  onClick={() => setActiveTab('RESOURCES')}
-              >
-                  Autres Ressources
-                  {activeTab === 'RESOURCES' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
-              </button>
-            )}
+
             <button
                 className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'ASSIGNMENTS' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
                 onClick={() => setActiveTab('ASSIGNMENTS')}
