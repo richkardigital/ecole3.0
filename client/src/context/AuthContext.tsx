@@ -14,8 +14,11 @@ interface User {
   firstName: string;
   lastName: string;
   schoolId?: string;
+  matricule?: string;
   phone?: string;
+  parentPhone?: string;
   birthDate?: string;
+  birthPlace?: string;
   address?: string;
   gender?: string;
   avatarUrl?: string;
@@ -24,6 +27,7 @@ interface User {
 // Définition du type de contexte
 interface AuthContextType {
   user: User | null;      // Utilisateur actuellement connecté
+  setUser: (user: User | null) => void;
   token: string | null;   // Token JWT pour les appels API
   login: (token: string, user: User) => void; // Fonction de connexion
   logout: () => void;     // Fonction de déconnexion
@@ -81,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, setUser, token, login, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

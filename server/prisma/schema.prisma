@@ -172,12 +172,16 @@ model User {
   isOnline  Boolean  @default(false)
 
   // Profil enrichi
-  matricule String?  @unique
-  phone     String?
-  birthDate DateTime?
-  avatarUrl String?
-  address   String?
-  gender    Gender?
+  matricule   String?   @unique
+  phone       String?
+  parentPhone String?
+  birthDate   DateTime?
+  birthPlace  String?
+  avatarUrl   String?
+  address     String?
+  gender      Gender?
+
+  documents   UserDocument[]
 
   schoolId String?
   school   School? @relation("SchoolUsers", fields: [schoolId], references: [id], onDelete: SetNull)
@@ -884,5 +888,21 @@ model News {
 
   @@index([authorId])
   @@index([schoolId])
+}
+
+// =============================================
+// USER DOCUMENT — Pièces jointes profil (Extrait de naissance, CNI, etc.)
+// =============================================
+
+model UserDocument {
+  id        String   @id @default(uuid())
+  title     String
+  fileUrl   String
+  fileType  String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 

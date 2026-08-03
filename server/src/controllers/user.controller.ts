@@ -351,3 +351,144 @@ export const updateUserPassword = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error updating password", error });
     }
 };
+
+export const getMyProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        matricule: true,
+        phone: true,
+        parentPhone: true,
+        birthDate: true,
+        birthPlace: true,
+        avatarUrl: true,
+        address: true,
+        gender: true,
+        school: { select: { id: true, name: true } },
+        documents: {
+          select: { id: true, title: true, fileUrl: true, fileType: true, createdAt: true },
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching profile", error });
+  }
+};
+
+export const updateMyProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { firstName, lastName, phone, parentPhone, birthDate, birthPlace, address, gender } = req.body;
+    const file = req.file;
+
+    const updateData: any = {};
+    if (firstName) updateData.firstName = firstName;
+    if (lastName) updateData.lastName = lastName;
+    if (phone !== undefined) updateData.phone = phone;
+    if (parentPhone !== undefined) updateData.parentPhone = parentPhone;
+    if (birthDate !== undefined) updateData.birthDate = birthDate ? new Date(birthDate) : null;
+    if (birthPlace !== undefined) updateData.birthPlace = birthPlace;
+    if (address !== undefined) updateData.address = address;
+    if (gender !== undefined) updateData.gender = gender || null;
+
+    if (file) {
+      const { uploadToSupabase } = await import("../utils/supabase.js");
+      updateData.avatarUrl = await uploadToSupabase(file, 'avatars');
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        matricule: true,
+        phone: true,
+        parentPhone: true,
+        birthDate: true,
+        birthPlace: true,
+        avatarUrl: true,
+        address: true,
+        gender: true,
+        school: { select: { id: true, name: true } },
+        documents: {
+          select: { id: true, title: true, fileUrl: true, fileType: true, createdAt: true },
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    });
+
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: "Error updating profile", error });
+  }
+};
+
+export const uploadUserDocument = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const title = req.body.title || "Pièce jointe";
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ message: "Fichier requis" });
+
+    const { uploadToSupabase } = await import("../utils/supabase.js");
+    const publicUrl = await uploadToSupabase(file, 'documents');
+
+    if (!publicUrl) return res.status(500).json({ message: "Erreur lors de l'envoi du fichier" });
+
+    const document = await prisma.userDocument.create({
+      data: {
+        title,
+        fileUrl: publicUrl,
+        fileType: file.mimetype,
+        userId
+      }
+    });
+
+    res.status(201).json(document);
+  } catch (error) {
+    res.status(500).json({ message: "Error uploading document", error });
+  }
+};
+
+export const deleteUserDocument = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { docId } = req.params;
+
+    if (!userId || !docId) return res.status(400).json({ message: "Invalid parameters" });
+
+    const doc = await prisma.userDocument.findUnique({ where: { id: docId } });
+    if (!doc) return res.status(404).json({ message: "Document not found" });
+
+    if (doc.userId !== userId && req.user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    await prisma.userDocument.delete({ where: { id: docId } });
+    res.json({ message: "Document supprimé avec succès" });
+  } catch (error) {
+    res.status(500).json({ message: "Error deleting document", error });
+  }
+};
