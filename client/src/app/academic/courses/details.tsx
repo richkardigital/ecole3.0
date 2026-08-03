@@ -67,6 +67,7 @@ const CourseDetails = () => {
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
   const [isChapterModalOpen, setIsChapterModalOpen] = useState(false);
+  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
   
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
   const [materialError, setMaterialError] = useState<string | null>(null);
@@ -355,10 +356,18 @@ const CourseDetails = () => {
                }
           }
 
-          await api.post(`/courses/${id}/materials`, formData, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-          });
+          if (editingMaterialId) {
+              await api.put(`/courses/materials/${editingMaterialId}`, formData, {
+                  headers: { 'Content-Type': 'multipart/form-data' }
+              });
+          } else {
+              await api.post(`/courses/${id}/materials`, formData, {
+                  headers: { 'Content-Type': 'multipart/form-data' }
+              });
+          }
+          
           setIsMaterialModalOpen(false);
+          setEditingMaterialId(null);
           resetMat();
           fetchCourseDetails();
       } catch (error) {
@@ -446,13 +455,15 @@ const CourseDetails = () => {
                 Chapitres & Contenu
                 {activeTab === 'CONTENT' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
             </button>
-            <button
-                className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'RESOURCES' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
-                onClick={() => setActiveTab('RESOURCES')}
-            >
-                Autres Ressources
-                {activeTab === 'RESOURCES' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
-            </button>
+            {user?.role !== 'APPRENANT' && (
+              <button
+                  className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'RESOURCES' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
+                  onClick={() => setActiveTab('RESOURCES')}
+              >
+                  Autres Ressources
+                  {activeTab === 'RESOURCES' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
+              </button>
+            )}
             <button
                 className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'ASSIGNMENTS' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
                 onClick={() => setActiveTab('ASSIGNMENTS')}
@@ -464,7 +475,7 @@ const CourseDetails = () => {
                 className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'QUIZZES' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
                 onClick={() => setActiveTab('QUIZZES')}
             >
-                QCM & Quiz
+                Évaluations
                 {activeTab === 'QUIZZES' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
             </button>
             {isTeacher && (
@@ -543,9 +554,25 @@ const CourseDetails = () => {
                                             </div>
                                         </div>
                                         {isTeacher && (
-                                            <button onClick={(e) => openDeleteMaterialModal(material.id, e)} className="text-red-500 hover:bg-red-500/10 p-1 rounded transition">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingMaterialId(material.id);
+                                                    resetMat({
+                                                        title: material.title,
+                                                        type: material.type,
+                                                        url: material.type === 'LINK' || material.type === 'VIDEO' ? material.url : '',
+                                                        source: material.source || '',
+                                                        chapterId: material.chapterId || ''
+                                                    });
+                                                    setIsMaterialModalOpen(true);
+                                                }} className="text-brand-text-muted hover:text-brand-accent hover:bg-brand-accent/10 p-1 rounded transition">
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={(e) => openDeleteMaterialModal(material.id, e)} className="text-red-500 hover:bg-red-500/10 p-1 rounded transition">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 ))}
@@ -933,11 +960,15 @@ const CourseDetails = () => {
         </form>
       </Modal>
 
-      {/* Create Material Modal */}
+      {/* Create / Edit Material Modal */}
       <Modal
         isOpen={isMaterialModalOpen}
-        onClose={() => setIsMaterialModalOpen(false)}
-        title="Ajouter un support"
+        onClose={() => {
+            setIsMaterialModalOpen(false);
+            setEditingMaterialId(null);
+            resetMat();
+        }}
+        title={editingMaterialId ? "Modifier le support" : "Ajouter un support"}
       >
         <form onSubmit={handleSubmitMat(onSubmitMaterial)} className="space-y-4">
             <div>
@@ -1001,7 +1032,7 @@ const CourseDetails = () => {
                 <label className="block text-sm font-medium text-brand-text-muted mb-1">Fichier (PDF, Word...)</label>
                 <input
                 type="file"
-                {...registerMat('file', { required: 'Le fichier est requis' })}
+                {...registerMat('file', { required: editingMaterialId ? false : 'Le fichier est requis' })}
                 className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-accent/10 file:text-brand-accent hover:file:bg-brand-accent/20 cursor-pointer"
                 accept=".pdf,.doc,.docx,.ppt,.pptx"
                 />
@@ -1029,7 +1060,7 @@ const CourseDetails = () => {
                 variant="primary"
                 disabled={isSubmittingMat}
             >
-                {isSubmittingMat ? 'Ajout...' : 'Ajouter'}
+                {isSubmittingMat ? (editingMaterialId ? 'Modification...' : 'Ajout...') : (editingMaterialId ? 'Modifier' : 'Ajouter')}
             </Button>
             </div>
         </form>

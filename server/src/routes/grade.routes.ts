@@ -2,7 +2,7 @@ import { ROLES } from "../config/constants.js";
 import { Router } from "express";
 import { authenticate } from "../middleware/auth.js";
 import { requireRole } from "../middleware/rbac.js";
-import { getGradebook, saveGrade, getStudentReportCard, getConductGrades } from "../controllers/grade.controller.js";
+import { getGradebook, saveGrade, getStudentReportCard, getConductGrades, getTeacherGrid, saveTeacherGrid } from "../controllers/grade.controller.js";
 
 const router = Router();
 
@@ -16,6 +16,10 @@ router.get("/report-card/:studentId", requireRole([ROLES.ENSEIGNANT, ROLES.SUPER
 
 // Get gradebook for a course
 router.get("/:courseId/gradebook", requireRole([ROLES.ENSEIGNANT, ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getGradebook);
+
+// Teacher Grading Grid Endpoints
+router.get("/teacher-grid/view", requireRole([ROLES.ENSEIGNANT, ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), getTeacherGrid);
+router.post("/teacher-grid/save", requireRole([ROLES.ENSEIGNANT, ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), saveTeacherGrid);
 
 // Get conduct grades for a course
 router.get("/:courseId/conduct", requireRole([ROLES.ENSEIGNANT, ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getConductGrades);

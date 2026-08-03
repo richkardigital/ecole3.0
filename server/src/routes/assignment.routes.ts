@@ -5,6 +5,7 @@ import { requireRole } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
 import {
   createAssignment,
+  quickAddAssignment,
   getAssignments,
   getAgenda,
   getAssignmentById,
@@ -25,6 +26,7 @@ const router = Router();
 router.use(authenticate);
 
 router.post("/", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.fields([{ name: 'file', maxCount: 1 }, { name: 'voiceNote', maxCount: 1 }, { name: 'correction', maxCount: 1 }]), createAssignment);
+router.post("/quick-add", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), quickAddAssignment);
 router.get("/agenda", getAgenda); // Must be before /:id
 router.get("/", getAssignments);
 router.get("/:id", getAssignmentById);

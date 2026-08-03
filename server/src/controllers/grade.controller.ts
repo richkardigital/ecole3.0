@@ -2,6 +2,8 @@ import type { Response } from "express";
 import prisma from "../utils/prisma.js";
 import { z } from "zod";
 import type { AuthRequest } from "../middleware/auth.js";
+import { z } from "zod";
+import type { AuthRequest } from "../middleware/auth.js";
 
 const saveGradeSchema = z.object({
   studentId: z.string(),
@@ -120,6 +122,182 @@ export const getGradebook = async (req: AuthRequest, res: Response) => {
     console.error(error);
     res.status(500).json({ message: "Error fetching gradebook", error });
   }
+};
+
+export const getTeacherGrid = async (req: AuthRequest, res: Response) => {
+    try {
+        const { classId, termId } = req.query;
+        if (!classId || !termId) {
+            return res.status(400).json({ message: "classId and termId are required" });
+        }
+
+        // Check if teacher has a course in this class
+        let course = null;
+        if ((req.user?.role as string) === 'ENSEIGNANT') {
+            course = await prisma.course.findFirst({
+                where: { classId: String(classId), teacherId: req.user!.id },
+                include: { subject: true }
+            });
+        } else {
+            // For admins, maybe they provide courseId, or we just take the first course?
+            // Actually, admin shouldn't normally use teacher grid, but if they do, we need a courseId.
+            const { courseId } = req.query;
+            if (courseId) {
+                course = await prisma.course.findUnique({
+                    where: { id: String(courseId) },
+                    include: { subject: true, class: true }
+                });
+            }
+        }
+
+        if (!course) {
+            return res.status(404).json({ message: "Course not found for this class and teacher" });
+        }
+
+        // Get students in the class
+        const enrollments = await prisma.enrollment.findMany({
+            where: { classId: String(classId) },
+            include: {
+                student: {
+                    select: { id: true, firstName: true, lastName: true, matricule: true }
+                }
+            },
+            orderBy: { student: { lastName: 'asc' } }
+        });
+        const students = enrollments.map(e => e.student);
+
+        // Get assignments for this course or devoirs de niveau for this class
+        const assignments = await prisma.assignment.findMany({
+            where: {
+                OR: [
+                    { courseId: course.id },
+                    ...(course.class?.niveauId ? [{ courseId: null, niveauId: course.class.niveauId }] : [])
+                ]
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Get quizzes for this course
+        const quizzes = await prisma.quiz.findMany({
+            where: { courseId: course.id },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Get grades for assignments in this term
+        const grades = await prisma.grade.findMany({
+            where: {
+                OR: [
+                    { assignment: { courseId: course.id } },
+                    { courseId: course.id },
+                    ...(course.class?.niveauId ? [{ assignment: { courseId: null, niveauId: course.class.niveauId } }] : [])
+                ],
+                termId: String(termId)
+            }
+        });
+
+        // Get best quiz attempt for each student
+        const quizAttempts = await prisma.quizAttempt.findMany({
+            where: {
+                quiz: { courseId: course.id }
+            },
+            orderBy: { score: 'desc' }
+        });
+
+        // Deduplicate attempts to get max score per student per quiz
+        const bestQuizAttempts = quizAttempts.reduce((acc: any[], current) => {
+            const x = acc.find(item => item.studentId === current.studentId && item.quizId === current.quizId);
+            if (!x) {
+                return acc.concat([current]);
+            } else {
+                return acc;
+            }
+        }, []);
+
+        res.json({
+            course,
+            students,
+            assignments,
+            quizzes,
+            grades,
+            quizAttempts: bestQuizAttempts
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching teacher grid", error });
+    }
+};
+
+const saveGridSchema = z.object({
+    termId: z.string(),
+    courseId: z.string(),
+    grades: z.array(z.object({
+        studentId: z.string(),
+        assignmentId: z.string(),
+        value: z.number().min(0).max(20).nullable()
+    }))
+});
+
+export const saveTeacherGrid = async (req: AuthRequest, res: Response) => {
+    try {
+        const { termId, courseId, grades } = saveGridSchema.parse(req.body);
+
+        // Verify access
+        if ((req.user?.role as string) === 'ENSEIGNANT') {
+            const course = await prisma.course.findUnique({ where: { id: courseId } });
+            if (!course || course.teacherId !== req.user!.id) {
+                return res.status(403).json({ message: "Access denied" });
+            }
+        }
+
+        // Process all grades in a transaction
+        await prisma.$transaction(async (tx) => {
+            for (const g of grades) {
+                // If value is null, delete grade if exists
+                if (g.value === null) {
+                    await tx.grade.deleteMany({
+                        where: {
+                            studentId: g.studentId,
+                            assignmentId: g.assignmentId,
+                            termId
+                        }
+                    });
+                    continue;
+                }
+
+                // Upsert grade
+                const existing = await tx.grade.findFirst({
+                    where: {
+                        studentId: g.studentId,
+                        assignmentId: g.assignmentId,
+                        termId
+                    }
+                });
+
+                if (existing) {
+                    await tx.grade.update({
+                        where: { id: existing.id },
+                        data: { value: g.value }
+                    });
+                } else {
+                    await tx.grade.create({
+                        data: {
+                            studentId: g.studentId,
+                            assignmentId: g.assignmentId,
+                            courseId: courseId,
+                            termId: termId,
+                            value: g.value
+                        }
+                    });
+                }
+            }
+        });
+
+        res.json({ message: "Grades saved successfully" });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error saving grades", error });
+    }
 };
 
 export const saveGrade = async (req: AuthRequest, res: Response) => {
@@ -324,7 +502,11 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
 
     // Calculate Averages per Subject
     const subjectStats = courses.map(course => {
-        const courseGrades = grades.filter(g => g.assignment?.courseId === course.id);
+        const courseGrades = grades.filter(g => 
+            g.courseId === course.id || 
+            g.assignment?.courseId === course.id ||
+            (g.assignment?.subjectId && g.assignment.subjectId === course.subjectId)
+        );
         
         const sum = courseGrades.reduce((acc, g) => acc + g.value, 0);
         const count = courseGrades.length;
@@ -350,6 +532,49 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
     const totalCoefficients = validSubjects.reduce((acc, s) => acc + s.coefficient, 0);
     const overallAverage = totalCoefficients > 0 ? overallWeightedSum / totalCoefficients : null;
 
+    // Compute summary across all terms in the academic year for global recap
+    const allTerms = await prisma.term.findMany({
+        where: { academicYearId: term.academicYearId },
+        orderBy: { startDate: 'asc' }
+    });
+
+    const allYearGrades = await prisma.grade.findMany({
+        where: {
+            studentId: studentId as string,
+            termId: { in: allTerms.map(t => t.id) }
+        },
+        include: { assignment: true }
+    });
+
+    const termsSummary = allTerms.map(t => {
+        const tGrades = allYearGrades.filter(g => g.termId === t.id);
+        const tValidSubjects = courses.map(course => {
+            const cGrades = tGrades.filter(g => 
+                g.courseId === course.id || 
+                g.assignment?.courseId === course.id ||
+                (g.assignment?.subjectId && g.assignment.subjectId === course.subjectId)
+            );
+            const sum = cGrades.reduce((acc, g) => acc + g.value, 0);
+            const avg = cGrades.length > 0 ? sum / cGrades.length : null;
+            return { average: avg, coefficient: (course as any).coefficient || 1 };
+        }).filter(s => s.average !== null);
+
+        const wSum = tValidSubjects.reduce((acc, s) => acc + ((s.average || 0) * s.coefficient), 0);
+        const totalC = tValidSubjects.reduce((acc, s) => acc + s.coefficient, 0);
+        const avg = totalC > 0 ? wSum / totalC : null;
+
+        return {
+            termId: t.id,
+            termName: t.name,
+            overallAverage: avg
+        };
+    });
+
+    const validTermAvgs = termsSummary.map(t => t.overallAverage).filter((a): a is number => a !== null);
+    const annualAverage = validTermAvgs.length > 0 
+        ? parseFloat((validTermAvgs.reduce((acc, v) => acc + v, 0) / validTermAvgs.length).toFixed(2))
+        : null;
+
     res.json({
         student: {
             id: student.id,
@@ -360,7 +585,9 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
         school: student.school,
         term: term,
         subjects: subjectStats,
-        overallAverage
+        overallAverage,
+        termsSummary,
+        annualAverage
     });
 
   } catch (error) {

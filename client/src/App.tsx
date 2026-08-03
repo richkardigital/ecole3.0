@@ -23,12 +23,15 @@ import CourseDetails from '@/app/academic/courses/details';
 import AssignmentDetails from '@/app/academic/assignments/details';
 import Library from '@/app/academic/library/page';
 import AdminLibrary from '@/app/admin/library/page';
+import NewLibraryDocumentPage from '@/app/admin/library/new/page';
 import SharedResources from '@/app/academic/shared-resources/page';
 import Agenda from '@/app/academic/agenda/page';
 import Chat from '@/app/communication/chat/page';
 import QuizTake from '@/app/evaluation/quizzes/take';
 import QuizAttemptsList from '@/app/evaluation/quizzes/attempts-list';
 import QuizAttemptDetail from '@/app/evaluation/quizzes/attempt-detail';
+import NewQuizPage from '@/app/evaluation/quizzes/new/page';
+import EditQuizPage from '@/app/evaluation/quizzes/edit/page';
 import Broadcast from '@/app/communication/broadcast/page';
 import Forum from '@/app/communication/forum/page';
 import News from '@/app/communication/news/page';
@@ -111,6 +114,8 @@ function App() {
                     <Route path="/admin/niveaux/:id" element={<NiveauDetailsPage />} />
                     <Route path="/admin/subjects" element={<Subjects />} />
                     <Route path="/admin/library" element={<AdminLibrary />} />
+                    <Route path="/admin/library/new" element={<NewLibraryDocumentPage />} />
+                    <Route path="/admin/shared-resources" element={<SharedResources />} />
                     <Route path="/admin/classes" element={<Classes />} />
                     <Route path="/admin/classes/new" element={<NewClassPage />} />
                     <Route path="/admin/classes/:id" element={<ClassDetailsPage />} />
@@ -148,7 +153,8 @@ function App() {
                     <Route path="/directeur/courses" element={<Courses />} />
                     <Route path="/directeur/courses/:id" element={<CourseDetails />} />
                     <Route path="/directeur/report-cards" element={<ReportCards />} />
-                    <Route path="/directeur/library" element={<Library />} />
+                    <Route path="/directeur/library" element={<AdminLibrary />} />
+                    <Route path="/directeur/library/new" element={<NewLibraryDocumentPage />} />
                     <Route path="/directeur/absences" element={<Absences />} />
                     <Route path="/directeur/conduct" element={<Conduct />} />
                     <Route path="/directeur/broadcast" element={<Broadcast />} />
@@ -169,10 +175,14 @@ function App() {
                     <Route path="/enseignant/courses" element={<Courses />} />
                     <Route path="/enseignant/courses/:id" element={<CourseDetails />} />
                     <Route path="/enseignant/assignments" element={<AssignmentsPage />} />
+                    <Route path="/enseignant/assignments/new" element={<NewGlobalAssignmentPage />} />
                     <Route path="/enseignant/assignments/:id" element={<AssignmentDetails />} />
                     <Route path="/enseignant/corrections" element={<Corrections />} />
-                    <Route path="/enseignant/library" element={<Library />} />
+                    <Route path="/enseignant/library" element={<AdminLibrary />} />
+                    <Route path="/enseignant/library/new" element={<NewLibraryDocumentPage />} />
                     <Route path="/enseignant/report-cards" element={<ReportCards />} />
+                    <Route path="/enseignant/courses/:courseId/quizzes/new" element={<NewQuizPage />} />
+                    <Route path="/enseignant/courses/:courseId/quizzes/:quizId/edit" element={<EditQuizPage />} />
                     <Route path="/enseignant/chat" element={<Chat />} />
                     <Route path="/enseignant/forum" element={<Forum />} />
                     <Route path="/enseignant/shared-resources" element={<SharedResources />} />

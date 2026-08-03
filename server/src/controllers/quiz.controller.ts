@@ -6,7 +6,10 @@ import { z } from "zod";
 const createQuizSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
-  courseId: z.string().uuid(),
+  courseId: z.string().uuid().optional(),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  timeLimit: z.coerce.number().optional().nullable(),
   questions: z.array(z.object({
     text: z.string().min(1),
     type: z.enum(["SINGLE", "MULTIPLE"]),
@@ -44,8 +47,11 @@ export const createQuiz = async (req: AuthRequest, res: Response) => {
             data: {
                 title: validatedData.title,
                 description: validatedData.description,
-                courseId: validatedData.courseId,
+                courseId: validatedData.courseId!,
                 published: true,
+                startDate: validatedData.startDate ? new Date(validatedData.startDate) : null,
+                endDate: validatedData.endDate ? new Date(validatedData.endDate) : null,
+                timeLimit: validatedData.timeLimit,
                 questions: {
                     create: validatedData.questions.map(q => {
                         const correctOption = q.options.find(opt => opt.isCorrect);
@@ -132,6 +138,9 @@ export const updateQuiz = async (req: AuthRequest, res: Response) => {
             data: {
                 title: validatedData.title,
                 description: validatedData.description,
+                startDate: validatedData.startDate ? new Date(validatedData.startDate) : null,
+                endDate: validatedData.endDate ? new Date(validatedData.endDate) : null,
+                timeLimit: validatedData.timeLimit,
                 questions: {
                     create: validatedData.questions.map(q => ({
                         text: q.text,

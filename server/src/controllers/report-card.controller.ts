@@ -100,8 +100,8 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
 export const getClassReportCard = async (req: AuthRequest, res: Response) => {
     try {
         const { classId } = req.params;
+        const { termId } = req.query;
         
-        // RBAC
         if (req.user?.role !== 'DIRECTEUR' && req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'EDUCATEUR' && req.user?.role !== 'ENSEIGNANT') {
             return res.status(403).json({ message: "Access denied" });
         }
@@ -113,55 +113,60 @@ export const getClassReportCard = async (req: AuthRequest, res: Response) => {
                 },
                 role: 'APPRENANT'
             },
-            select: { id: true, firstName: true, lastName: true }
+            select: { id: true, firstName: true, lastName: true },
+            orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }]
         });
 
-        // Loop through students (naive approach, okay for MVP)
-        // Optimization: Fetch all grades for class at once and process in memory
+        const courses = await prisma.course.findMany({
+            where: { classId: String(classId) },
+            include: { subject: true }
+        });
+
         const reports = [];
 
         for (const student of students) {
-             // Reuse logic or duplicate simplified version
-             // Fetch all courses and grades
-             const courses = await prisma.course.findMany({
-                where: { classId: String(classId) },
-                include: { 
-                    subject: true,
-                    assignments: {
-                        include: {
-                            grades: {
-                                where: { studentId: student.id }
-                            }
-                        }
-                    }
-                }
-            });
+             const grades = await prisma.grade.findMany({
+                 where: {
+                     studentId: student.id,
+                     ...(termId ? { termId: String(termId) } : {})
+                 },
+                 include: { assignment: true }
+             });
 
-            const courseAverages = courses.map(course => {
-                const grades = course.assignments.flatMap(a => a.grades);
-                return {
-                    subjectName: course.subject.name,
-                    average: calculateAverage(grades),
-                    coefficient: course.coefficient,
-                    hasGrades: grades.length > 0
-                };
-            });
+             const courseAverages = courses.map(course => {
+                 const cGrades = grades.filter(g => 
+                     g.courseId === course.id || 
+                     g.assignment?.courseId === course.id ||
+                     (g.assignment?.subjectId && g.assignment.subjectId === course.subjectId)
+                 );
 
-            let totalWeighted = 0;
-            let totalCoeff = 0;
-            courseAverages.forEach(c => {
-                if (c.hasGrades) {
-                    totalWeighted += c.average * c.coefficient;
-                    totalCoeff += c.coefficient;
-                }
-            });
-            const globalAvg = totalCoeff > 0 ? (totalWeighted / totalCoeff) : 0;
+                 const sum = cGrades.reduce((acc, curr) => acc + curr.value, 0);
+                 const count = cGrades.length;
+                 const average = count > 0 ? parseFloat((sum / count).toFixed(2)) : null;
 
-            reports.push({
-                student,
-                globalAverage: parseFloat(globalAvg.toFixed(2)),
-                details: courseAverages
-            });
+                 return {
+                     subjectName: course.subject.name,
+                     average: average,
+                     coefficient: (course as any).coefficient || 1,
+                     hasGrades: count > 0
+                 };
+             });
+
+             let totalWeighted = 0;
+             let totalCoeff = 0;
+             courseAverages.forEach(c => {
+                 if (c.hasGrades && c.average !== null) {
+                     totalWeighted += c.average * c.coefficient;
+                     totalCoeff += c.coefficient;
+                 }
+             });
+             const globalAvg = totalCoeff > 0 ? (totalWeighted / totalCoeff) : 0;
+
+             reports.push({
+                 student,
+                 globalAverage: parseFloat(globalAvg.toFixed(2)),
+                 details: courseAverages
+             });
         }
 
         res.json({ classId, reports });

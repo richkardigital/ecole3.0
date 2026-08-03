@@ -179,6 +179,35 @@ export const enrollStudent = async (req: Request, res: Response) => {
   try {
     const { studentId, classId } = enrollStudentSchema.parse(req.body);
 
+    const targetClass = await prisma.class.findUnique({
+      where: { id: classId },
+      select: { academicYearId: true }
+    });
+
+    if (!targetClass) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    if (targetClass.academicYearId) {
+       const existingEnrollment = await prisma.enrollment.findFirst({
+         where: {
+            studentId,
+            class: { academicYearId: targetClass.academicYearId }
+         }
+       });
+
+       if (existingEnrollment) {
+          return res.status(400).json({ message: "L'élève est déjà inscrit dans une classe pour cette année académique." });
+       }
+    } else {
+       const exactEnrollment = await prisma.enrollment.findUnique({
+           where: { studentId_classId: { studentId, classId } }
+       });
+       if (exactEnrollment) {
+           return res.status(400).json({ message: "L'élève est déjà inscrit dans cette classe." });
+       }
+    }
+
     const enrollment = await prisma.enrollment.create({
       data: {
         studentId,
@@ -253,6 +282,12 @@ export const importStudents = async (req: AuthRequest, res: Response) => {
         if (!sheet) throw new Error("Sheet not found");
         const data = xlsx.utils.sheet_to_json(sheet) as any[];
 
+        const targetClass = await prisma.class.findUnique({
+            where: { id: String(id) },
+            select: { academicYearId: true }
+        });
+        if (!targetClass) return res.status(404).json({ message: "Class not found" });
+
         let createdCount = 0;
         let enrolledCount = 0;
 
@@ -304,22 +339,34 @@ export const importStudents = async (req: AuthRequest, res: Response) => {
             }
 
             // Enroll in class
-            const enrollment = await prisma.enrollment.findFirst({
-                where: {
+            if (targetClass.academicYearId) {
+                const existingEnrollment = await prisma.enrollment.findFirst({
+                    where: {
+                        studentId: user.id,
+                        class: { academicYearId: targetClass.academicYearId }
+                    }
+                });
+                if (existingEnrollment) {
+                    console.log(`Skipping enrollment for ${baseEmail}, already enrolled in this academic year`);
+                    continue;
+                }
+            } else {
+                const exactEnrollment = await prisma.enrollment.findUnique({
+                    where: { studentId_classId: { studentId: user.id, classId: String(id) } }
+                });
+                if (exactEnrollment) {
+                    console.log(`Skipping enrollment for ${baseEmail}, already enrolled in this class`);
+                    continue;
+                }
+            }
+
+            await prisma.enrollment.create({
+                data: {
                     studentId: user.id,
                     classId: String(id)
                 }
             });
-
-            if (!enrollment) {
-                await prisma.enrollment.create({
-                    data: {
-                        studentId: user.id,
-                        classId: String(id)
-                    }
-                });
-                enrolledCount++;
-            }
+            enrolledCount++;
         }
 
         res.json({ message: "Import terminé", created: createdCount, enrolled: enrolledCount });

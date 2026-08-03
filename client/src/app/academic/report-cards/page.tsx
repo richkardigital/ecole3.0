@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
-import { Printer, User, BookOpen } from 'lucide-react';
+import { Printer, User, BookOpen, Download } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
+import TeacherGradesGrid from './TeacherGradesGrid';
 
 interface ReportCardData {
   student: {
@@ -34,6 +35,12 @@ interface ReportCardData {
     }[];
   }[];
   overallAverage: number | null;
+  termsSummary?: {
+    termId: string;
+    termName: string;
+    overallAverage: number | null;
+  }[];
+  annualAverage?: number | null;
 }
 
 interface Term {
@@ -47,14 +54,15 @@ interface Term {
 const StudentReportCards = () => {
   const { user } = useAuth();
   const [reportCard, setReportCard] = useState<ReportCardData | null>(null);
+  const [academicYears, setAcademicYears] = useState<any[]>([]);
+  const [selectedYearId, setSelectedYearId] = useState<string>('');
   const [terms, setTerms] = useState<Term[]>([]);
   const [selectedTermId, setSelectedTermId] = useState<string>('');
   
   // Admin/Teacher Selection State
   const [classes, setClasses] = useState<{id: string, name: string}[]>([]);
-  const [students, setStudents] = useState<{id: string, firstName: string, lastName: string}[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [classReportData, setClassReportData] = useState<any>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,63 +75,73 @@ const StudentReportCards = () => {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (selectedClassId) {
-        fetchClassStudents(selectedClassId);
-    } else {
-        setStudents([]);
-        setSelectedStudentId('');
-    }
-  }, [selectedClassId]);
+  // useEffect(() => {
+  //   if (selectedClassId) {
+  //       fetchClassStudents(selectedClassId);
+  //   } else {
+  //       setStudents([]);
+  //       setSelectedStudentId('');
+  //   }
+  // }, [selectedClassId]);
 
   useEffect(() => {
-    // Logic for triggering fetch
+    if (selectedYearId && academicYears.length > 0) {
+      const year = academicYears.find(y => y.id === selectedYearId);
+      if (year && year.terms) {
+          const sortedTerms = [...year.terms].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+          setTerms(sortedTerms);
+          if (sortedTerms.length > 0) setSelectedTermId(sortedTerms[0].id);
+      } else {
+          setTerms([]);
+          setSelectedTermId('');
+      }
+    }
+  }, [selectedYearId, academicYears]);
+
+  useEffect(() => {
     if (user?.role === 'APPRENANT') {
         if (selectedTermId) fetchReportCard(selectedTermId);
     } else {
-        // For Admin/Teacher, need both student and term
-        if (selectedTermId && selectedStudentId) {
-            fetchReportCard(selectedTermId, selectedStudentId);
-        } else if (selectedStudentId && terms.length > 0 && !selectedTermId) {
-             // Auto-select term if student selected but term not (unlikely due to initial load)
-             const openTerm = terms.find(t => t.status === 'OPEN') || terms[0];
-             if (openTerm) setSelectedTermId(openTerm.id);
+        if (selectedTermId && selectedClassId) {
+            fetchClassReport(selectedTermId, selectedClassId);
         }
     }
-  }, [terms, selectedTermId, selectedStudentId, user]);
+  }, [selectedTermId, selectedClassId, user]);
 
   const fetchClasses = async () => {
       try {
           const response = await api.get('/classes');
           setClasses(response.data);
+          if (response.data.length > 0 && !selectedClassId) {
+              setSelectedClassId(response.data[0].id);
+          }
       } catch (err) {
           console.error("Error fetching classes", err);
       }
   };
 
-  const fetchClassStudents = async (classId: string) => {
+  const fetchClassReport = async (termId: string, classId: string) => {
       try {
-          const response = await api.get(`/classes/${classId}/students`);
-          setStudents(response.data);
+          setLoading(true); setError(null);
+          const response = await api.get(`/report-cards/class/${classId}?termId=${termId}`);
+          setClassReportData(response.data);
       } catch (err) {
-          console.error("Error fetching students", err);
+          console.error("Error fetching class report", err);
+          setError("Impossible de charger les données de la classe.");
+          setClassReportData(null);
+      } finally {
+          setLoading(false);
       }
   };
 
 
   const fetchTerms = async () => {
     try {
-      const response = await api.get('/academic-years'); // Returns years with terms
-      // Flatten terms from years
-      const allTerms: Term[] = [];
-      response.data.forEach((year: any) => {
-        if (year.terms) {
-            allTerms.push(...year.terms);
-        }
-      });
-      // Sort terms by date desc
-      allTerms.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
-      setTerms(allTerms);
+      const response = await api.get('/academic-years'); 
+      setAcademicYears(response.data);
+      if (response.data.length > 0) {
+          setSelectedYearId(response.data[0].id);
+      }
     } catch (err) {
       console.error("Error fetching terms", err);
     }
@@ -177,24 +195,17 @@ const StudentReportCards = () => {
                                 ))}
                             </select>
                         </div>
-
-                        <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-brand-text-muted" />
-                            <select 
-                                value={selectedStudentId}
-                                onChange={(e) => setSelectedStudentId(e.target.value)}
-                                disabled={!selectedClassId}
-                                className="p-2 border rounded-md shadow-sm bg-brand-sidebar border-brand-border/50 text-brand-text outline-none focus:ring-2 focus:ring-brand-accent min-w-[200px] disabled:opacity-50"
-                            >
-                                <option value="">Choisir un élève...</option>
-                                {students.map(s => (
-                                    <option key={s.id} value={s.id}>{s.lastName} {s.firstName}</option>
-                                ))}
-                            </select>
-                        </div>
                     </>
                 )}
-
+                <select 
+                    value={selectedYearId} 
+                    onChange={(e) => setSelectedYearId(e.target.value)}
+                    className="p-2 border rounded-md shadow-sm bg-brand-sidebar border-brand-border/50 text-brand-text outline-none focus:ring-2 focus:ring-brand-accent"
+                >
+                    {academicYears.map(year => (
+                        <option key={year.id} value={year.id}>{year.name}</option>
+                    ))}
+                </select>
                 <select 
                     value={selectedTermId} 
                     onChange={(e) => setSelectedTermId(e.target.value)}
@@ -204,10 +215,15 @@ const StudentReportCards = () => {
                         <option key={term.id} value={term.id}>{term.name}</option>
                     ))}
                 </select>
+                {user?.role !== 'APPRENANT' && (
+                    <Button variant="secondary" onClick={() => alert("L'export Excel sera bientôt disponible !")}>
+                        Exporter (Excel)
+                    </Button>
+                )}
                 <Button 
                     variant="primary"
                     onClick={handlePrint}
-                    disabled={!reportCard}
+                    disabled={user?.role === 'APPRENANT' ? !reportCard : !classReportData}
                     leftIcon={<Printer className="w-4 h-4" />}
                 >
                     Imprimer
@@ -215,17 +231,77 @@ const StudentReportCards = () => {
             </div>
         </div>
 
-        {user?.role !== 'APPRENANT' && !selectedStudentId && (
+        {user?.role !== 'APPRENANT' && !selectedClassId && (
             <div className="text-center py-12 bg-brand-card rounded-xl border border-dashed border-brand-border text-brand-text-muted">
-                <User className="w-12 h-12 opacity-20 mx-auto mb-3" />
-                <p>Veuillez sélectionner une classe et un élève pour voir le bulletin</p>
+                <BookOpen className="w-12 h-12 opacity-20 mx-auto mb-3" />
+                <p>Veuillez sélectionner une classe et un trimestre pour voir la liste des élèves</p>
+            </div>
+        )}
+
+        {/* CLASS REPORT VIEW (Admins / Directeurs) */}
+        {user?.role !== 'APPRENANT' && user?.role !== 'ENSEIGNANT' && classReportData && !loading && (
+            <div className="bg-brand-card p-6 shadow-lg rounded-xl border border-brand-border/50 print-area" ref={printRef}>
+                <div className="mb-6 flex justify-between items-center border-b border-brand-border/50 pb-4">
+                    <h2 className="text-xl font-bold text-brand-text uppercase">
+                        Liste de la classe
+                    </h2>
+                    <p className="text-brand-text-muted font-medium">
+                        {terms.find(t => t.id === selectedTermId)?.name}
+                    </p>
+                </div>
+                
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className="bg-brand-sidebar border-b border-brand-border/50">
+                                <th className="p-3 text-left text-sm font-bold text-brand-text uppercase">Élève</th>
+                                <th className="p-3 text-left text-sm font-bold text-brand-text uppercase">Moyenne Globale</th>
+                                <th className="p-3 text-left text-sm font-bold text-brand-text uppercase no-print">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {classReportData.reports?.length === 0 ? (
+                                <tr>
+                                    <td colSpan={3} className="p-4 text-center text-brand-text-muted">Aucun élève trouvé</td>
+                                </tr>
+                            ) : (
+                                classReportData.reports?.map((r: any) => (
+                                    <tr key={r.student.id} className="border-b border-brand-border/30 hover:bg-slate-50/50">
+                                        <td className="p-3 font-semibold text-brand-text">
+                                            {r.student.lastName} {r.student.firstName}
+                                        </td>
+                                        <td className="p-3">
+                                            <span className={`font-bold ${r.globalAverage >= 10 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                                {r.globalAverage.toFixed(2)}
+                                            </span>
+                                            <span className="text-xs text-brand-text-muted ml-1">/20</span>
+                                        </td>
+                                        <td className="p-3 no-print">
+                                            <Button variant="secondary" size="sm" onClick={() => alert("Détails du bulletin individuel bientôt disponibles")}>
+                                                Voir Détails
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
+
+        {/* TEACHER GRADES GRID */}
+        {user?.role === 'ENSEIGNANT' && selectedClassId && selectedTermId && (
+            <div className="print-area" ref={printRef}>
+                <TeacherGradesGrid classId={selectedClassId} termId={selectedTermId} />
             </div>
         )}
 
         {loading && <div className="text-center py-8 text-brand-text-muted">Chargement du bulletin...</div>}
         {error && <div className="text-center py-8 text-red-500">{error}</div>}
 
-        {reportCard && !loading && (
+        {/* STUDENT INDIVIDUAL REPORT VIEW */}
+        {user?.role === 'APPRENANT' && reportCard && !loading && (
             <div className="bg-brand-card p-8 shadow-lg rounded-xl max-w-4xl mx-auto print-area border border-brand-border/50" ref={printRef}>
                 {/* Header */}
                 <div className="flex justify-between border-b border-brand-border/50 pb-6 mb-6">
@@ -241,7 +317,7 @@ const StudentReportCards = () => {
                 </div>
 
                 {/* Student Info */}
-                <div className="mb-8 p-4 bg-brand-sidebar rounded-xl border border-brand-border/50">
+                <div className="mb-6 p-4 bg-brand-sidebar rounded-xl border border-brand-border/50">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <span className="text-brand-text-muted uppercase text-xs font-semibold">Élève</span>
@@ -253,6 +329,44 @@ const StudentReportCards = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Terms Overview / Annual Progress Bar */}
+                {reportCard.termsSummary && reportCard.termsSummary.length > 0 && (
+                    <div className="mb-8 p-4 bg-brand-accent/5 border border-brand-accent/20 rounded-xl">
+                        <h4 className="text-xs font-bold text-brand-accent uppercase tracking-wider mb-3">Synthèse Annuelle (Tous les trimestres)</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {reportCard.termsSummary.map((ts) => (
+                                <div 
+                                    key={ts.termId}
+                                    onClick={() => setSelectedTermId(ts.termId)}
+                                    className={`p-3 rounded-lg border text-center cursor-pointer transition-all ${
+                                        selectedTermId === ts.termId 
+                                            ? 'bg-brand-accent text-white border-brand-accent shadow-sm' 
+                                            : 'bg-brand-sidebar border-brand-border/50 text-brand-text hover:border-brand-accent/40'
+                                    }`}
+                                >
+                                    <p className={`text-xs font-medium truncate ${selectedTermId === ts.termId ? 'text-white/80' : 'text-brand-text-muted'}`}>{ts.termName}</p>
+                                    <p className={`text-lg font-bold mt-1 ${
+                                        selectedTermId === ts.termId ? 'text-white' : 
+                                        ts.overallAverage === null ? 'text-brand-text-muted' : 
+                                        ts.overallAverage >= 10 ? 'text-emerald-500' : 'text-red-500'
+                                    }`}>
+                                        {ts.overallAverage !== null ? ts.overallAverage.toFixed(2) : '-'}
+                                    </p>
+                                </div>
+                            ))}
+                            <div className="p-3 rounded-lg border border-brand-accent/30 bg-brand-sidebar text-center">
+                                <p className="text-xs font-bold text-brand-accent uppercase truncate">Moy. Annuelle</p>
+                                <p className={`text-lg font-bold mt-1 ${
+                                    reportCard.annualAverage === null ? 'text-brand-text-muted' : 
+                                    (reportCard.annualAverage || 0) >= 10 ? 'text-emerald-600' : 'text-red-500'
+                                }`}>
+                                    {reportCard.annualAverage !== null && reportCard.annualAverage !== undefined ? reportCard.annualAverage.toFixed(2) : '-'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Grades Table */}
                 <div className="overflow-x-auto">

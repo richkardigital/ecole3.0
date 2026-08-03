@@ -73,6 +73,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [academicYears, setAcademicYears] = useState<any[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>('');
+  const [seecSchools, setSeecSchools] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -101,7 +102,18 @@ const Dashboard = () => {
       } catch (err) { console.error(err); }
       finally { setLoading(false); }
     };
+    
+    const fetchSeecSchools = async () => {
+      try {
+        const res = await api.get('/courses/shared/schools');
+        setSeecSchools(res.data || []);
+      } catch (err) { console.error(err); }
+    };
+
     fetchStats();
+    if (user.role === 'ENSEIGNANT' || user.role === 'DIRECTEUR') {
+      fetchSeecSchools();
+    }
   }, [user, navigate, selectedYear]);
 
   if (!user) return null;
@@ -183,9 +195,9 @@ const Dashboard = () => {
             </>)}
 
             {user.role === 'ENSEIGNANT' && (<>
-              <StatCard title="Mes Cours" count={stats?.courses ?? '—'} label="Cours assignés" icon={<BookOpen className="w-5 h-5" />} iconColor="text-indigo-600" badgeColor="bg-indigo-50 border-indigo-200" onClick={() => navigate('/enseignant/courses')} />
-              <StatCard title="À Corriger" count={stats?.ungradedSubmissions ?? '—'} label="Devoirs en attente" icon={<ClipboardList className="w-5 h-5" />} iconColor="text-rose-600" badgeColor="bg-rose-50 border-rose-200" onClick={() => navigate('/enseignant/agenda')} />
-              <StatCard title="Mes Classes" count={stats?.classes ?? '—'} label="Classes affectées" icon={<School className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/enseignant/courses')} />
+              <StatCard title="Cours assignés" count={stats?.courses ?? '—'} label="Total de mes cours" icon={<BookOpen className="w-5 h-5" />} iconColor="text-indigo-600" badgeColor="bg-indigo-50 border-indigo-200" onClick={() => navigate('/enseignant/courses')} />
+              <StatCard title="Devoirs en attente" count={stats?.ungradedSubmissions ?? '—'} label="À corriger" icon={<ClipboardList className="w-5 h-5" />} iconColor="text-rose-600" badgeColor="bg-rose-50 border-rose-200" onClick={() => navigate('/enseignant/agenda')} />
+              <StatCard title="Classes affectées" count={stats?.classes ?? '—'} label="Total de mes classes" icon={<School className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/enseignant/courses')} />
             </>)}
 
             {user.role === 'APPRENANT' && (<>
@@ -331,6 +343,39 @@ const Dashboard = () => {
               </div>
             </div>
           )}
+
+          {/* ── LISTE RÉSEAU SEEC (Pour Enseignants/Directeurs) ── */}
+          {(user.role === 'ENSEIGNANT' || user.role === 'DIRECTEUR') && (
+            <div className="rounded-2xl p-6 bg-white border border-slate-200 shadow-xs mt-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 border border-blue-200">
+                  <Network className="w-4.5 h-4.5 text-blue-600" style={{ width: '1.125rem', height: '1.125rem' }} />
+                </div>
+                <h3 className="font-black text-slate-900 tracking-tight">Réseau SEEC (Écoles connectées)</h3>
+              </div>
+              
+              {seecSchools.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  Aucune école partenaire trouvée.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {seecSchools.map((school, index) => (
+                    <div key={index} className="flex items-center gap-3 p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:shadow-sm hover:border-slate-200 transition-all cursor-default">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                        <School className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800 text-sm leading-tight">{school.name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Partenaire SEEC</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
         </>
       )}
     </div>

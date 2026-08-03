@@ -330,8 +330,8 @@ const Courses = () => {
         }
         icon={<BookOpen className="w-6 h-6 text-brand-accent" />}
         action={
-          // Super Admin & Directeur: NO creation buttons
-          (isSuperAdmin || isDirecteur) ? null : (
+          // Only Admin & Directeur can create courses and assign them
+          (!isSuperAdmin && !isDirecteur) ? null : (
             <div className="flex gap-3">
               <Button
                 variant="secondary"
@@ -356,7 +356,7 @@ const Courses = () => {
       <div className="bg-brand-card p-4 rounded-xl border border-brand-border/50 space-y-3 shadow-md">
         <div className="flex flex-col lg:flex-row gap-3 items-center justify-between">
           {/* Search bar */}
-          <div className="relative w-full lg:w-80">
+          <div className="relative w-full lg:w-[400px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
             <input 
               type="text"

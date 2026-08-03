@@ -49,8 +49,6 @@ export default function LibraryPage() {
   const [selectedNiveauId, setSelectedNiveauId] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Modals
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -60,11 +58,6 @@ export default function LibraryPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  
-  // Form Add
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData & { linkUrl?: string }>();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadType, setUploadType] = useState<'file' | 'link'>('file');
   
   // Form Edit
   const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit } = useForm<FormData & { linkUrl?: string }>();
@@ -103,63 +96,10 @@ export default function LibraryPage() {
   }, [selectedNiveauId]);
 
   // --- Add Handlers ---
-  const openUploadModal = () => {
-    reset({ title: '', niveauId: selectedNiveauId !== 'ALL' ? selectedNiveauId : '', linkUrl: '' });
-    setSelectedFile(null);
-    setUploadType('file');
-    setFormError(null);
-    setIsUploadModalOpen(true);
-  };
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
-    }
-  };
-
-  const onUploadSubmit = async (data: FormData & { linkUrl?: string }) => {
-    if (uploadType === 'file' && !selectedFile) {
-      setFormError("Veuillez sélectionner un fichier.");
-      return;
-    }
-    if (uploadType === 'file' && selectedFile && selectedFile.size > 100 * 1024 * 1024) {
-      setFormError("Le fichier est trop volumineux. La taille maximum autorisée est de 100 Mo.");
-      return;
-    }
-    if (uploadType === 'link' && !data.linkUrl) {
-      setFormError("Veuillez entrer un lien valide.");
-      return;
-    }
-    if (!data.niveauId) {
-      setFormError("Veuillez sélectionner un niveau.");
-      return;
-    }
-
-    setUploading(true);
-    setFormError(null);
-    
-    try {
-      const formData = new FormData();
-      formData.append('title', data.title);
-      formData.append('niveauId', data.niveauId);
-      if (uploadType === 'file' && selectedFile) {
-        formData.append('file', selectedFile);
-      } else if (uploadType === 'link' && data.linkUrl) {
-        formData.append('linkUrl', data.linkUrl);
-      }
-
-      const res = await api.post('/resources', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
-      setResources([res.data, ...resources]);
-      showToast(isAdmin ? "Document publié avec succès" : "Document envoyé (en attente de publication)");
-      setIsUploadModalOpen(false);
-    } catch (err: any) {
-      setFormError(err.response?.data?.message || "Erreur lors de l'upload");
-    } finally {
-      setUploading(false);
-    }
+  const handleAddClick = () => {
+    if (isEnseignant) window.location.href = '/enseignant/library/new';
+    else if (user?.role === 'DIRECTEUR') window.location.href = '/directeur/library/new';
+    else window.location.href = '/admin/library/new';
   };
 
   // --- Edit Handlers ---
@@ -246,6 +186,17 @@ export default function LibraryPage() {
     }
   };
 
+  const validateResource = async (id: string) => {
+    try {
+      await api.patch(`/resources/${id}/publish`, { isPublished: true });
+      showToast("Document validé et publié avec succès !");
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      showToast("Erreur lors de la validation", "error");
+    }
+  };
+
   const filteredResources = resources.filter(r => 
     r.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -282,14 +233,13 @@ export default function LibraryPage() {
         description={isApprenant ? "Consultez les supports de cours de votre niveau." : "Gérez les supports de cours globaux accessibles par niveau d'étude."}
       >
         {canAdd && (
-          <Button variant="glow" onClick={openUploadModal} leftIcon={<Plus className="w-4 h-4" />}>
+          <Button variant="glow" onClick={handleAddClick} leftIcon={<Plus className="w-4 h-4" />}>
             Ajouter un document
           </Button>
         )}
       </PageHeader>
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-        {/* Search */}
         <div className="relative w-full md:w-[28rem]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -301,7 +251,6 @@ export default function LibraryPage() {
           />
         </div>
 
-        {/* Niveau Select */}
         {!isApprenant && (
           <div className="w-full md:w-64">
             <select
@@ -320,7 +269,6 @@ export default function LibraryPage() {
         )}
       </div>
 
-      {/* Resource Grid/List */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center flex flex-col items-center gap-3">
@@ -341,7 +289,7 @@ export default function LibraryPage() {
               </p>
             </div>
             {canAdd && (
-              <Button variant="secondary" onClick={openUploadModal} leftIcon={<Plus className="w-4 h-4" />}>
+              <Button variant="primary" onClick={handleAddClick} leftIcon={<Plus className="w-4 h-4" />}>
                 Ajouter un document
               </Button>
             )}
@@ -380,45 +328,47 @@ export default function LibraryPage() {
                     </td>
                     <td className="py-4 px-4">
                       {resource.isPublished ? (
-                         <Badge variant="success">Publié</Badge>
+                         <Badge variant="success" className="bg-emerald-50 text-emerald-600 border-emerald-200"><CheckCircle2 className="w-3 h-3 mr-1" />Publié</Badge>
                       ) : (
-                         <Badge variant="warning">En attente</Badge>
+                         <Badge variant="warning" className="bg-amber-50 text-amber-600 border-amber-200">En attente</Badge>
                       )}
                     </td>
                     <td className="py-4 px-4 text-slate-600 font-medium">
                       {new Date(resource.createdAt).toLocaleDateString('fr-FR')}
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-1 transition-opacity">
+                      <div className="flex items-center justify-end gap-2 transition-opacity">
+                        {isSuperAdmin && !resource.isPublished && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => validateResource(resource.id)}
+                            className="text-emerald-600 hover:text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
+                            title="Valider le document"
+                          >
+                            Valider
+                          </Button>
+                        )}
                         <button 
                           onClick={() => { setSelectedResource(resource); setIsViewModalOpen(true); }}
-                          className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                           title="Voir les détails"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         
-                        {isSuperAdmin && (
-                            <button 
-                              onClick={() => togglePublish(resource)}
-                              className={`p-2 rounded-lg transition-colors ${resource.isPublished ? 'text-emerald-500 hover:bg-emerald-50' : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'}`}
-                              title={resource.isPublished ? 'Dépublier' : 'Publier'}
-                            >
-                              {resource.isPublished ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                            </button>
-                        )}
                         {isAdmin && (
                           <>
                             <button 
                               onClick={() => openEditModal(resource)}
-                              className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                               title="Modifier"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button 
                               onClick={() => { setResourceToDelete(resource); setIsDeleteModalOpen(true); }}
-                              className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Supprimer"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -469,114 +419,6 @@ export default function LibraryPage() {
             </div>
         )}
       </div>
-
-      {/* Add Document Modal */}
-      <Modal isOpen={isUploadModalOpen} onClose={() => !uploading && setIsUploadModalOpen(false)} title="Ajouter un nouveau document">
-        <form onSubmit={handleSubmit(onUploadSubmit)} className="p-5 space-y-5">
-          {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm">
-              {formError}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">Titre du cours *</label>
-              <input
-                {...register('title', { required: "Le titre est requis" })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
-                placeholder="Ex: Chapitre 1 - Les équations"
-              />
-              {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">Niveau *</label>
-              <select
-                {...register('niveauId', { required: "Le niveau est requis" })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
-              >
-                <option value="">Sélectionner un niveau...</option>
-                {niveaux.map(n => (
-                  <option key={n.id} value={n.id}>{n.nom}</option>
-                ))}
-              </select>
-              {errors.niveauId && <p className="text-red-500 text-xs mt-1">{errors.niveauId.message}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Type de ressource *</label>
-              <div className="flex gap-4">
-                <button
-                  type="button"
-                  onClick={() => setUploadType('file')}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${
-                    uploadType === 'file' 
-                      ? 'bg-emerald-50 border-emerald-500 text-emerald-700' 
-                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  Uploader un fichier
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUploadType('link')}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all ${
-                    uploadType === 'link' 
-                      ? 'bg-emerald-50 border-emerald-500 text-emerald-700' 
-                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  Lien Externe
-                </button>
-              </div>
-            </div>
-
-            {uploadType === 'file' ? (
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5">Fichier (Document ou Vidéo) *</label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer relative">
-                  <input
-                    type="file"
-                    onChange={onFileChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,video/*,audio/*"
-                  />
-                  <div className="space-y-1 text-center pointer-events-none">
-                    <FileUp className="mx-auto h-12 w-12 text-slate-400" />
-                    <div className="flex text-sm text-slate-600 justify-center">
-                      <span className="relative font-bold text-emerald-600 hover:text-emerald-500">
-                        {selectedFile ? selectedFile.name : "Cliquez pour sélectionner un fichier"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400">PDF, Vidéo, Audio, Word, Excel, PowerPoint (Images non autorisées)</p>
-                    <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wide">Taille maximale : 100 Mo</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5">URL du lien (Vidéo YouTube, Document Drive, etc.) *</label>
-                <input
-                  {...register('linkUrl')}
-                  type="url"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
-                  placeholder="https://youtube.com/..."
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
-            <Button variant="secondary" onClick={() => setIsUploadModalOpen(false)} disabled={uploading}>
-              Annuler
-            </Button>
-            <Button type="submit" variant="primary" isLoading={uploading}>
-              {uploading ? 'Envoi en cours...' : (isAdmin ? 'Publier le document' : 'Soumettre le document')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
 
       {/* Edit Document Modal */}
       <Modal isOpen={isEditModalOpen} onClose={() => !uploading && setIsEditModalOpen(false)} title="Modifier le document">

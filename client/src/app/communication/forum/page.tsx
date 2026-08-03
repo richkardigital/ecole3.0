@@ -32,7 +32,10 @@ interface ForumPost {
   fileType?: string | null;
   createdAt: string;
   author: User;
-  comments: ForumComment[];
+  comments?: ForumComment[];
+  _count?: {
+    comments: number;
+  };
 }
 
 const CATEGORIES = [
@@ -221,11 +224,11 @@ const Forum = () => {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
           <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-brand-accent" />
-            Réponses ({selectedPost.comments.length})
+            Réponses ({selectedPost.comments?.length ?? selectedPost._count?.comments ?? 0})
           </h3>
           
           <div className="space-y-6 mb-8">
-            {selectedPost.comments.map(comment => (
+            {selectedPost.comments && selectedPost.comments.map(comment => (
               <div key={comment.id} className="flex gap-4 group">
                 <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm shrink-0 overflow-hidden">
                     {comment.author.avatarUrl ? (
@@ -252,7 +255,7 @@ const Forum = () => {
                 </div>
               </div>
             ))}
-            {selectedPost.comments.length === 0 && (
+            {(!selectedPost.comments || selectedPost.comments.length === 0) && (
               <p className="text-center text-slate-400 py-4 text-sm font-medium">Aucun commentaire pour l'instant. Soyez le premier !</p>
             )}
           </div>
@@ -362,7 +365,7 @@ const Forum = () => {
                 </div>
                 <p className="text-sm text-slate-500 line-clamp-2 mb-3">{post.content}</p>
                 <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
-                  <span className="flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> {post.comments.length} réponses</span>
+                  <span className="flex items-center gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> {post.comments?.length ?? post._count?.comments ?? 0} réponses</span>
                   <span>•</span>
                   <span>Par <strong className="text-slate-600">{post.author.firstName} {post.author.lastName}</strong></span>
                   <span>•</span>

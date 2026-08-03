@@ -31,9 +31,13 @@ export const getResources = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Only SUPER_ADMIN and DIRECTEUR can see unpublished resources
-    if (req.user?.role !== "SUPER_ADMIN" && req.user?.role !== "DIRECTEUR") {
-      whereClause.isPublished = true;
+    // SUPER_ADMIN sees everything. 
+    // Others only see published resources, or their own resources.
+    if (req.user?.role !== "SUPER_ADMIN") {
+      whereClause.OR = [
+        { isPublished: true },
+        { createdById: req.user?.id }
+      ];
     }
 
     const resources = await prisma.resource.findMany({
@@ -154,8 +158,20 @@ export const togglePublishResource = async (req: AuthRequest, res: Response) => 
       }
     });
 
+    // If validated, send notification to the creator
+    if (isPublished && resource.createdById) {
+      await prisma.notification.create({
+        data: {
+          title: "Document validé",
+          message: `Votre document "${resource.title}" a été validé et publié dans la bibliothèque globale.`,
+          userId: resource.createdById,
+        }
+      });
+    }
+
     res.json(resource);
   } catch (error) {
+    console.error("Validation error:", error);
     res.status(500).json({ message: "Erreur lors de la mise à jour du statut" });
   }
 };
@@ -164,7 +180,7 @@ export const togglePublishResource = async (req: AuthRequest, res: Response) => 
 export const updateResource = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, description, niveauId, type, url, isActive } = req.body;
+    const { title, description, niveauId, type: reqType, url, isActive } = req.body;
     const file = req.file;
 
     const existingResource = await prisma.resource.findUnique({ where: { id } });
@@ -173,7 +189,7 @@ export const updateResource = async (req: AuthRequest, res: Response) => {
     }
 
     let fileUrl = existingResource.url;
-    let type = existingResource.type;
+    let type = reqType || existingResource.type;
 
     if (file) {
       if (file.mimetype.startsWith("image/")) {

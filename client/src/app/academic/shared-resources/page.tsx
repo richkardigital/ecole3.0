@@ -94,12 +94,14 @@ const SharedResources = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedSchoolId) {
+    if (!selectedSchoolId && user?.role !== 'APPRENANT') {
       setClasses([]);
       setSelectedClassId('ALL');
       setMaterials([]);
       return;
     }
+    
+    if (!selectedSchoolId) return; // For APPRENANT when empty school, no need to fetch classes
 
     const fetchClasses = async () => {
       setLoadingClasses(true);
@@ -117,7 +119,7 @@ const SharedResources = () => {
   }, [selectedSchoolId]);
 
   useEffect(() => {
-    if (!selectedSchoolId) return;
+    if (!selectedSchoolId && user?.role !== 'APPRENANT') return;
 
     const fetchMaterials = async () => {
       setLoadingMaterials(true);
@@ -216,8 +218,8 @@ const SharedResources = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <PageHeader
-          title="Écoles connectées"
-          subtitle="Consultez les documents partagés par les enseignants des autres écoles"
+          title={user?.role === 'APPRENANT' ? "Ressources réseau SEEC" : "Écoles connectées"}
+          subtitle={user?.role === 'APPRENANT' ? "Consultez les cours mutualisés des autres écoles de votre niveau" : "Consultez les documents partagés par les enseignants des autres écoles"}
         />
         {canEditInSelectedSchool && (
           <Button
@@ -245,7 +247,7 @@ const SharedResources = () => {
               onChange={(e) => setSelectedSchoolId(e.target.value)}
               disabled={loadingSchools}
             >
-              <option value="">{loadingSchools ? 'Chargement des écoles...' : 'Choisir une école'}</option>
+              <option value="">{loadingSchools ? 'Chargement des écoles...' : (user?.role === 'APPRENANT' ? 'Toutes les écoles (Mon Niveau)' : 'Choisir une école')}</option>
               {schools.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -254,22 +256,24 @@ const SharedResources = () => {
             </select>
           </div>
 
-          <div className="relative">
-            <Layers className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-brand-text-muted" />
-            <select
-              className="w-full pl-10 pr-4 py-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 bg-brand-sidebar text-brand-text outline-none"
-              value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              disabled={!selectedSchoolId || loadingClasses}
-            >
-              <option value="ALL">{loadingClasses ? 'Chargement des classes...' : 'Toutes les classes'}</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}{c.level ? ` (${c.level})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          {user?.role !== 'APPRENANT' && (
+            <div className="relative">
+              <Layers className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-brand-text-muted" />
+              <select
+                className="w-full pl-10 pr-4 py-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 bg-brand-sidebar text-brand-text outline-none"
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                disabled={!selectedSchoolId || loadingClasses}
+              >
+                <option value="ALL">{loadingClasses ? 'Chargement des classes...' : 'Toutes les classes'}</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.level ? ` (${c.level})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <Filter className="w-5 h-5 text-brand-text-muted" />
@@ -277,7 +281,7 @@ const SharedResources = () => {
               className="flex-1 border border-brand-border/50 rounded-lg py-2 px-3 focus:ring-2 focus:ring-brand-accent/50 bg-brand-sidebar text-brand-text outline-none"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              disabled={!selectedSchoolId}
+              disabled={!selectedSchoolId && user?.role !== 'APPRENANT'}
             >
               <option value="ALL">Tous les types</option>
               <option value="PDF">PDF / Documents</option>
@@ -301,12 +305,12 @@ const SharedResources = () => {
             className="w-full pl-10 pr-4 py-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 bg-brand-sidebar text-brand-text outline-none"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            disabled={!selectedSchoolId}
+            disabled={!selectedSchoolId && user?.role !== 'APPRENANT'}
           />
         </div>
       </div>
 
-      {!selectedSchoolId ? (
+      {(!selectedSchoolId && user?.role !== 'APPRENANT') ? (
         <div className="text-center py-12 bg-brand-card rounded-xl border border-dashed border-brand-border text-brand-text-muted">
           <School className="w-12 h-12 opacity-20 mx-auto mb-3" />
           <p>Sélectionnez une école pour afficher les ressources</p>

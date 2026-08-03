@@ -75,9 +75,18 @@ export const getPosts = async (req: AuthRequest, res: Response) => {
     }
 
     if (req.user?.role !== 'SUPER_ADMIN') {
+        let schoolId = req.user?.schoolId;
+        if (!schoolId && req.user?.id) {
+          const enrollment = await prisma.enrollment.findFirst({
+            where: { studentId: req.user.id },
+            include: { class: true }
+          });
+          if (enrollment) schoolId = enrollment.class.schoolId;
+        }
+
         where.author = {
             OR: [
-                { schoolId: req.user?.schoolId },
+                ...(schoolId ? [{ schoolId }] : []),
                 { role: 'SUPER_ADMIN' }
             ]
         };

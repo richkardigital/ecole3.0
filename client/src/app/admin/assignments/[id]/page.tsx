@@ -59,6 +59,7 @@ interface AssignmentData {
 export default function GlobalAssignmentDetailsPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const canAccess = user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR' || user?.role === 'ENSEIGNANT';
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const toast = useToast();
@@ -232,7 +233,7 @@ export default function GlobalAssignmentDetailsPage() {
     }
   };
 
-  if (!isSuperAdmin) {
+  if (!canAccess) {
     return <div className="p-8 text-center text-red-500">Accès non autorisé.</div>;
   }
 

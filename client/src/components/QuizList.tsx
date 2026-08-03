@@ -11,6 +11,9 @@ interface Quiz {
     _count: { questions: number };
     attempts?: { id: string, score: number }[];
     questions?: any[];
+    startDate?: string;
+    endDate?: string;
+    timeLimit?: number;
 }
 
 interface QuizListProps {
@@ -55,17 +58,14 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white">QCM & Évaluations</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Évaluations en ligne</h2>
                 {isTeacher && (
                     <button
-                        onClick={() => {
-                            setEditingQuiz(null);
-                            setIsCreateModalOpen(true);
-                        }}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition"
+                        onClick={() => navigate(`/enseignant/courses/${courseId}/quizzes/new`)}
+                        className="bg-brand-accent text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-brand-accent/90 transition"
                     >
                         <Plus className="w-4 h-4" />
-                        Nouveau QCM
+                        Nouvelle Évaluation
                     </button>
                 )}
             </div>
@@ -73,13 +73,17 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
             <div className="grid gap-4">
                 {quizzes.length === 0 && (
                     <div className="text-center py-10 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
-                        <p className="text-gray-500 dark:text-gray-400">Aucun QCM disponible pour le moment.</p>
+                        <p className="text-gray-500 dark:text-gray-400">Aucune évaluation disponible pour le moment.</p>
                     </div>
                 )}
                 
                 {quizzes.map((quiz) => {
                     const hasAttempted = !isTeacher && quiz.attempts && quiz.attempts.length > 0;
                     const attemptId = hasAttempted ? quiz.attempts![0].id : null;
+                    
+                    const now = new Date();
+                    const isBeforeStart = quiz.startDate ? now < new Date(quiz.startDate) : false;
+                    const isAfterEnd = quiz.endDate ? now > new Date(quiz.endDate) : false;
                     
                     return (
                         <div key={quiz.id} className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition">
@@ -90,8 +94,13 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
                                     <div className="flex items-center gap-4 mt-3 text-sm text-gray-500 dark:text-gray-400">
                                         <span className="flex items-center gap-1">
                                             <Clock className="w-4 h-4" />
-                                            {quiz._count.questions} questions
+                                            {quiz._count.questions} questions {quiz.timeLimit ? `(${quiz.timeLimit} min)` : ''}
                                         </span>
+                                        {quiz.startDate && (
+                                            <span className="flex items-center gap-1 text-blue-500">
+                                                Ouvre: {new Date(quiz.startDate).toLocaleDateString()} {new Date(quiz.startDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            </span>
+                                        )}
                                         {hasAttempted && (
                                             <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
                                                 <CheckCircle className="w-4 h-4" />
@@ -135,6 +144,16 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
                                                 <CheckCircle className="w-4 h-4" />
                                                 Voir mes erreurs
                                             </Link>
+                                        ) : isBeforeStart ? (
+                                            <button disabled className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 rounded-lg font-medium cursor-not-allowed">
+                                                <Clock className="w-4 h-4" />
+                                                Pas encore ouvert
+                                            </button>
+                                        ) : isAfterEnd ? (
+                                            <button disabled className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-400 rounded-lg font-medium cursor-not-allowed">
+                                                <AlertTriangle className="w-4 h-4" />
+                                                Terminé
+                                            </button>
                                         ) : (
                                             <Link
                                                 to={`/quizzes/${quiz.id}`}

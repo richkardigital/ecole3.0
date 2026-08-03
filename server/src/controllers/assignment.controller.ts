@@ -11,7 +11,8 @@ const createAssignmentSchema = z.object({
   courseId: z.string().optional(),
   niveauId: z.string().optional(),
   subjectId: z.string().optional(),
-  type: z.enum(["DEVOIR", "PROJET", "EXAMEN"]).optional(),
+  type: z.enum(["DEVOIR", "PROJET", "EXAMEN", "EVALUATION"]).optional(),
+  termId: z.string().optional(),
 });
 
 const submitAssignmentSchema = z.object({
@@ -26,7 +27,7 @@ const gradeSubmissionSchema = z.object({
 
 export const createAssignment = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, dueDate, courseId, niveauId, subjectId, type, coefficient } = req.body;
+    const { title, description, dueDate, courseId, niveauId, subjectId, type, termId, coefficient } = req.body;
     let finalDescription = description || "";
     let voiceNoteUrl = null;
     let correctionUrl = null;
@@ -120,6 +121,47 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: "Error creating assignment", error });
   }
 };
+
+const quickAddAssignmentSchema = z.object({
+  title: z.string(),
+  courseId: z.string(),
+  termId: z.string().optional(),
+  type: z.enum(["DEVOIR", "INTERROGATION", "EXAMEN", "PROJET", "EVALUATION"]).optional(),
+  points: z.number().optional().default(20),
+  coefficient: z.number().optional().default(1)
+});
+
+export const quickAddAssignment = async (req: AuthRequest, res: Response) => {
+  try {
+    const { title, courseId, termId, type, points, coefficient } = quickAddAssignmentSchema.parse(req.body);
+
+    if ((req.user?.role as string) === "ENSEIGNANT") {
+      const course = await prisma.course.findUnique({ where: { id: courseId } });
+      if (!course || course.teacherId !== req.user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+
+    const assignment = await prisma.assignment.create({
+      data: {
+        title,
+        courseId,
+        termId: termId || null,
+        type: (type as any) || "DEVOIR",
+        points: points || 20,
+        coefficient: coefficient || 1,
+        dueDate: new Date(), // Just default to today since it's an offline manual assessment
+        published: true // Ensure it shows up instantly
+      }
+    });
+
+    res.status(201).json(assignment);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error quick adding assignment", error });
+  }
+};
+
 
 export const publishAssignment = async (req: AuthRequest, res: Response) => {
   try {
@@ -267,7 +309,8 @@ export const getAssignmentById = async (req: AuthRequest, res: Response) => {
           }
         },
         submissions: {
-            ...((req.user?.role as string) === 'APPRENANT' ? { where: { studentId: req.user.id } } : {})
+            ...((req.user?.role as string) === 'APPRENANT' ? { where: { studentId: req.user.id } } : {}),
+            include: { grade: true }
         }
       },
     });
@@ -286,15 +329,45 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
   try {
     const { courseId, global, academicYearId, termId, classId, niveauId, isCorrected } = req.query;
 
-    if (global === 'true' && (req.user?.role as string) === 'SUPER_ADMIN') {
+    const userRole = req.user?.role as string;
+    
+    if (global === 'true' && ['SUPER_ADMIN', 'ENSEIGNANT', 'APPRENANT', 'DIRECTEUR', 'EDUCATEUR'].includes(userRole)) {
         const whereClause: any = { courseId: null, niveauId: { not: null } };
 
-        if (niveauId) {
-            whereClause.niveauId = String(niveauId);
-        } else if (classId) {
-            const classObj = await prisma.class.findUnique({ where: { id: String(classId) }});
-            if (classObj && classObj.niveauId) {
-                whereClause.niveauId = classObj.niveauId;
+        if (userRole === 'ENSEIGNANT') {
+            // Un enseignant ne voit que les devoirs globaux des niveaux où il enseigne
+            const courses = await prisma.course.findMany({
+                where: { teacherId: req.user?.id },
+                include: { class: true }
+            });
+            const niveauIdsRaw = courses.map(c => c.class.niveauId).filter(Boolean);
+            const niveauIds = niveauIdsRaw.filter((val, index, self) => self.indexOf(val) === index) as string[];
+            if (niveauIds.length === 0) return res.json([]);
+            
+            // Si on demande un niveau spécifique, on vérifie que le prof l'enseigne bien
+            if (niveauId && niveauIds.includes(String(niveauId))) {
+                whereClause.niveauId = String(niveauId);
+            } else {
+                whereClause.niveauId = { in: niveauIds };
+            }
+        } else if (userRole === 'APPRENANT') {
+            const enrollment = await prisma.enrollment.findFirst({
+                where: { studentId: req.user?.id },
+                include: { class: true }
+            });
+            if (enrollment && enrollment.class?.niveauId) {
+                whereClause.niveauId = enrollment.class.niveauId;
+            } else {
+                return res.json([]);
+            }
+        } else {
+            if (niveauId) {
+                whereClause.niveauId = String(niveauId);
+            } else if (classId) {
+                const classObj = await prisma.class.findUnique({ where: { id: String(classId) }});
+                if (classObj && classObj.niveauId) {
+                    whereClause.niveauId = classObj.niveauId;
+                }
             }
         }
 
@@ -364,7 +437,6 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
 
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    // RLS
     const role = req.user?.role as string;
     if (role === 'SUPER_ADMIN') {
         // Super Admin has full access

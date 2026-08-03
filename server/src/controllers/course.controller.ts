@@ -694,6 +694,78 @@ export const addMaterial = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const updateMaterial = async (req: AuthRequest, res: Response) => {
+  try {
+    if ((req.user?.role as string) === "EDUCATEUR") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { id } = req.params; // materialId
+    let { title, type, url, source, chapterId } = req.body;
+
+    if (!id) return res.status(400).json({ message: "ID required" });
+
+    const material = await prisma.resource.findUnique({
+      where: { id: id as string },
+      include: {
+        course: {
+          include: { class: { select: { schoolId: true } } },
+        },
+      },
+    });
+
+    if (!material) {
+      return res.status(404).json({ message: "Material not found" });
+    }
+
+    // Verify teacher owns the course
+    if ((req.user?.role as string) === "ENSEIGNANT") {
+      if (material.course.teacherId !== req.user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+    if ((req.user?.role as string) === "DIRECTEUR") {
+      if (!req.user.schoolId) return res.status(400).json({ message: "No school ID" });
+      if (material.course.class.schoolId !== req.user.schoolId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+
+    if (req.file) {
+        const publicUrl = await uploadToSupabase(req.file);
+        if (publicUrl) {
+            url = publicUrl;
+        } else {
+             return res.status(500).json({ message: "Failed to upload file" });
+        }
+        
+        if (!type) {
+            if (req.file.mimetype.includes('video')) type = 'VIDEO';
+            else type = 'PDF';
+        }
+    } else {
+        url = url || material.url;
+        type = type || material.type;
+    }
+
+    const updated = await prisma.resource.update({
+      where: { id: String(id) },
+      data: {
+        title: title || material.title,
+        type,
+        url,
+        source: source || null,
+        chapterId: chapterId || null,
+      },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating material:", error);
+    res.status(500).json({ message: "Error updating material" });
+  }
+};
+
 export const deleteMaterial = async (req: AuthRequest, res: Response) => {
   try {
     if ((req.user?.role as string) === "EDUCATEUR") {
@@ -798,8 +870,30 @@ export const getSharedSchools = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
+    let niveauId: string | null = null;
+    if (role === "APPRENANT") {
+      const enrollment = await prisma.enrollment.findFirst({
+        where: { studentId: req.user?.id },
+        include: { class: true }
+      });
+      if (enrollment?.class?.niveauId) {
+        niveauId = enrollment.class.niveauId;
+      }
+    }
+
+    const whereClause: any = { isActive: true };
+    
+    // If APPRENANT, only show schools that have classes with their niveau
+    if (role === "APPRENANT" && niveauId) {
+        whereClause.classes = {
+            some: {
+                niveauId: niveauId
+            }
+        };
+    }
+
     const schools = await prisma.school.findMany({
-      where: { isActive: true },
+      where: whereClause,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
@@ -852,23 +946,39 @@ export const getSharedMaterials = async (req: AuthRequest, res: Response) => {
     const q = String(req.query.q || "").trim();
     const type = String(req.query.type || "").trim();
 
-    if (!schoolId) return res.status(400).json({ message: "schoolId required" });
+    if (role !== "APPRENANT" && !schoolId) {
+        return res.status(400).json({ message: "schoolId required" });
+    }
 
-    const school = await prisma.school.findUnique({
-      where: { id: schoolId },
-      select: { id: true, isActive: true },
-    });
-    if (!school || !school.isActive) return res.status(404).json({ message: "School not found" });
+    if (schoolId) {
+        const school = await prisma.school.findUnique({
+            where: { id: schoolId },
+            select: { id: true, isActive: true },
+        });
+        if (!school || !school.isActive) return res.status(404).json({ message: "School not found" });
+    }
+
+    let userNiveauId: string | null = null;
+    if (role === "APPRENANT") {
+      const enrollment = await prisma.enrollment.findFirst({
+        where: { studentId: req.user?.id },
+        include: { class: true }
+      });
+      if (enrollment?.class?.niveauId) {
+        userNiveauId = enrollment.class.niveauId;
+      }
+    }
 
     const where: any = {
       course: {
         class: {
-          schoolId,
+          ...(schoolId ? { schoolId } : {}),
+          ...(userNiveauId ? { niveauId: userNiveauId } : {})
         },
       },
     };
 
-    if (classId && classId !== "ALL") {
+    if (classId && classId !== "ALL" && role !== "APPRENANT") {
       where.course.class.id = classId;
     }
 

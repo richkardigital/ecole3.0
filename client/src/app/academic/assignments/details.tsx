@@ -156,7 +156,7 @@ const AssignmentDetails = () => {
         subtitle={
           <div className="flex items-center gap-4 mt-2">
             <span className="bg-brand-accent/10 text-brand-accent border border-brand-accent/20 px-2 py-1 rounded text-xs font-bold uppercase">
-              {assignment.course.subject.name}
+              {assignment.course?.subject?.name || assignment.subject?.name || assignment.niveau?.name || "Devoir"}
             </span>
             <span className="flex items-center gap-1 text-sm text-brand-text-muted">
               <Clock className="w-4 h-4" />
