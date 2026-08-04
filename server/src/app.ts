@@ -39,6 +39,7 @@ import schoolTypeRoutes from './routes/school-type.routes.js';
 import niveauRoutes from './routes/niveau.routes.js';
 import uploadRoutes from "./routes/upload.routes.js";
 import resourceRoutes from "./routes/resource.routes.js";
+import bulletinRoutes from "./routes/bulletin.routes.js";
 
 const app = express();
 
@@ -107,6 +108,7 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/resources", resourceRoutes);             // Ressources pédagogiques
 app.use("/api/academic-years", academicRoutes);     // Alias Années scolaires
 app.use("/api/uploads", uploadRoutes);             // Upload de fichiers
+app.use("/api/bulletins", bulletinRoutes);         // Bulletins individuels (workflow)
 
 import { globalErrorHandler } from "./middleware/error-handler.js";
 

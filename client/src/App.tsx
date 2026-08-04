@@ -62,6 +62,7 @@ import NewGlobalAssignmentPage from '@/app/admin/assignments/new/page';
 import GlobalAssignmentDetailsPage from '@/app/admin/assignments/[id]/page';
 import EditGlobalAssignmentPage from '@/app/admin/assignments/[id]/edit/page';
 import ReportCards from '@/app/academic/report-cards/page';
+import AcademicYearStatsPage from '@/app/admin/academic-years/[id]/stats/page';
 
 function App() {
   return (
@@ -110,6 +111,7 @@ function App() {
                     <Route path="/admin/academic-years" element={<AcademicYears />} />
                     <Route path="/admin/academic-years/:id" element={<AcademicYearDetailsPage />} />
                     <Route path="/admin/academic-years/:id/schools" element={<AcademicYearSchoolsPage />} />
+                    <Route path="/admin/academic-years/:id/stats" element={<AcademicYearStatsPage />} />
                     <Route path="/admin/niveaux" element={<NiveauxPage />} />
                     <Route path="/admin/niveaux/:id" element={<NiveauDetailsPage />} />
                     <Route path="/admin/subjects" element={<Subjects />} />

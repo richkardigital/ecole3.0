@@ -15,6 +15,7 @@ import {
   toggleAcademicYearComplete,
   toggleAcademicYearActive,
   setCurrentAcademicYear,
+  getAcademicYearStats,
 } from "../controllers/academic.controller.js";
 
 const router = Router();
@@ -24,6 +25,7 @@ router.use(authenticate);
 // Public read for authenticated users
 router.get("/years", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT]), getAcademicYears);
 router.get("/years/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT]), getAcademicYear);
+router.get("/years/:id/stats", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT]), getAcademicYearStats);
 
 // Restricted write access
 router.use(requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]));

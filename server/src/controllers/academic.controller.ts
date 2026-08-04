@@ -363,3 +363,227 @@ export const deleteTerm = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Erreur lors de la suppression de la période" });
   }
 };
+
+/**
+ * Retourne les statistiques complètes d'une année académique :
+ * élèves, cours, devoirs, bulletins par statut, taux de réussite, évolution par trimestre.
+ */
+export const getAcademicYearStats = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const year = await prisma.academicYear.findUnique({
+      where: { id },
+      include: {
+        terms: { orderBy: { startDate: "asc" } },
+        schools: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!year) return res.status(404).json({ message: "Année scolaire introuvable" });
+
+    // Filtrage par école si non super admin
+    const isSuperAdmin = req.user?.role === "SUPER_ADMIN";
+    const schoolId = req.user?.schoolId;
+
+    const classWhere: any = { academicYearId: id };
+    if (!isSuperAdmin && schoolId) classWhere.schoolId = schoolId;
+
+    const termIds = year.terms.map((t) => t.id);
+
+    // Classes de l'année
+    const classes = await prisma.class.findMany({
+      where: classWhere,
+      select: { id: true, name: true },
+    });
+    const classIds = classes.map((c) => c.id);
+
+    // Nombre d'élèves inscrits (unique)
+    const studentCount = await prisma.enrollment.groupBy({
+      by: ["studentId"],
+      where: { classId: { in: classIds } },
+    });
+
+    // Cours
+    const courseCount = await prisma.course.count({
+      where: { classId: { in: classIds } },
+    });
+
+    // Devoirs
+    const assignmentCount = await prisma.assignment.count({
+      where: {
+        OR: [
+          { termId: { in: termIds } },
+          { academicYearId: id },
+        ],
+      },
+    });
+
+    // Bulletins individuels par statut
+    const bulletinsByStatus = await prisma.bulletinEleve.groupBy({
+      by: ["statut"],
+      where: { termId: { in: termIds } },
+      _count: { statut: true },
+    });
+
+    const bulletinStats = {
+      BROUILLON: 0,
+      SOUMIS_ENSEIGNANT: 0,
+      VALIDE_EDUCATEUR: 0,
+      VALIDE_DIRECTEUR: 0,
+      VALIDE_SUPER_ADMIN: 0,
+      REJETE: 0,
+    } as Record<string, number>;
+
+    bulletinsByStatus.forEach((b) => {
+      bulletinStats[b.statut] = b._count.statut;
+    });
+
+    const totalBulletins = Object.values(bulletinStats).reduce((a, b) => a + b, 0);
+
+    // Taux de réussite (bulletins avec moyenneGenerale >= 10)
+    const successCount = await prisma.bulletinEleve.count({
+      where: {
+        termId: { in: termIds },
+        moyenneGenerale: { gte: 10 },
+      },
+    });
+
+    const allBulletinsWithAvg = await prisma.bulletinEleve.count({
+      where: {
+        termId: { in: termIds },
+        moyenneGenerale: { not: null },
+      },
+    });
+
+    const tauxReussite =
+      allBulletinsWithAvg > 0
+        ? parseFloat(((successCount / allBulletinsWithAvg) * 100).toFixed(1))
+        : 0;
+
+    // Évolution des moyennes par trimestre
+    const termEvolution = await Promise.all(
+      year.terms.map(async (term) => {
+        const bulletins = await prisma.bulletinEleve.findMany({
+          where: {
+            termId: term.id,
+            moyenneGenerale: { not: null },
+          },
+          select: { moyenneGenerale: true },
+        });
+
+        const avg =
+          bulletins.length > 0
+            ? parseFloat(
+                (
+                  bulletins.reduce(
+                    (acc, b) => acc + (b.moyenneGenerale as number),
+                    0
+                  ) / bulletins.length
+                ).toFixed(2)
+              )
+            : null;
+
+        // Bulletins par statut pour ce trimestre
+        const termBulletinsByStatus = await prisma.bulletinEleve.groupBy({
+          by: ["statut"],
+          where: { termId: term.id },
+          _count: { statut: true },
+        });
+
+        const termBulletinStats: Record<string, number> = {};
+        termBulletinsByStatus.forEach((b) => {
+          termBulletinStats[b.statut] = b._count.statut;
+        });
+
+        return {
+          termId: term.id,
+          termName: term.name,
+          startDate: term.startDate,
+          endDate: term.endDate,
+          status: term.status,
+          averageMoyenne: avg,
+          nbEleves: bulletins.length,
+          bulletinStats: termBulletinStats,
+        };
+      })
+    );
+
+    // Classement des classes par moyenne
+    const classRankings = await Promise.all(
+      classes.map(async (cls) => {
+        const classBulletins = await prisma.bulletinEleve.findMany({
+          where: {
+            classId: cls.id,
+            termId: { in: termIds },
+            moyenneGenerale: { not: null },
+          },
+          select: { moyenneGenerale: true },
+        });
+
+        const avg =
+          classBulletins.length > 0
+            ? parseFloat(
+                (
+                  classBulletins.reduce(
+                    (acc, b) => acc + (b.moyenneGenerale as number),
+                    0
+                  ) / classBulletins.length
+                ).toFixed(2)
+              )
+            : null;
+
+        const nbStudents = await prisma.enrollment.count({
+          where: { classId: cls.id },
+        });
+
+        return {
+          classId: cls.id,
+          className: cls.name,
+          nbStudents,
+          averageMoyenne: avg,
+        };
+      })
+    );
+
+    classRankings.sort(
+      (a, b) => (b.averageMoyenne ?? 0) - (a.averageMoyenne ?? 0)
+    );
+
+    res.json({
+      year: {
+        id: year.id,
+        name: year.name,
+        startDate: year.startDate,
+        endDate: year.endDate,
+        status: year.status,
+        isCurrent: year.isCurrent,
+        schools: year.schools,
+      },
+      overview: {
+        nbClasses: classes.length,
+        nbStudents: studentCount.length,
+        nbCourses: courseCount,
+        nbAssignments: assignmentCount,
+        nbTerms: year.terms.length,
+      },
+      bulletins: {
+        total: totalBulletins,
+        byStatus: bulletinStats,
+        tauxValidation: totalBulletins > 0
+          ? parseFloat(((bulletinStats.VALIDE_SUPER_ADMIN / totalBulletins) * 100).toFixed(1))
+          : 0,
+      },
+      performance: {
+        tauxReussite,
+        totalEvalues: allBulletinsWithAvg,
+        totalReussite: successCount,
+      },
+      termEvolution,
+      classRankings,
+    });
+  } catch (error) {
+    console.error("Erreur stats année académique:", error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};

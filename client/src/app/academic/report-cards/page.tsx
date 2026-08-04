@@ -1,46 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
-import { Printer, User, BookOpen, Download } from 'lucide-react';
+import {
+  BookOpen, RefreshCw, Send, Save, Award, Users,
+  ChevronDown, FileText, Loader2, CheckCircle2
+} from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import TeacherGradesGrid from './TeacherGradesGrid';
+import BulletinIndividuel from './BulletinIndividuel';
+import WorkflowBulletin from './WorkflowBulletin';
 
-interface ReportCardData {
-  student: {
-    firstName: string;
-    lastName: string;
-    class: string;
-  };
-  school: {
-    name: string;
-    address?: string;
-  };
-  term: {
-    id: string;
-    name: string;
-    startDate: string;
-    endDate: string;
-  };
-  subjects: {
-    id: string;
-    subject: string;
-    subjectCode?: string;
-    teacher: string;
-    average: number | null;
-    coefficient: number;
-    grades: {
-      value: number;
-      assignment?: string;
-    }[];
-  }[];
-  overallAverage: number | null;
-  termsSummary?: {
-    termId: string;
-    termName: string;
-    overallAverage: number | null;
-  }[];
-  annualAverage?: number | null;
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface AcademicYear {
+  id: string;
+  name: string;
+  terms: Term[];
 }
 
 interface Term {
@@ -51,412 +27,408 @@ interface Term {
   status: string;
 }
 
-const StudentReportCards = () => {
+interface ClassItem {
+  id: string;
+  name: string;
+}
+
+// ─── Page Principale ─────────────────────────────────────────────────────────
+
+const ReportCardsPage = () => {
   const { user } = useAuth();
-  const [reportCard, setReportCard] = useState<ReportCardData | null>(null);
-  const [academicYears, setAcademicYears] = useState<any[]>([]);
-  const [selectedYearId, setSelectedYearId] = useState<string>('');
+  const role = user?.role ?? '';
+
+  // Sélecteurs communs
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+  const [selectedYearId, setSelectedYearId] = useState('');
   const [terms, setTerms] = useState<Term[]>([]);
-  const [selectedTermId, setSelectedTermId] = useState<string>('');
-  
-  // Admin/Teacher Selection State
-  const [classes, setClasses] = useState<{id: string, name: string}[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const [classReportData, setClassReportData] = useState<any>(null);
+  const [selectedTermId, setSelectedTermId] = useState('');
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
 
-  const [loading, setLoading] = useState(false);
+  // Vues
+  const [viewMode, setViewMode] = useState<'grid' | 'bulletins' | 'individual'>('bulletins');
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+
+  // Données
+  const [bulletins, setBulletins] = useState<any[]>([]);
+  const [bulletinData, setBulletinData] = useState<any | null>(null);
+  const [loadingBulletins, setLoadingBulletins] = useState(false);
+  const [loadingBulletin, setLoadingBulletin] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const printRef = useRef<HTMLDivElement>(null);
 
+  // Initialisation
   useEffect(() => {
-    fetchTerms();
-    if (user?.role !== 'APPRENANT') {
-        fetchClasses();
-    }
-  }, [user]);
-
-  // useEffect(() => {
-  //   if (selectedClassId) {
-  //       fetchClassStudents(selectedClassId);
-  //   } else {
-  //       setStudents([]);
-  //       setSelectedStudentId('');
-  //   }
-  // }, [selectedClassId]);
+    fetchAcademicYears();
+    if (role !== 'APPRENANT') fetchClasses();
+  }, [role]);
 
   useEffect(() => {
     if (selectedYearId && academicYears.length > 0) {
       const year = academicYears.find(y => y.id === selectedYearId);
-      if (year && year.terms) {
-          const sortedTerms = [...year.terms].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
-          setTerms(sortedTerms);
-          if (sortedTerms.length > 0) setSelectedTermId(sortedTerms[0].id);
-      } else {
-          setTerms([]);
-          setSelectedTermId('');
+      if (year?.terms) {
+        const sorted = [...year.terms].sort(
+          (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+        );
+        setTerms(sorted);
+        // Sélectionner le trimestre OPEN ou le premier
+        const openTerm = sorted.find(t => t.status === 'OPEN') ?? sorted[0];
+        if (openTerm) setSelectedTermId(openTerm.id);
       }
     }
   }, [selectedYearId, academicYears]);
 
+  // Charger selon le rôle
   useEffect(() => {
-    if (user?.role === 'APPRENANT') {
-        if (selectedTermId) fetchReportCard(selectedTermId);
-    } else {
-        if (selectedTermId && selectedClassId) {
-            fetchClassReport(selectedTermId, selectedClassId);
-        }
+    if (!selectedTermId) return;
+
+    if (role === 'APPRENANT') {
+      fetchMyBulletin();
+    } else if (selectedClassId) {
+      if (viewMode === 'bulletins') {
+        fetchClassBulletins();
+      }
     }
-  }, [selectedTermId, selectedClassId, user]);
+  }, [selectedTermId, selectedClassId, role, viewMode]);
+
+  // Apprenant: changer de trimestre recharge le bulletin
+  useEffect(() => {
+    if (role === 'APPRENANT' && selectedTermId) {
+      fetchMyBulletin();
+    }
+  }, [selectedTermId]);
+
+  // ─── Fetch ──────────────────────────────────────────────────────────────────
+
+  const fetchAcademicYears = async () => {
+    try {
+      const res = await api.get('/academic/years');
+      setAcademicYears(res.data);
+      if (res.data.length > 0) {
+        const current = res.data.find((y: AcademicYear & { isCurrent: boolean }) => y.isCurrent) ?? res.data[0];
+        setSelectedYearId(current.id);
+      }
+    } catch (err) {
+      console.error('Erreur années académiques', err);
+    }
+  };
 
   const fetchClasses = async () => {
-      try {
-          const response = await api.get('/classes');
-          setClasses(response.data);
-          if (response.data.length > 0 && !selectedClassId) {
-              setSelectedClassId(response.data[0].id);
-          }
-      } catch (err) {
-          console.error("Error fetching classes", err);
-      }
-  };
-
-  const fetchClassReport = async (termId: string, classId: string) => {
-      try {
-          setLoading(true); setError(null);
-          const response = await api.get(`/report-cards/class/${classId}?termId=${termId}`);
-          setClassReportData(response.data);
-      } catch (err) {
-          console.error("Error fetching class report", err);
-          setError("Impossible de charger les données de la classe.");
-          setClassReportData(null);
-      } finally {
-          setLoading(false);
-      }
-  };
-
-
-  const fetchTerms = async () => {
     try {
-      const response = await api.get('/academic-years'); 
-      setAcademicYears(response.data);
-      if (response.data.length > 0) {
-          setSelectedYearId(response.data[0].id);
-      }
+      const res = await api.get('/classes');
+      setClasses(res.data);
+      if (res.data.length > 0) setSelectedClassId(res.data[0].id);
     } catch (err) {
-      console.error("Error fetching terms", err);
+      console.error('Erreur classes', err);
     }
   };
 
-  const fetchReportCard = async (termId: string, studentId?: string) => {
+  const fetchMyBulletin = async () => {
+    setLoadingBulletin(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      let url = `/grades/report-card?termId=${termId}`;
-      if (studentId) {
-          url = `/grades/report-card/${studentId}?termId=${termId}`;
-      }
-      
-      const response = await api.get(url);
-      setReportCard(response.data);
-    } catch (err) {
-      console.error("Error fetching report card", err);
-      setError("Impossible de charger le bulletin.");
-      setReportCard(null);
+      const res = await api.get(`/bulletins/student/${user!.id}?termId=${selectedTermId}`);
+      setBulletinData(res.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Impossible de charger le bulletin');
+      setBulletinData(null);
     } finally {
-      setLoading(false);
+      setLoadingBulletin(false);
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const fetchClassBulletins = async () => {
+    if (!selectedClassId || !selectedTermId) return;
+    setLoadingBulletins(true);
+    setError(null);
+    try {
+      const res = await api.get(`/bulletins/class/${selectedClassId}?termId=${selectedTermId}`);
+      setBulletins(res.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erreur chargement bulletins');
+      setBulletins([]);
+    } finally {
+      setLoadingBulletins(false);
+    }
   };
+
+  const fetchStudentBulletin = async (studentId: string) => {
+    setLoadingBulletin(true);
+    setSelectedStudentId(studentId);
+    setViewMode('individual');
+    setError(null);
+    try {
+      const res = await api.get(`/bulletins/student/${studentId}?termId=${selectedTermId}`);
+      setBulletinData(res.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Impossible de charger le bulletin');
+      setBulletinData(null);
+    } finally {
+      setLoadingBulletin(false);
+    }
+  };
+
+  const handleGenerateBulletins = async () => {
+    if (!selectedClassId || !selectedTermId) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      await api.post('/bulletins/generate', {
+        classId: selectedClassId,
+        termId: selectedTermId,
+      });
+      await fetchClassBulletins();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erreur génération bulletins');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSoumettreClasse = async () => {
+    if (!selectedClassId || !selectedTermId) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api.post('/bulletins/soumettre-classe', {
+        classId: selectedClassId,
+        termId: selectedTermId,
+      });
+      await fetchClassBulletins();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Erreur soumission');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Rendu ──────────────────────────────────────────────────────────────────
+
+  const termLabel = terms.find(t => t.id === selectedTermId)?.name ?? '';
+  const classLabel = classes.find(c => c.id === selectedClassId)?.name ?? '';
 
   return (
     <div className="space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
-            <PageHeader
-                title="Bulletins de Notes"
-                subtitle={user?.role !== 'APPRENANT' ? "Consultez les bulletins des élèves" : undefined}
-            />
-            
-            <div className="flex flex-wrap gap-3 items-center">
-                {user?.role !== 'APPRENANT' && (
-                    <>
-                        <div className="flex items-center gap-2">
-                            <BookOpen className="w-4 h-4 text-brand-text-muted" />
-                            <select 
-                                value={selectedClassId}
-                                onChange={(e) => setSelectedClassId(e.target.value)}
-                                className="p-2 border rounded-md shadow-sm bg-brand-sidebar border-brand-border/50 text-brand-text outline-none focus:ring-2 focus:ring-brand-accent min-w-[150px]"
-                            >
-                                <option value="">Choisir une classe...</option>
-                                {classes.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </>
-                )}
-                <select 
-                    value={selectedYearId} 
-                    onChange={(e) => setSelectedYearId(e.target.value)}
-                    className="p-2 border rounded-md shadow-sm bg-brand-sidebar border-brand-border/50 text-brand-text outline-none focus:ring-2 focus:ring-brand-accent"
-                >
-                    {academicYears.map(year => (
-                        <option key={year.id} value={year.id}>{year.name}</option>
-                    ))}
-                </select>
-                <select 
-                    value={selectedTermId} 
-                    onChange={(e) => setSelectedTermId(e.target.value)}
-                    className="p-2 border rounded-md shadow-sm bg-brand-sidebar border-brand-border/50 text-brand-text outline-none focus:ring-2 focus:ring-brand-accent"
-                >
-                    {terms.map(term => (
-                        <option key={term.id} value={term.id}>{term.name}</option>
-                    ))}
-                </select>
-                {user?.role !== 'APPRENANT' && (
-                    <Button variant="secondary" onClick={() => alert("L'export Excel sera bientôt disponible !")}>
-                        Exporter (Excel)
-                    </Button>
-                )}
-                <Button 
-                    variant="primary"
-                    onClick={handlePrint}
-                    disabled={user?.role === 'APPRENANT' ? !reportCard : !classReportData}
-                    leftIcon={<Printer className="w-4 h-4" />}
-                >
-                    Imprimer
-                </Button>
+
+      {/* ─── En-tête ──────────────────────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
+        <PageHeader
+          title="Bulletins de Notes"
+          subtitle={
+            role === 'APPRENANT'
+              ? 'Consultez vos résultats scolaires'
+              : 'Gestion et validation des bulletins'
+          }
+        />
+
+        {/* Sélecteurs */}
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Année */}
+          <div className="relative">
+            <select
+              value={selectedYearId}
+              onChange={e => setSelectedYearId(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 border rounded-lg text-sm bg-white border-gray-300 text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+            >
+              {academicYears.map(y => (
+                <option key={y.id} value={y.id}>{y.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          </div>
+
+          {/* Trimestre */}
+          <div className="relative">
+            <select
+              value={selectedTermId}
+              onChange={e => setSelectedTermId(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 border rounded-lg text-sm bg-white border-gray-300 text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+            >
+              {terms.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          </div>
+
+          {/* Classe (non apprenant) */}
+          {role !== 'APPRENANT' && (
+            <div className="relative">
+              <select
+                value={selectedClassId}
+                onChange={e => setSelectedClassId(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-2 border rounded-lg text-sm bg-white border-gray-300 text-gray-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+              >
+                <option value="">— Classe —</option>
+                {classes.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
+          )}
         </div>
+      </div>
 
-        {user?.role !== 'APPRENANT' && !selectedClassId && (
-            <div className="text-center py-12 bg-brand-card rounded-xl border border-dashed border-brand-border text-brand-text-muted">
-                <BookOpen className="w-12 h-12 opacity-20 mx-auto mb-3" />
-                <p>Veuillez sélectionner une classe et un trimestre pour voir la liste des élèves</p>
+      {/* ─── Tabs Vue (non apprenant) ─────────────────────────────────────── */}
+      {role !== 'APPRENANT' && (
+        <div className="flex gap-2 no-print border-b border-gray-200 pb-0">
+          {[
+            { id: 'bulletins', label: 'Bulletins', icon: FileText },
+            ...(role === 'ENSEIGNANT' ? [{ id: 'grid', label: 'Grille de Notes', icon: BookOpen }] : []),
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setViewMode(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all -mb-px ${
+                  viewMode === tab.id
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ─── Erreur ───────────────────────────────────────────────────────── */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* ─── VUE APPRENANT ────────────────────────────────────────────────── */}
+      {role === 'APPRENANT' && (
+        <>
+          {loadingBulletin && (
+            <div className="flex items-center justify-center py-16 text-gray-400">
+              <Loader2 className="w-8 h-8 animate-spin mr-3" />
+              Chargement du bulletin...
             </div>
-        )}
-
-        {/* CLASS REPORT VIEW (Admins / Directeurs) */}
-        {user?.role !== 'APPRENANT' && user?.role !== 'ENSEIGNANT' && classReportData && !loading && (
-            <div className="bg-brand-card p-6 shadow-lg rounded-xl border border-brand-border/50 print-area" ref={printRef}>
-                <div className="mb-6 flex justify-between items-center border-b border-brand-border/50 pb-4">
-                    <h2 className="text-xl font-bold text-brand-text uppercase">
-                        Liste de la classe
-                    </h2>
-                    <p className="text-brand-text-muted font-medium">
-                        {terms.find(t => t.id === selectedTermId)?.name}
-                    </p>
-                </div>
-                
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="bg-brand-sidebar border-b border-brand-border/50">
-                                <th className="p-3 text-left text-sm font-bold text-brand-text uppercase">Élève</th>
-                                <th className="p-3 text-left text-sm font-bold text-brand-text uppercase">Moyenne Globale</th>
-                                <th className="p-3 text-left text-sm font-bold text-brand-text uppercase no-print">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {classReportData.reports?.length === 0 ? (
-                                <tr>
-                                    <td colSpan={3} className="p-4 text-center text-brand-text-muted">Aucun élève trouvé</td>
-                                </tr>
-                            ) : (
-                                classReportData.reports?.map((r: any) => (
-                                    <tr key={r.student.id} className="border-b border-brand-border/30 hover:bg-slate-50/50">
-                                        <td className="p-3 font-semibold text-brand-text">
-                                            {r.student.lastName} {r.student.firstName}
-                                        </td>
-                                        <td className="p-3">
-                                            <span className={`font-bold ${r.globalAverage >= 10 ? 'text-emerald-500' : 'text-red-500'}`}>
-                                                {r.globalAverage.toFixed(2)}
-                                            </span>
-                                            <span className="text-xs text-brand-text-muted ml-1">/20</span>
-                                        </td>
-                                        <td className="p-3 no-print">
-                                            <Button variant="secondary" size="sm" onClick={() => alert("Détails du bulletin individuel bientôt disponibles")}>
-                                                Voir Détails
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+          )}
+          {!loadingBulletin && bulletinData && (
+            <BulletinIndividuel data={bulletinData} />
+          )}
+          {!loadingBulletin && !bulletinData && !error && (
+            <div className="text-center py-16 text-gray-400">
+              <BookOpen className="w-14 h-14 opacity-20 mx-auto mb-3" />
+              <p className="text-lg font-medium">Aucun bulletin disponible</p>
+              <p className="text-sm mt-1">Sélectionnez une année scolaire et un trimestre</p>
             </div>
-        )}
+          )}
+        </>
+      )}
 
-        {/* TEACHER GRADES GRID */}
-        {user?.role === 'ENSEIGNANT' && selectedClassId && selectedTermId && (
-            <div className="print-area" ref={printRef}>
-                <TeacherGradesGrid classId={selectedClassId} termId={selectedTermId} />
+      {/* ─── VUE GRILLE ENSEIGNANT ─────────────────────────────────────────── */}
+      {role === 'ENSEIGNANT' && viewMode === 'grid' && selectedClassId && selectedTermId && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800">
+              Grille de notes — {classLabel} — {termLabel}
+            </h3>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSoumettreClasse}
+              isLoading={submitting}
+              leftIcon={<Send className="w-4 h-4" />}
+            >
+              Soumettre les bulletins
+            </Button>
+          </div>
+          <TeacherGradesGrid
+            classId={selectedClassId}
+            termId={selectedTermId}
+          />
+        </div>
+      )}
+
+      {/* ─── VUE BULLETINS (Liste) ─────────────────────────────────────────── */}
+      {role !== 'APPRENANT' && viewMode === 'bulletins' && (
+        <>
+          {!selectedClassId ? (
+            <div className="text-center py-16 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-gray-400">
+              <BookOpen className="w-12 h-12 opacity-20 mx-auto mb-3" />
+              <p>Sélectionnez une classe et un trimestre</p>
             </div>
-        )}
-
-        {loading && <div className="text-center py-8 text-brand-text-muted">Chargement du bulletin...</div>}
-        {error && <div className="text-center py-8 text-red-500">{error}</div>}
-
-        {/* STUDENT INDIVIDUAL REPORT VIEW */}
-        {user?.role === 'APPRENANT' && reportCard && !loading && (
-            <div className="bg-brand-card p-8 shadow-lg rounded-xl max-w-4xl mx-auto print-area border border-brand-border/50" ref={printRef}>
-                {/* Header */}
-                <div className="flex justify-between border-b border-brand-border/50 pb-6 mb-6">
-                    <div>
-                        <h2 className="text-2xl font-bold text-brand-text uppercase">{reportCard.school.name}</h2>
-                        <p className="text-brand-text-muted">{reportCard.school.address}</p>
-                    </div>
-                    <div className="text-right">
-                        <h3 className="text-xl font-semibold text-brand-text">BULLETIN DE NOTES</h3>
-                        <p className="text-brand-text-muted">{reportCard.term.name}</p>
-                        <p className="text-sm text-brand-text-muted mt-2">Année Scolaire {new Date(reportCard.term.startDate).getFullYear()}-{new Date(reportCard.term.endDate).getFullYear()}</p>
-                    </div>
+          ) : (
+            <>
+              {/* Barre d'actions */}
+              <div className="flex flex-wrap items-center justify-between gap-3 no-print">
+                <p className="text-sm text-gray-500">
+                  {loadingBulletins ? 'Chargement...' : `${bulletins.length} élève(s) — ${classLabel} — ${termLabel}`}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleGenerateBulletins}
+                    isLoading={generating}
+                    leftIcon={<RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />}
+                  >
+                    Générer / Recalculer
+                  </Button>
+                  {role === 'ENSEIGNANT' && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSoumettreClasse}
+                      isLoading={submitting}
+                      leftIcon={<Send className="w-4 h-4" />}
+                    >
+                      Soumettre tous
+                    </Button>
+                  )}
                 </div>
+              </div>
 
-                {/* Student Info */}
-                <div className="mb-6 p-4 bg-brand-sidebar rounded-xl border border-brand-border/50">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <span className="text-brand-text-muted uppercase text-xs font-semibold">Élève</span>
-                            <p className="text-lg font-bold text-brand-text">{reportCard.student.firstName} {reportCard.student.lastName}</p>
-                        </div>
-                        <div className="text-right">
-                            <span className="text-brand-text-muted uppercase text-xs font-semibold">Classe</span>
-                            <p className="text-lg font-bold text-brand-text">{reportCard.student.class}</p>
-                        </div>
-                    </div>
+              {loadingBulletins ? (
+                <div className="flex items-center justify-center py-16 text-gray-400">
+                  <Loader2 className="w-8 h-8 animate-spin mr-3" />
+                  Chargement des bulletins...
                 </div>
+              ) : (
+                <WorkflowBulletin
+                  bulletins={bulletins.map(b => ({ ...b, term: { id: selectedTermId, name: termLabel } }))}
+                  userRole={role}
+                  onAction={fetchClassBulletins}
+                  onViewBulletin={(studentId) => fetchStudentBulletin(studentId)}
+                  termId={selectedTermId}
+                  classId={selectedClassId}
+                />
+              )}
+            </>
+          )}
+        </>
+      )}
 
-                {/* Terms Overview / Annual Progress Bar */}
-                {reportCard.termsSummary && reportCard.termsSummary.length > 0 && (
-                    <div className="mb-8 p-4 bg-brand-accent/5 border border-brand-accent/20 rounded-xl">
-                        <h4 className="text-xs font-bold text-brand-accent uppercase tracking-wider mb-3">Synthèse Annuelle (Tous les trimestres)</h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            {reportCard.termsSummary.map((ts) => (
-                                <div 
-                                    key={ts.termId}
-                                    onClick={() => setSelectedTermId(ts.termId)}
-                                    className={`p-3 rounded-lg border text-center cursor-pointer transition-all ${
-                                        selectedTermId === ts.termId 
-                                            ? 'bg-brand-accent text-white border-brand-accent shadow-sm' 
-                                            : 'bg-brand-sidebar border-brand-border/50 text-brand-text hover:border-brand-accent/40'
-                                    }`}
-                                >
-                                    <p className={`text-xs font-medium truncate ${selectedTermId === ts.termId ? 'text-white/80' : 'text-brand-text-muted'}`}>{ts.termName}</p>
-                                    <p className={`text-lg font-bold mt-1 ${
-                                        selectedTermId === ts.termId ? 'text-white' : 
-                                        ts.overallAverage === null ? 'text-brand-text-muted' : 
-                                        ts.overallAverage >= 10 ? 'text-emerald-500' : 'text-red-500'
-                                    }`}>
-                                        {ts.overallAverage !== null ? ts.overallAverage.toFixed(2) : '-'}
-                                    </p>
-                                </div>
-                            ))}
-                            <div className="p-3 rounded-lg border border-brand-accent/30 bg-brand-sidebar text-center">
-                                <p className="text-xs font-bold text-brand-accent uppercase truncate">Moy. Annuelle</p>
-                                <p className={`text-lg font-bold mt-1 ${
-                                    reportCard.annualAverage === null ? 'text-brand-text-muted' : 
-                                    (reportCard.annualAverage || 0) >= 10 ? 'text-emerald-600' : 'text-red-500'
-                                }`}>
-                                    {reportCard.annualAverage !== null && reportCard.annualAverage !== undefined ? reportCard.annualAverage.toFixed(2) : '-'}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Grades Table */}
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse mb-8">
-                        <thead>
-                            <tr className="bg-brand-sidebar border-b border-brand-border/50">
-                                <th className="p-3 text-left text-sm font-bold text-brand-text uppercase">Matière</th>
-                                <th className="p-3 text-left text-sm font-bold text-brand-text uppercase">Enseignant</th>
-                                <th className="p-3 text-center text-sm font-bold text-brand-text uppercase">Coef.</th>
-                                <th className="p-3 text-center text-sm font-bold text-brand-text uppercase">Moyenne</th>
-                                <th className="p-3 text-left text-sm font-bold text-brand-text uppercase">Appréciation</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {reportCard.subjects.map((subject) => (
-                                <tr key={subject.id} className="border-b border-brand-border/30">
-                                    <td className="p-3">
-                                        <p className="font-semibold text-brand-text">{subject.subject}</p>
-                                        <p className="text-xs text-brand-text-muted">{subject.subjectCode}</p>
-                                    </td>
-                                    <td className="p-3 text-brand-text-muted">{subject.teacher}</td>
-                                    <td className="p-3 text-center font-medium text-brand-text-muted">{subject.coefficient || 1}</td>
-                                    <td className="p-3 text-center">
-                                        <span className={`font-bold ${
-                                            subject.average === null ? 'text-brand-text-muted opacity-50' :
-                                            subject.average >= 10 ? 'text-emerald-500' : 'text-red-500'
-                                        }`}>
-                                            {subject.average !== null ? subject.average.toFixed(2) : '-'}
-                                        </span>
-                                        <span className="text-xs text-brand-text-muted ml-1">/20</span>
-                                    </td>
-                                    <td className="p-3 text-sm text-brand-text-muted italic">
-                                        {subject.average !== null 
-                                            ? (subject.average >= 15 ? "Très bien" : subject.average >= 12 ? "Bien" : subject.average >= 10 ? "Passable" : "Insuffisant")
-                                            : "Aucune note"
-                                        }
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                        <tfoot>
-                            <tr className="bg-brand-sidebar font-bold">
-                                <td colSpan={3} className="p-4 text-right uppercase text-brand-text">Moyenne Générale</td>
-                                <td className="p-4 text-center text-xl border-t border-brand-border/50">
-                                    <span className={
-                                        reportCard.overallAverage === null ? 'text-brand-text-muted opacity-50' :
-                                        reportCard.overallAverage >= 10 ? 'text-brand-accent' : 'text-red-500'
-                                    }>
-                                        {reportCard.overallAverage !== null ? reportCard.overallAverage.toFixed(2) : '-'}
-                                    </span>
-                                    <span className="text-sm text-brand-text-muted ml-1">/20</span>
-                                </td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-
-                {/* Footer / Signatures */}
-                <div className="grid grid-cols-3 gap-8 mt-12 pt-8 border-t border-brand-border/50 text-center text-sm text-brand-text-muted">
-                     <div>
-                        <p className="mb-8 font-semibold uppercase">L'Élève</p>
-                     </div>
-                     <div>
-                        <p className="mb-8 font-semibold uppercase">Les Parents</p>
-                     </div>
-                     <div>
-                        <p className="mb-8 font-semibold uppercase">Le Directeur</p>
-                     </div>
-                </div>
-                
-                <div className="text-center text-xs text-brand-text-muted mt-8">
-                    Bulletin généré le {new Date().toLocaleDateString()} via Ecole Connectée
-                </div>
+      {/* ─── VUE BULLETIN INDIVIDUEL (admin/directeur/éducateur) ──────────── */}
+      {role !== 'APPRENANT' && viewMode === 'individual' && (
+        <>
+          {loadingBulletin && (
+            <div className="flex items-center justify-center py-16 text-gray-400">
+              <Loader2 className="w-8 h-8 animate-spin mr-3" />
+              Chargement du bulletin...
             </div>
-        )}
-        
-        {/* CSS for print */}
-        <style>{`
-            @media print {
-                .no-print { display: none !important; }
-                body * { visibility: hidden; }
-                .print-area, .print-area * { visibility: visible; }
-                .print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; }
-                /* Sidebar handling - might need to target specific classes if body * covers it */
-                #root > div > div.fixed { display: none; } /* Sidebar */
-            }
-        `}</style>
+          )}
+          {!loadingBulletin && bulletinData && (
+            <BulletinIndividuel
+              data={bulletinData}
+              onClose={() => setViewMode('bulletins')}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 };
 
-export default StudentReportCards;
+export default ReportCardsPage;

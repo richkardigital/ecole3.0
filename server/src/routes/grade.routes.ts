@@ -2,7 +2,7 @@ import { ROLES } from "../config/constants.js";
 import { Router } from "express";
 import { authenticate } from "../middleware/auth.js";
 import { requireRole } from "../middleware/rbac.js";
-import { getGradebook, saveGrade, getStudentReportCard, getConductGrades, getTeacherGrid, saveTeacherGrid } from "../controllers/grade.controller.js";
+import { getGradebook, saveGrade, getStudentReportCard, getConductGrades, getTeacherGrid, saveTeacherGrid, saveParticipationGrades, getParticipationGrades } from "../controllers/grade.controller.js";
 
 const router = Router();
 
@@ -26,5 +26,9 @@ router.get("/:courseId/conduct", requireRole([ROLES.ENSEIGNANT, ROLES.SUPER_ADMI
 
 // Save or update a grade
 router.post("/save", requireRole([ROLES.ENSEIGNANT, ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), saveGrade);
+
+// Notes de participation par cours
+router.get("/:courseId/participation", requireRole([ROLES.ENSEIGNANT, ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getParticipationGrades);
+router.post("/participation/save", requireRole([ROLES.ENSEIGNANT, ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), saveParticipationGrades);
 
 export default router;

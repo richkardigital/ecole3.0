@@ -27,6 +27,27 @@ enum BulletinStatus {
   VALIDE
 }
 
+// Statuts du workflow bulletin individuel élève
+enum BulletinEleveStatus {
+  BROUILLON
+  SOUMIS_ENSEIGNANT
+  VALIDE_EDUCATEUR
+  VALIDE_DIRECTEUR
+  VALIDE_SUPER_ADMIN
+  REJETE
+}
+
+// Type de note
+enum GradeType {
+  DEVOIR
+  EVALUATION
+  EXAMEN
+  PARTICIPATION
+  CONDUITE
+  QUIZ
+  INTERRO
+}
+
 enum ResourceType {
   PDF
   VIDEO
@@ -204,9 +225,16 @@ model User {
   forumPosts    ForumPost[]
   forumComments ForumComment[]
 
-  // Relations bulletins
+  // Relations bulletins (classe)
   submittedBulletins Bulletin[] @relation("BulletinSubmitter")
   validatedBulletins Bulletin[] @relation("BulletinValidator")
+
+  // Relations bulletins individuels élève (workflow)
+  bulletinsEleves                  BulletinEleve[]
+  bulletinsElevesSoumis            BulletinEleve[] @relation("BulletinEleveSoumis")
+  bulletinsElevesValideEducateur   BulletinEleve[] @relation("BulletinEleveValideEducateur")
+  bulletinsElevesValideDirecteur   BulletinEleve[] @relation("BulletinEleveValideDirecteur")
+  bulletinsElevesValideAdmin       BulletinEleve[] @relation("BulletinEleveValideAdmin")
 
   // Relations resources
   createdResources Resource[] @relation("ResourceCreator")
@@ -268,10 +296,11 @@ model Term {
   academicYearId String
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
 
-  grades    Grade[]
-  bulletins Bulletin[]
-  conducts  Conduct[]
-  assignments Assignment[]
+  grades         Grade[]
+  bulletins      Bulletin[]
+  bulletinsEleves BulletinEleve[]
+  conducts       Conduct[]
+  assignments    Assignment[]
 
   @@index([status])
 }
@@ -295,12 +324,13 @@ model Class {
   academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
 
   // Relations
-  enrollments    Enrollment[]
-  courses        Course[]
-  teacherClasses TeacherClass[]
-  messages       Message[]
-  bulletins      Bulletin[]
-  meetings       Meeting[]
+  enrollments     Enrollment[]
+  courses         Course[]
+  teacherClasses  TeacherClass[]
+  messages        Message[]
+  bulletins       Bulletin[]
+  bulletinsEleves BulletinEleve[]
+  meetings        Meeting[]
 
   @@unique([name, schoolId])
   @@index([schoolId])
@@ -558,18 +588,19 @@ model Submission {
 // =============================================
 
 model Grade {
-  id          String  @id @default(uuid())
+  id          String    @id @default(uuid())
   value       Float
-  coefficient Float   @default(1)
+  coefficient Float     @default(1)
   comment     String?
-  validated   Boolean @default(false)
+  validated   Boolean   @default(false)
+  type        GradeType @default(DEVOIR)
 
   studentId String
   student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   termId       String?
   assignmentId String?
-  courseId      String?
+  courseId     String?
 
   term       Term?       @relation(fields: [termId], references: [id])
   assignment Assignment? @relation(fields: [assignmentId], references: [id])
@@ -583,6 +614,7 @@ model Grade {
   @@index([studentId])
   @@index([termId])
   @@index([courseId])
+  @@index([type])
 }
 
 // =============================================
@@ -906,3 +938,68 @@ model UserDocument {
   @@index([userId])
 }
 
+// =============================================
+// BULLETIN ELEVE — Bulletin individuel par élève (workflow multi-rôles)
+// =============================================
+
+model BulletinEleve {
+  id String @id @default(uuid())
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  termId String
+  term   Term @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  classId String
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  statut BulletinEleveStatus @default(BROUILLON)
+
+  // Données calculées
+  moyenneGenerale   Float?
+  noteConduite      Float?
+  noteParticipation Float? // Moyenne des notes de participation par matière
+  rangClasse        Int?
+  nombreEleves      Int?
+  totalAbsences     Int?    @default(0)
+  absencesJustifiees Int?   @default(0)
+
+  // Appréciations
+  appreciationGenerale String? @db.Text
+  commentaireEducateur String? @db.Text
+  commentaireDirecteur String? @db.Text
+
+  // Étape 1 — Soumission par l'enseignant
+  soumisParId String?
+  soumisPar   User?    @relation("BulletinEleveSoumis", fields: [soumisParId], references: [id])
+  soumisAt    DateTime?
+
+  // Étape 2 — Validation par l'éducateur
+  valideEducateurParId String?
+  valideEducateurPar   User?    @relation("BulletinEleveValideEducateur", fields: [valideEducateurParId], references: [id])
+  valideEducateurAt    DateTime?
+
+  // Étape 3 — Validation par le directeur
+  valideDirecteurParId String?
+  valideDirecteurPar   User?    @relation("BulletinEleveValideDirecteur", fields: [valideDirecteurParId], references: [id])
+  valideDirecteurAt    DateTime?
+
+  // Étape 4 — Validation finale super admin
+  valideAdminParId String?
+  valideAdminPar   User?    @relation("BulletinEleveValideAdmin", fields: [valideAdminParId], references: [id])
+  valideAdminAt    DateTime?
+
+  // Rejet
+  rejetCommentaire String? @db.Text
+  rejetPar         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, termId])
+  @@index([studentId])
+  @@index([termId])
+  @@index([classId])
+  @@index([statut])
+}

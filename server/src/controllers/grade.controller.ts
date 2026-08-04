@@ -2,8 +2,6 @@ import type { Response } from "express";
 import prisma from "../utils/prisma.js";
 import { z } from "zod";
 import type { AuthRequest } from "../middleware/auth.js";
-import { z } from "zod";
-import type { AuthRequest } from "../middleware/auth.js";
 
 const saveGradeSchema = z.object({
   studentId: z.string(),
@@ -11,9 +9,20 @@ const saveGradeSchema = z.object({
   courseId: z.string().optional(),
   value: z.number().min(0).max(20),
   comment: z.string().optional(),
+  type: z.enum(["DEVOIR", "EVALUATION", "EXAMEN", "PARTICIPATION", "CONDUITE", "QUIZ", "INTERRO"]).optional(),
 }).refine(data => data.assignmentId || data.courseId, {
     message: "Either assignmentId or courseId must be provided"
 });
+
+const saveParticipationSchema = z.object({
+  courseId: z.string(),
+  termId: z.string(),
+  grades: z.array(z.object({
+    studentId: z.string(),
+    value: z.number().min(0).max(20).nullable(),
+  }))
+});
+
 
 export const getConductGrades = async (req: AuthRequest, res: Response) => {
     try {
@@ -593,5 +602,120 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Error generating report card", error);
     res.status(500).json({ message: "Error generating report card" });
+  }
+};
+
+/**
+ * Sauvegarde les notes de participation pour tous les élèves d'un cours/trimestre.
+ * Saisie par le professeur de la matière.
+ */
+export const saveParticipationGrades = async (req: AuthRequest, res: Response) => {
+  try {
+    const { courseId, termId, grades } = saveParticipationSchema.parse(req.body);
+
+    // Vérifier accès enseignant
+    if ((req.user?.role as string) === 'ENSEIGNANT') {
+      const course = await prisma.course.findUnique({ where: { id: courseId } });
+      if (!course || course.teacherId !== req.user!.id) {
+        return res.status(403).json({ message: "Accès refusé" });
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const g of grades) {
+        if (g.value === null) {
+          // Supprimer la note de participation existante
+          await tx.grade.deleteMany({
+            where: {
+              studentId: g.studentId,
+              courseId,
+              termId,
+              type: 'PARTICIPATION'
+            }
+          });
+          continue;
+        }
+
+        const existing = await tx.grade.findFirst({
+          where: {
+            studentId: g.studentId,
+            courseId,
+            termId,
+            type: 'PARTICIPATION'
+          }
+        });
+
+        if (existing) {
+          await tx.grade.update({
+            where: { id: existing.id },
+            data: { value: g.value }
+          });
+        } else {
+          await tx.grade.create({
+            data: {
+              studentId: g.studentId,
+              courseId,
+              termId,
+              value: g.value,
+              type: 'PARTICIPATION',
+              coefficient: 1
+            }
+          });
+        }
+      }
+    });
+
+    res.json({ message: "Notes de participation sauvegardées" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erreur lors de la sauvegarde des notes de participation", error });
+  }
+};
+
+/**
+ * Récupère les notes de participation d'un cours pour un trimestre.
+ */
+export const getParticipationGrades = async (req: AuthRequest, res: Response) => {
+  try {
+    const { courseId } = req.params;
+    const { termId } = req.query;
+
+    if (!courseId || !termId) {
+      return res.status(400).json({ message: "courseId et termId requis" });
+    }
+
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      include: { class: true }
+    });
+
+    if (!course) return res.status(404).json({ message: "Cours introuvable" });
+
+    if ((req.user?.role as string) === 'ENSEIGNANT' && course.teacherId !== req.user!.id) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+
+    const enrollments = await prisma.enrollment.findMany({
+      where: { classId: course.classId },
+      include: {
+        student: { select: { id: true, firstName: true, lastName: true, matricule: true } }
+      },
+      orderBy: { student: { lastName: 'asc' } }
+    });
+
+    const grades = await prisma.grade.findMany({
+      where: {
+        courseId,
+        termId: termId as string,
+        type: 'PARTICIPATION'
+      }
+    });
+
+    res.json({
+      students: enrollments.map(e => e.student),
+      grades
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur", error });
   }
 };
