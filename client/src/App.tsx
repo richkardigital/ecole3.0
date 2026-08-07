@@ -26,6 +26,7 @@ import AdminLibrary from '@/app/admin/library/page';
 import NewLibraryDocumentPage from '@/app/admin/library/new/page';
 import SharedResources from '@/app/academic/shared-resources/page';
 import Agenda from '@/app/academic/agenda/page';
+import EvaluationHub from '@/app/evaluation/page';
 import Chat from '@/app/communication/chat/page';
 import QuizTake from '@/app/evaluation/quizzes/take';
 import QuizAttemptsList from '@/app/evaluation/quizzes/attempts-list';
@@ -138,6 +139,7 @@ function App() {
                     <Route path="/admin/chat" element={<Chat />} />
                     <Route path="/admin/forum" element={<Forum />} />
                     <Route path="/admin/agenda" element={<Agenda />} />
+                    <Route path="/admin/evaluations" element={<EvaluationHub />} />
                     <Route path="/admin/settings" element={<Settings />} />
                   </Route>
 
@@ -165,6 +167,7 @@ function App() {
                     <Route path="/directeur/forum" element={<Forum />} />
                     <Route path="/directeur/shared-resources" element={<SharedResources />} />
                     <Route path="/directeur/agenda" element={<Agenda />} />
+                    <Route path="/directeur/evaluations" element={<EvaluationHub />} />
                     <Route path="/directeur/settings" element={<Settings />} />
                   </Route>
 
@@ -174,6 +177,7 @@ function App() {
                   <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ENSEIGNANT']} />}>
                     <Route path="/enseignant/dashboard" element={<Dashboard />} />
                     <Route path="/enseignant/agenda" element={<Agenda />} />
+                    <Route path="/enseignant/evaluations" element={<EvaluationHub />} />
                     <Route path="/enseignant/courses" element={<Courses />} />
                     <Route path="/enseignant/courses/:id" element={<CourseDetails />} />
                     <Route path="/enseignant/assignments" element={<AssignmentsPage />} />
@@ -197,6 +201,7 @@ function App() {
                   <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'EDUCATEUR']} />}>
                     <Route path="/educateur/dashboard" element={<Dashboard />} />
                     <Route path="/educateur/agenda" element={<Agenda />} />
+                    <Route path="/educateur/evaluations" element={<EvaluationHub />} />
                     <Route path="/educateur/absences" element={<Absences />} />
                     <Route path="/educateur/conduct" element={<Conduct />} />
                     <Route path="/educateur/classes" element={<Classes />} />
@@ -241,6 +246,7 @@ function App() {
                     <Route path="quizzes/attempts/:id" element={<QuizAttemptDetail />} />
                     <Route path="shared-resources" element={<SharedResources />} />
                     <Route path="agenda" element={<Agenda />} />
+                    <Route path="evaluations" element={<EvaluationHub />} />
                   </Route>
 
                 </Route>

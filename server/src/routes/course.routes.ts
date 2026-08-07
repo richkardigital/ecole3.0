@@ -20,7 +20,9 @@ import {
   bulkAssignCourses,
   getSharedSchools,
   getSharedSchoolClasses,
-  getSharedMaterials
+  getSharedMaterials,
+  toggleChapterProgress,
+  getCourseStats
 } from "../controllers/course.controller.js";
 
 const router = Router();
@@ -42,6 +44,8 @@ router.post("/:courseId/chapters", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGN
 router.put("/chapters/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR]), updateChapter);
 router.delete("/chapters/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR]), deleteChapter);
 router.get("/:id/content", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getCourseChapters);
+router.post("/chapters/:id/progress", requireRole([ROLES.APPRENANT]), toggleChapterProgress);
+router.get("/:id/stats", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getCourseStats);
 
 // Material routes nested under course
 router.post("/:id/materials", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.single('file'), addMaterial);

@@ -134,14 +134,13 @@ export const getAcademicYear = async (req: AuthRequest, res: Response) => {
 export const updateAcademicYear = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, startDate, endDate, isCurrent, schoolIds } = createYearSchema.parse(req.body);
+    const { name, startDate, endDate, isCurrent } = req.body;
 
     if (!id) return res.status(400).json({ message: "ID manquant" });
 
     const existing = await prisma.academicYear.findUnique({ where: { id: String(id) } });
     if (!existing) return res.status(404).json({ message: "Année scolaire introuvable" });
 
-    // If marking as current, un-mark all others globally
     if (isCurrent) {
       await prisma.academicYear.updateMany({
         where: { isCurrent: true, NOT: { id: String(id) } },
@@ -152,11 +151,10 @@ export const updateAcademicYear = async (req: AuthRequest, res: Response) => {
     const updatedYear = await prisma.academicYear.update({
       where: { id: String(id) },
       data: {
-        name: name.trim(),
-        startDate,
-        endDate,
+        ...(name && { name: name.trim() }),
+        ...(startDate && { startDate: new Date(startDate) }),
+        ...(endDate && { endDate: new Date(endDate) }),
         ...(isCurrent !== undefined && { isCurrent }),
-        schools: schoolIds ? { set: schoolIds.map(id => ({ id })) } : undefined
       },
       include: {
         terms: { orderBy: { startDate: "asc" } },
@@ -168,10 +166,60 @@ export const updateAcademicYear = async (req: AuthRequest, res: Response) => {
     res.json(updatedYear);
   } catch (error: any) {
     if (error?.code === 'P2002') {
-      return res.status(400).json({ message: "Cette année scolaire existe déjà. Veuillez la sélectionner." });
+      return res.status(400).json({ message: "Cette année scolaire existe déjà." });
     }
     console.error("Update Academic Year Error:", error);
     res.status(500).json({ message: "Erreur lors de la mise à jour de l'année scolaire" });
+  }
+};
+
+/**
+ * FIX BUG: Route dédiée pour l'affectation / désaffectation des écoles à une année académique.
+ * Remplace le patch via PUT qui échouait à cause du schema de validation.
+ */
+export const updateAcademicYearSchools = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { schoolIds } = req.body as { schoolIds: string[] };
+
+    if (!id) return res.status(400).json({ message: "ID manquant" });
+    if (!Array.isArray(schoolIds)) {
+      return res.status(400).json({ message: "schoolIds doit être un tableau" });
+    }
+
+    const existing = await prisma.academicYear.findUnique({
+      where: { id },
+      include: { schools: { select: { id: true } } },
+    });
+    if (!existing) return res.status(404).json({ message: "Année scolaire introuvable" });
+
+    // Calculer les écoles à connecter et à déconnecter
+    const currentIds = existing.schools.map((s) => s.id);
+    const toConnect = schoolIds.filter((sid) => !currentIds.includes(sid));
+    const toDisconnect = currentIds.filter((sid) => !schoolIds.includes(sid));
+
+    const updatedYear = await prisma.academicYear.update({
+      where: { id },
+      data: {
+        schools: {
+          connect: toConnect.map((sid) => ({ id: sid })),
+          disconnect: toDisconnect.map((sid) => ({ id: sid })),
+        },
+      },
+      include: {
+        terms: { orderBy: { startDate: "asc" } },
+        schools: { select: { id: true, name: true, ville: true, code: true } },
+        _count: { select: { classes: true } },
+      },
+    });
+
+    res.json({ 
+      message: `${toConnect.length} école(s) ajoutée(s), ${toDisconnect.length} école(s) retirée(s)`,
+      year: updatedYear 
+    });
+  } catch (error: any) {
+    console.error("Update Academic Year Schools Error:", error);
+    res.status(500).json({ message: "Erreur lors de la mise à jour des établissements" });
   }
 };
 

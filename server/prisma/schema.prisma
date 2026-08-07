@@ -78,6 +78,31 @@ enum AssignmentType {
   PROJET
   EXAMEN
   EVALUATION
+  NIVEAU
+}
+
+// Type de quiz / évaluation
+enum QuizType {
+  EVALUATION  // Programmée par enseignant, toujours notée, auto-corrigée
+  DEVOIR      // Peut être quiz ou fichier, souvent noté
+  EXAMEN      // Examen officiel
+  NIVEAU      // Devoir de niveau programmé par super admin
+}
+
+// Type de question
+enum QuestionType {
+  SINGLE_CHOICE    // QCM une seule réponse
+  MULTIPLE_CHOICE  // QCM plusieurs réponses
+  FILL_IN_BLANK    // À compléter (correction automatique par comparaison)
+  OPEN             // Réponse libre (correction manuelle)
+}
+
+// Statut d'inscription
+enum EnrollmentStatus {
+  ACTIVE
+  TRANSFERRED
+  GRADUATED
+  SUSPENDED
 }
 
 // =============================================
@@ -163,15 +188,16 @@ model School {
 model Niveau {
   id       String  @id @default(uuid())
   nom      String
-  rang     Int     @default(0) // Pour trier (1=PS, 2=MS, ..., 20=6ème, etc.)
+  rang     Int     @default(0)
   isActive Boolean @default(true)
 
   schoolId String?
   school   School? @relation(fields: [schoolId], references: [id], onDelete: SetNull)
 
-  classes   Class[]
-  resources Resource[]
+  classes     Class[]
+  resources   Resource[]
   assignments Assignment[]
+  quizzes     Quiz[]
 
   @@unique([nom, schoolId])
   @@index([rang])
@@ -250,6 +276,13 @@ model User {
   hostedMeetings Meeting[] @relation("MeetingHost")
   authoredNews   News[]    @relation("NewsAuthor")
 
+  // Quiz / Devoir créés
+  createdQuizzes      Quiz[]       @relation("QuizCreator")
+  createdAssignments  Assignment[] @relation("AssignmentCreator")
+
+  // Progression chapitres
+  chapterProgress ChapterProgress[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -274,9 +307,10 @@ model AcademicYear {
 
   schools School[] @relation("SchoolAcademicYears")
 
-  terms   Term[]
-  classes Class[]
+  terms       Term[]
+  classes     Class[]
   assignments Assignment[]
+  enrollments Enrollment[]
 
   @@index([isCurrent])
   @@index([status])
@@ -296,13 +330,15 @@ model Term {
   academicYearId String
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
 
-  grades         Grade[]
-  bulletins      Bulletin[]
+  grades          Grade[]
+  bulletins       Bulletin[]
   bulletinsEleves BulletinEleve[]
-  conducts       Conduct[]
-  assignments    Assignment[]
+  conducts        Conduct[]
+  assignments     Assignment[]
+  quizzes         Quiz[]
 
   @@index([status])
+  @@index([academicYearId])
 }
 
 // =============================================
@@ -355,6 +391,7 @@ model Subject {
   courses        Course[]
   assignments    Assignment[]
   teacherClasses TeacherClass[]
+  quizzes        Quiz[]
 
   @@unique([name, schoolId])
   @@index([isActive])
@@ -396,12 +433,18 @@ model Enrollment {
   classId String
   class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
 
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+
+  status    EnrollmentStatus @default(ACTIVE)
   matricule String?
   joinedAt  DateTime @default(now())
 
   @@unique([studentId, classId])
   @@index([studentId])
   @@index([classId])
+  @@index([academicYearId])
+  @@index([status])
 }
 
 // =============================================
@@ -445,6 +488,7 @@ model Chapter {
   courseId   String
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   resources Resource[]
+  progress  ChapterProgress[]
   createdAt DateTime @default(now())
 
   @@index([courseId])
@@ -494,11 +538,15 @@ model Assignment {
   id            String   @id @default(uuid())
   title         String
   description   String?
-  dueDate       DateTime
-  points        Int      @default(20)
-  coefficient   Int      @default(1)
+  startDate     DateTime?  // Date d'ouverture (disponible à partir de)
+  dueDate       DateTime   // Date limite de rendu
+  points        Int        @default(20)
+  coefficient   Int        @default(1)
   correctionUrl String?
   voiceNoteUrl  String?
+  imageUrl      String?    // Image d'illustration
+  autoGrade     Boolean    @default(false) // Si QCM → correction auto
+  isNiveauWide  Boolean    @default(false) // Si devoir de niveau
 
   type          AssignmentType @default(DEVOIR)
 
@@ -509,13 +557,16 @@ model Assignment {
   niveau  Niveau? @relation(fields: [niveauId], references: [id], onDelete: Cascade)
 
   subjectId String?
-  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+
   academicYearId String?
   academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
 
   termId String?
   term Term? @relation(fields: [termId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?   @relation("AssignmentCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   submissions Submission[]
   grades      Grade[]
@@ -525,13 +576,17 @@ model Assignment {
   published   Boolean  @default(false)
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
 
   @@index([courseId])
   @@index([niveauId])
   @@index([subjectId])
   @@index([academicYearId])
   @@index([termId])
+  @@index([startDate])
   @@index([dueDate])
+  @@index([type])
 }
 
 model AssignmentQuestion {
@@ -680,31 +735,55 @@ model Message {
 // =============================================
 
 model Quiz {
-  id          String  @id @default(uuid())
+  id          String    @id @default(uuid())
   title       String
   description String?
-  coefficient Int     @default(1)
-  published   Boolean  @default(false)
+  coefficient Int       @default(1)
+  published   Boolean   @default(false)
   startDate   DateTime?
   endDate     DateTime?
   timeLimit   Int?
+  imageUrl    String?   // Image d'illustration globale
+  autoGrade   Boolean   @default(true)  // Notation automatique
+  maxAttempts Int       @default(1)     // Nombre de tentatives max
+  isNiveauWide Boolean  @default(false) // Si true = devoir de niveau
 
-  courseId String
-  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  type        QuizType  @default(EVALUATION)
+
+  courseId  String?
+  course    Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  // Pour les devoirs de niveau (super admin)
+  niveauId  String?
+  niveau    Niveau?  @relation(fields: [niveauId], references: [id], onDelete: Cascade)
+
+  termId    String?
+  term      Term?    @relation(fields: [termId], references: [id], onDelete: SetNull)
+
+  subjectId String?
+  subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?   @relation("QuizCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   questions QuizQuestion[]
   attempts  QuizAttempt[]
-  createdAt DateTime       @default(now())
+  createdAt DateTime @default(now())
 
   @@index([courseId])
+  @@index([niveauId])
+  @@index([termId])
+  @@index([type])
 }
 
 model QuizQuestion {
-  id            String @id @default(uuid())
+  id            String       @id @default(uuid())
   text          String
-  type          String @default("MULTIPLE_CHOICE")
-  points        Int    @default(1)
-  correctAnswer String
+  type          QuestionType @default(SINGLE_CHOICE)
+  points        Int          @default(1)
+  correctAnswer String?      // Pour SINGLE_CHOICE / FILL_IN_BLANK
+  imageUrl      String?      // Image attachée à la question
+  position      Int          @default(0)
 
   quizId String
   quiz   Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
@@ -1002,4 +1081,27 @@ model BulletinEleve {
   @@index([termId])
   @@index([classId])
   @@index([statut])
+}
+
+// =============================================
+// CHAPTER PROGRESS — Progression élève dans les chapitres
+// =============================================
+
+model ChapterProgress {
+  id          String   @id @default(uuid())
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+
+  studentId String
+  student   User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  chapterId String
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, chapterId])
+  @@index([studentId])
+  @@index([chapterId])
 }

@@ -49,8 +49,16 @@ interface ChapterModel {
     title: string;
     content?: string;
     materials: MaterialModel[];
-    createdAt?: string; // Add this to display date
-  }
+    createdAt?: string;
+    progress?: { completed: boolean }[];
+}
+
+interface CourseStats {
+    totalStudents: number;
+    totalChapters: number;
+    totalProgressMarked: number;
+    averageProgress: number;
+}
 
 const CourseDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -64,6 +72,7 @@ const CourseDetails = () => {
   // Chapter & Material State
   const [chapters, setChapters] = useState<ChapterModel[]>([]);
   const [orphanMaterials, setOrphanMaterials] = useState<MaterialModel[]>([]);
+  const [courseStats, setCourseStats] = useState<CourseStats | null>(null);
   
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
@@ -248,6 +257,12 @@ const CourseDetails = () => {
       const fetchQuizzes = api.get(`/quizzes?courseId=${id}`)
         .then(res => setQuizzes(res.data))
         .catch(err => console.error("Error fetching quizzes", err));
+
+      if (user?.role === 'ENSEIGNANT' || user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR') {
+          api.get(`/courses/${id}/stats`)
+            .then(res => setCourseStats(res.data))
+            .catch(err => console.error("Error fetching course stats", err));
+      }
 
       const fetchConduct = api.get(`/grades/${id}/conduct`)
         .then(res => {
@@ -485,6 +500,27 @@ const CourseDetails = () => {
 
       {activeTab === 'CONTENT' ? (
         <div className="space-y-8">
+            {isTeacher && courseStats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-brand-sidebar p-4 rounded-xl border border-brand-border/50 text-center">
+                        <p className="text-xs font-bold text-brand-text-muted uppercase mb-1">Élèves Inscrits</p>
+                        <p className="text-2xl font-black text-brand-text">{courseStats.totalStudents}</p>
+                    </div>
+                    <div className="bg-brand-sidebar p-4 rounded-xl border border-brand-border/50 text-center">
+                        <p className="text-xs font-bold text-brand-text-muted uppercase mb-1">Chapitres</p>
+                        <p className="text-2xl font-black text-brand-text">{courseStats.totalChapters}</p>
+                    </div>
+                    <div className="bg-brand-sidebar p-4 rounded-xl border border-brand-border/50 text-center">
+                        <p className="text-xs font-bold text-brand-text-muted uppercase mb-1">Progression Globale</p>
+                        <p className="text-2xl font-black text-brand-accent">{courseStats.averageProgress.toFixed(1)}%</p>
+                    </div>
+                    <div className="bg-brand-sidebar p-4 rounded-xl border border-brand-border/50 text-center">
+                        <p className="text-xs font-bold text-brand-text-muted uppercase mb-1">Chapitres Terminés (Total)</p>
+                        <p className="text-2xl font-black text-green-500">{courseStats.totalProgressMarked}</p>
+                    </div>
+                </div>
+            )}
+
             {chapters.length === 0 ? (
                 <div className="text-center py-12 text-brand-text-muted">
                     Aucun chapitre créé pour le moment.
@@ -515,6 +551,25 @@ const CourseDetails = () => {
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </>
+                                )}
+                                {user?.role === 'APPRENANT' && (
+                                    <label className="flex items-center gap-2 cursor-pointer bg-brand-sidebar px-3 py-1.5 rounded-lg border border-brand-border/50 hover:border-brand-accent/50 transition">
+                                        <input
+                                            type="checkbox"
+                                            checked={chapter.progress?.[0]?.completed || false}
+                                            onChange={async (e) => {
+                                                const completed = e.target.checked;
+                                                try {
+                                                    await api.post(`/courses/chapters/${chapter.id}/progress`, { completed });
+                                                    fetchCourseDetails();
+                                                } catch (err) {
+                                                    console.error(err);
+                                                }
+                                            }}
+                                            className="w-4 h-4 text-brand-accent rounded border-brand-border focus:ring-brand-accent"
+                                        />
+                                        <span className="text-xs font-medium text-brand-text">Marqué comme terminé</span>
+                                    </label>
                                 )}
                             </div>
                         </div>

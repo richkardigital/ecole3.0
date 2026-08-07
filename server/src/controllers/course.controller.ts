@@ -494,18 +494,24 @@ export const createChapter = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getCourseChapters = async (req: AuthRequest, res: Response) => {
+    export const getCourseChapters = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params; // courseId
+        const userId = req.user?.id;
+        const role = req.user?.role as string;
+
         if (!id) return res.status(400).json({ message: "ID required" });
 
         // Get chapters with resources
         const chapters = await prisma.chapter.findMany({
             where: { courseId: String(id) },
             include: {
-                resources: true
+                resources: true,
+                ...(role === 'APPRENANT' && userId ? {
+                    progress: { where: { studentId: userId } }
+                } : {})
             },
-            orderBy: { createdAt: 'asc' }
+            orderBy: [{ position: 'asc' }, { createdAt: 'asc' }]
         });
 
         // Get orphans resources (no chapter)
@@ -565,6 +571,7 @@ export const updateChapter = async (req: AuthRequest, res: Response) => {
       data: {
         title,
         content: content || null,
+        position: req.body.position !== undefined ? parseInt(req.body.position) : undefined,
       },
     });
 
@@ -1021,5 +1028,89 @@ export const getSharedMaterials = async (req: AuthRequest, res: Response) => {
     res.json(resources);
   } catch (error) {
     res.status(500).json({ message: "Error fetching shared resources", error });
+  }
+};
+
+export const toggleChapterProgress = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params; // chapterId
+    const userId = req.user?.id;
+    const role = req.user?.role as string;
+    const { completed } = req.body;
+
+    if (!userId || role !== "APPRENANT") return res.status(403).json({ message: "Seuls les apprenants peuvent marquer un chapitre" });
+    if (!id) return res.status(400).json({ message: "ID required" });
+
+    // Verify access
+    const chapter = await prisma.chapter.findUnique({
+      where: { id: String(id) },
+      include: { course: true }
+    });
+    if (!chapter) return res.status(404).json({ message: "Chapter not found" });
+
+    const enrollment = await prisma.enrollment.findFirst({
+      where: { studentId: userId, classId: chapter.course.classId }
+    });
+    if (!enrollment) return res.status(403).json({ message: "Non inscrit à ce cours" });
+
+    let progress = await prisma.chapterProgress.findUnique({
+      where: { studentId_chapterId: { studentId: userId, chapterId: id } }
+    });
+
+    if (progress) {
+      progress = await prisma.chapterProgress.update({
+        where: { id: progress.id },
+        data: { completed: Boolean(completed), completedAt: completed ? new Date() : null }
+      });
+    } else {
+      progress = await prisma.chapterProgress.create({
+        data: {
+          studentId: userId,
+          chapterId: id,
+          completed: Boolean(completed),
+          completedAt: completed ? new Date() : null
+        }
+      });
+    }
+
+    res.json(progress);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la mise à jour de la progression", error });
+  }
+};
+
+export const getCourseStats = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params; // courseId
+    const userId = req.user?.id;
+    const role = req.user?.role as string;
+
+    const course = await prisma.course.findUnique({
+      where: { id: String(id) },
+      include: { class: { include: { enrollments: true } }, _count: { select: { chapters: true } } }
+    });
+
+    if (!course) return res.status(404).json({ message: "Course not found" });
+
+    if (role === "ENSEIGNANT" && course.teacherId !== userId) {
+      return res.status(403).json({ message: "Non autorisé" });
+    }
+
+    const totalStudents = course.class.enrollments.length;
+    const totalChapters = course._count.chapters;
+
+    // Get progress for this course's chapters
+    const progressList = await prisma.chapterProgress.findMany({
+      where: { chapter: { courseId: String(id) }, completed: true }
+    });
+
+    res.json({
+      totalStudents,
+      totalChapters,
+      totalProgressMarked: progressList.length,
+      averageProgress: totalStudents > 0 && totalChapters > 0 ? (progressList.length / (totalStudents * totalChapters)) * 100 : 0
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la récupération des stats", error });
   }
 };

@@ -9,6 +9,7 @@ import {
   createTerm,
   toggleTermStatus,
   updateAcademicYear,
+  updateAcademicYearSchools,
   deleteAcademicYear,
   updateTerm,
   deleteTerm,
@@ -22,16 +23,18 @@ const router = Router();
 
 router.use(authenticate);
 
-// Public read for authenticated users
+// Lecture — tous les rôles authentifiés
 router.get("/years", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT]), getAcademicYears);
 router.get("/years/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT]), getAcademicYear);
 router.get("/years/:id/stats", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT]), getAcademicYearStats);
 
-// Restricted write access
+// Écriture — restreint aux admins
 router.use(requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]));
 
 router.post("/years", createAcademicYear);
 router.put("/years/:id", updateAcademicYear);
+// FIX BUG: Route dédiée pour l'affectation/désaffectation des écoles
+router.patch("/years/:id/schools", updateAcademicYearSchools);
 router.delete("/years/:id", deleteAcademicYear);
 router.patch("/years/:id/toggle-complete", toggleAcademicYearComplete);
 router.patch("/years/:id/toggle-active", toggleAcademicYearActive);

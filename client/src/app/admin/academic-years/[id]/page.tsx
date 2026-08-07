@@ -4,7 +4,8 @@ import api from '@/lib/api';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Calendar, Building2, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
+import { Calendar, Building2, CheckCircle2, XCircle, ArrowLeft, BarChart } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('fr-FR', {
@@ -69,9 +70,16 @@ export default function AcademicYearDetailsPage() {
         title="Détails de l'Année Scolaire"
         description={`Consultez les informations et le découpage de l'année scolaire`}
       >
-        <Button variant="secondary" onClick={() => navigate('/admin/academic-years')} leftIcon={<ArrowLeft className="w-4 h-4" />}>
-          Retour aux années
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => navigate('/admin/academic-years')} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+            Retour
+          </Button>
+          <Link to={`/admin/academic-years/${id}/stats`}>
+            <Button variant="primary" leftIcon={<BarChart className="w-4 h-4" />}>
+              Statistiques Globales
+            </Button>
+          </Link>
+        </div>
       </PageHeader>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 md:p-8">

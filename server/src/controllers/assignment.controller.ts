@@ -7,12 +7,16 @@ import { uploadToSupabase } from "../utils/supabase.js";
 const createAssignmentSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
+  startDate: z.string().optional().nullable(),
   dueDate: z.string().transform((str) => new Date(str)),
   courseId: z.string().optional(),
   niveauId: z.string().optional(),
   subjectId: z.string().optional(),
-  type: z.enum(["DEVOIR", "PROJET", "EXAMEN", "EVALUATION"]).optional(),
+  type: z.enum(["DEVOIR", "PROJET", "EXAMEN", "EVALUATION", "NIVEAU"]).optional(),
   termId: z.string().optional(),
+  autoGrade: z.boolean().optional(),
+  isNiveauWide: z.boolean().optional(),
+  imageUrl: z.string().optional(),
 });
 
 const submitAssignmentSchema = z.object({
@@ -27,7 +31,7 @@ const gradeSubmissionSchema = z.object({
 
 export const createAssignment = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, dueDate, courseId, niveauId, subjectId, type, termId, coefficient } = req.body;
+    const { title, description, startDate, dueDate, courseId, niveauId, subjectId, type, termId, coefficient, autoGrade, isNiveauWide, imageUrl } = req.body;
     let finalDescription = description || "";
     let voiceNoteUrl = null;
     let correctionUrl = null;
@@ -89,6 +93,11 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
         termId: req.body.termId || null,
         type: type || "DEVOIR",
         coefficient: parsedCoefficient,
+        startDate: startDate ? new Date(startDate) : null,
+        autoGrade: Boolean(autoGrade),
+        isNiveauWide: Boolean(isNiveauWide) || Boolean(niveauId),
+        imageUrl: imageUrl || null,
+        createdById: req.user?.id,
         voiceNoteUrl: voiceNoteUrl || null,
         correctionUrl: correctionUrl || null,
         attachments: req.body.attachments ? (Array.isArray(req.body.attachments) ? req.body.attachments : JSON.parse(req.body.attachments)) : [],
@@ -476,25 +485,15 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
 export const submitAssignment = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params; // assignmentId
-    // Parse manually
-    const { content } = req.body;
+    const { content, answers } = req.body;
     let fileUrl = req.body.fileUrl;
 
     if (req.file) {
-        // Validation spécifique pour les fichiers (y compris audio)
         if (req.file.mimetype.startsWith('audio/')) {
-            // Taille max 20MB pour l'audio
             if (req.file.size > 20 * 1024 * 1024) {
                 return res.status(400).json({ message: "Le fichier audio dépasse la taille limite de 20MB." });
             }
-            // Formats acceptés
-            const allowedAudio = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/x-m4a'];
-            if (!allowedAudio.includes(req.file.mimetype)) {
-                 // return res.status(400).json({ message: "Format audio non supporté. Utilisez MP3, WAV, OGG ou WEBM." });
-                 // Permissive check or just proceed if it starts with audio/
-            }
         }
-
         const publicUrl = await uploadToSupabase(req.file);
         if (publicUrl) {
             fileUrl = publicUrl;
@@ -511,40 +510,120 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
 
     if (!id) return res.status(400).json({ message: "ID required" });
 
-    // Check if already submitted
-    const existingSubmission = await prisma.submission.findFirst({
-        where: {
-            assignmentId: id as string,
-            studentId
-        }
-    })
+    const assignment = await prisma.assignment.findUnique({
+      where: { id },
+      include: { questions: { include: { options: true } } }
+    });
 
+    if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+
+    // Auto-grading logic for QCM
+    let finalContent = content;
+    let autoScore = null;
+    let isFullyAutoGraded = false;
+
+    if (answers && typeof answers === "object") {
+        let totalPoints = 0;
+        let earnedPoints = 0;
+        let hasManualQuestions = false;
+
+        const parsedAnswers = answers;
+
+        for (const question of assignment.questions) {
+            totalPoints += question.points;
+            if (question.type === "MULTIPLE_CHOICE" || question.type === "SINGLE_CHOICE") {
+                const userSelectedOptions = parsedAnswers[question.id] || [];
+                const correctOptionIds = question.options.filter(o => o.isCorrect).map(o => o.id);
+                
+                const isCorrect = userSelectedOptions.length === correctOptionIds.length && 
+                                  userSelectedOptions.every((oid: string) => correctOptionIds.includes(oid));
+                
+                if (isCorrect) earnedPoints += question.points;
+            } else if (question.type === "FILL_IN_BLANK") {
+                const userText = (parsedAnswers[question.id] as string) || "";
+                const correct = question.expectedAnswer || "";
+                if (userText.trim().toLowerCase() === correct.trim().toLowerCase()) {
+                    earnedPoints += question.points;
+                }
+            } else {
+                hasManualQuestions = true;
+            }
+        }
+
+        finalContent = JSON.stringify(parsedAnswers);
+        
+        if (totalPoints > 0) {
+            autoScore = (earnedPoints / totalPoints) * 20;
+            if (!hasManualQuestions && assignment.autoGrade) {
+                isFullyAutoGraded = true;
+            }
+        }
+    }
+
+    const existingSubmission = await prisma.submission.findFirst({
+        where: { assignmentId: id as string, studentId }
+    });
+
+    let submission;
     if (existingSubmission) {
-        // Option to update instead of fail? User said "submit work", usually implies once or update.
-        // For simplicity, let's allow update if it exists or create new if not (but findFirst checks existence).
-        // Let's stick to "already submitted" for now or update it.
-        // I will update it to be friendlier.
-        const updatedSubmission = await prisma.submission.update({
+        submission = await prisma.submission.update({
             where: { id: existingSubmission.id },
             data: {
-                content: content || existingSubmission.content,
+                content: finalContent || existingSubmission.content,
                 fileUrl: fileUrl || existingSubmission.fileUrl,
                 submittedAt: new Date()
             }
         });
-        return res.status(200).json(updatedSubmission);
+    } else {
+        submission = await prisma.submission.create({
+          data: {
+            assignmentId: id as string,
+            studentId,
+            content: finalContent || null,
+            fileUrl: fileUrl || null,
+          },
+        });
     }
 
-    const submission = await prisma.submission.create({
-      data: {
-        assignmentId: id as string,
-        studentId,
-        content: content || null,
-        fileUrl: fileUrl || null,
-      },
-    });
+    // Apply auto grade if applicable
+    if (isFullyAutoGraded && autoScore !== null) {
+        let finalCourseId = assignment.courseId;
+        if (!finalCourseId && assignment.niveauId && assignment.subjectId) {
+            const enrollment = await prisma.enrollment.findFirst({
+                where: { studentId, status: "ACTIVE", class: { niveauId: assignment.niveauId } }
+            });
+            if (enrollment) {
+                const course = await prisma.course.findFirst({
+                    where: { classId: enrollment.classId, subjectId: assignment.subjectId }
+                });
+                finalCourseId = course?.id ?? null;
+            }
+        }
 
-    res.status(201).json(submission);
+        const gradeTypeMap: Record<string, string> = { EVALUATION: "EVALUATION", DEVOIR: "DEVOIR", EXAMEN: "EXAMEN", NIVEAU: "DEVOIR" };
+
+        await prisma.grade.upsert({
+            where: { submissionId: submission.id },
+            create: {
+                value: parseFloat(autoScore.toFixed(2)),
+                coefficient: assignment.coefficient,
+                comment: "Auto-corrigé",
+                studentId,
+                termId: assignment.termId,
+                courseId: finalCourseId,
+                assignmentId: assignment.id,
+                submissionId: submission.id,
+                type: (gradeTypeMap[assignment.type] ?? "DEVOIR") as any,
+                validated: true
+            },
+            update: {
+                value: parseFloat(autoScore.toFixed(2)),
+                comment: "Auto-corrigé"
+            }
+        });
+    }
+
+    res.status(existingSubmission ? 200 : 201).json(submission);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error submitting assignment", error });
@@ -647,6 +726,10 @@ export const updateAssignment = async (req: AuthRequest, res: Response) => {
         termId: req.body.termId || existing.termId,
         type: type || existing.type,
         coefficient: parsedCoefficient,
+        startDate: req.body.startDate ? new Date(req.body.startDate) : existing.startDate,
+        autoGrade: req.body.autoGrade !== undefined ? Boolean(req.body.autoGrade) : existing.autoGrade,
+        isNiveauWide: req.body.isNiveauWide !== undefined ? Boolean(req.body.isNiveauWide) : existing.isNiveauWide,
+        imageUrl: req.body.imageUrl || existing.imageUrl,
         attachments,
         questions: questionsInput
       },

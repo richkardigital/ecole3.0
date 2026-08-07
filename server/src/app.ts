@@ -40,6 +40,7 @@ import niveauRoutes from './routes/niveau.routes.js';
 import uploadRoutes from "./routes/upload.routes.js";
 import resourceRoutes from "./routes/resource.routes.js";
 import bulletinRoutes from "./routes/bulletin.routes.js";
+import calendarRoutes from "./routes/calendar.routes.js";
 
 const app = express();
 
@@ -109,6 +110,7 @@ app.use("/api/resources", resourceRoutes);             // Ressources pédagogiqu
 app.use("/api/academic-years", academicRoutes);     // Alias Années scolaires
 app.use("/api/uploads", uploadRoutes);             // Upload de fichiers
 app.use("/api/bulletins", bulletinRoutes);         // Bulletins individuels (workflow)
+app.use("/api/calendar", calendarRoutes);          // Calendrier unifié
 
 import { globalErrorHandler } from "./middleware/error-handler.js";
 

@@ -16,9 +16,11 @@ interface Option {
 interface Question {
     id?: string;
     text: string;
-    type: 'SINGLE' | 'MULTIPLE';
+    type: 'SINGLE' | 'MULTIPLE' | 'FILL_IN_BLANK';
     points: number;
-    options: Option[];
+    options?: Option[];
+    expectedAnswer?: string;
+    imageUrl?: string;
 }
 
 interface QuizForm {
@@ -27,14 +29,20 @@ interface QuizForm {
     startDate?: string;
     endDate?: string;
     timeLimit?: number;
+    imageUrl?: string;
+    type?: string;
+    niveauId?: string;
+    autoGrade?: boolean;
     questions: Question[];
 }
 
-const QuestionField = ({ qIndex, control, register, onRemove }: any) => {
+const QuestionField = ({ qIndex, control, register, onRemove, watch }: any) => {
     const { fields: options, append: appendOption, remove: removeOption } = useFieldArray({
         control,
         name: `questions.${qIndex}.options`
     });
+    
+    const questionType = watch(`questions.${qIndex}.type`);
 
     return (
         <div className="bg-brand-sidebar p-6 rounded-xl border border-brand-border/50 space-y-4">
@@ -57,6 +65,7 @@ const QuestionField = ({ qIndex, control, register, onRemove }: any) => {
                             >
                                 <option value="SINGLE">Choix unique</option>
                                 <option value="MULTIPLE">Choix multiple</option>
+                                <option value="FILL_IN_BLANK">Texte à trous</option>
                             </select>
                         </div>
                         <div>
@@ -79,38 +88,60 @@ const QuestionField = ({ qIndex, control, register, onRemove }: any) => {
                 </button>
             </div>
 
+            <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-1">Image optionnelle (URL)</label>
+                <input
+                    {...register(`questions.${qIndex}.imageUrl`)}
+                    className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-card text-brand-text"
+                    placeholder="URL de l'image (optionnel)"
+                />
+            </div>
+
             <div className="space-y-3">
-                <label className="block text-sm font-medium text-brand-text-muted">Options de réponse</label>
-                {options.map((option, oIndex) => (
-                    <div key={option.id} className="flex items-center gap-3">
+                <label className="block text-sm font-medium text-brand-text-muted">Réponse(s) attendue(s)</label>
+                
+                {questionType === 'FILL_IN_BLANK' ? (
+                    <div>
                         <input
-                            type="checkbox"
-                            {...register(`questions.${qIndex}.options.${oIndex}.isCorrect`)}
-                            className="w-5 h-5 text-brand-accent rounded border-brand-border/50 focus:ring-brand-accent"
+                            {...register(`questions.${qIndex}.expectedAnswer`, { required: 'La réponse attendue est requise' })}
+                            className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-card text-brand-text"
+                            placeholder="Entrez la réponse exacte attendue"
                         />
-                        <input
-                            {...register(`questions.${qIndex}.options.${oIndex}.text`, { required: 'Option requise' })}
-                            className="flex-1 p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-card text-brand-text"
-                            placeholder={`Option ${oIndex + 1}`}
-                        />
-                        {options.length > 2 && (
-                            <button
-                                type="button"
-                                onClick={() => removeOption(oIndex)}
-                                className="p-2 text-brand-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        )}
                     </div>
-                ))}
-                <button
-                    type="button"
-                    onClick={() => appendOption({ text: '', isCorrect: false })}
-                    className="text-brand-accent text-sm font-medium flex items-center gap-1 hover:underline"
-                >
-                    <Plus className="w-4 h-4" /> Ajouter une option
-                </button>
+                ) : (
+                    <>
+                        {options.map((option: any, oIndex: number) => (
+                            <div key={option.id} className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    {...register(`questions.${qIndex}.options.${oIndex}.isCorrect`)}
+                                    className="w-5 h-5 text-brand-accent rounded border-brand-border/50 focus:ring-brand-accent"
+                                />
+                                <input
+                                    {...register(`questions.${qIndex}.options.${oIndex}.text`, { required: 'Option requise' })}
+                                    className="flex-1 p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-card text-brand-text"
+                                    placeholder={`Option ${oIndex + 1}`}
+                                />
+                                {options.length > 2 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeOption(oIndex)}
+                                        className="p-2 text-brand-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => appendOption({ text: '', isCorrect: false })}
+                            className="text-brand-accent text-sm font-medium flex items-center gap-1 hover:underline"
+                        >
+                            <Plus className="w-4 h-4" /> Ajouter une option
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     );
@@ -121,7 +152,7 @@ export default function NewQuizPage() {
     const navigate = useNavigate();
     const { toast: addToast } = useToast();
     
-    const { register, control, handleSubmit, formState: { errors } } = useForm<QuizForm>({
+    const { register, control, handleSubmit, watch, formState: { errors } } = useForm<QuizForm>({
         defaultValues: {
             questions: [{ 
                 text: '', 
@@ -150,8 +181,13 @@ export default function NewQuizPage() {
             
             // Basic validation
             for (const q of data.questions) {
-                if (!q.options.some(o => o.isCorrect)) {
+                if (q.type !== 'FILL_IN_BLANK' && (!q.options || !q.options.some(o => o.isCorrect))) {
                     setError(`La question "${q.text}" n'a aucune réponse correcte.`);
+                    setIsSubmitting(false);
+                    return;
+                }
+                if (q.type === 'FILL_IN_BLANK' && !q.expectedAnswer) {
+                    setError(`La question "${q.text}" nécessite une réponse attendue.`);
                     setIsSubmitting(false);
                     return;
                 }
@@ -201,13 +237,33 @@ export default function NewQuizPage() {
                         {errors.title && <span className="text-red-500 text-sm mt-1">{errors.title.message}</span>}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-brand-text-muted mb-1">Description (Optionnel)</label>
-                        <textarea
-                            {...register('description')}
-                            className="w-full p-3 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text resize-y"
-                            placeholder="Instructions pour les élèves..."
-                            rows={3}
+                        <label className="block text-sm font-medium text-brand-text-muted mb-1">Image d'illustration (Optionnel)</label>
+                        <input
+                            {...register('imageUrl')}
+                            className="w-full p-3 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text"
+                            placeholder="URL de l'image (optionnel)"
                         />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-brand-text-muted mb-1">Type d'évaluation</label>
+                            <select
+                                {...register('type')}
+                                className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text"
+                            >
+                                <option value="EVALUATION">Évaluation</option>
+                                <option value="EXERCICE">Exercice</option>
+                                <option value="EXAMEN">Examen</option>
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-2 mt-7">
+                            <input
+                                type="checkbox"
+                                {...register('autoGrade')}
+                                className="w-5 h-5 text-brand-accent rounded border-brand-border/50 focus:ring-brand-accent"
+                            />
+                            <label className="text-sm font-medium text-brand-text">Correction & Notation Automatique</label>
+                        </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
