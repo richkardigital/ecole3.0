@@ -138,6 +138,7 @@ export default function AcademicYears() {
       startDate: new Date(year.startDate).toISOString().split('T')[0],
       endDate: new Date(year.endDate).toISOString().split('T')[0],
       isCurrent: year.isCurrent,
+      schoolIds: year.schools?.map(s => s.id) || [],
     });
     setFormError(null);
     setIsYearModalOpen(true);
@@ -151,16 +152,24 @@ export default function AcademicYears() {
     setSubmitting(true);
     setFormError(null);
     try {
+      let yearId = editingYear?.id;
       if (editingYear) {
         const res = await api.put(`/academic/years/${editingYear.id}`, data);
         setYears(prev => prev.map(y => y.id === editingYear.id ? res.data : y));
-        showToast("Année scolaire mise à jour avec succès.");
       } else {
         const res = await api.post('/academic/years', data);
+        yearId = res.data.id;
         setYears(prev => [res.data, ...prev]);
-        showToast("Nouvelle année scolaire créée avec succès.");
       }
+      
+      // Update schools for SUPER_ADMIN
+      if (isSuperAdmin && data.schoolIds && yearId) {
+        await api.patch(`/academic/years/${yearId}/schools`, { schoolIds: data.schoolIds });
+      }
+      
+      showToast(editingYear ? "Année scolaire mise à jour avec succès." : "Nouvelle année scolaire créée avec succès.");
       setIsYearModalOpen(false);
+      fetchYears(); // Refresh to get the updated schools from backend
     } catch (err: any) {
       setFormError(err.response?.data?.message || "Erreur lors de l'enregistrement.");
     } finally {
