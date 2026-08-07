@@ -49,19 +49,22 @@ const EvaluationHub = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StatCard 
-                    title="Total Devoirs" 
+                    title="Total Devoirs"
+                    label="Total Devoirs" 
                     count={stats?.totalAssignments || 0} 
                     icon={<FileText className="w-6 h-6 text-brand-accent" />} 
                     badgeColor="bg-brand-accent/10 border-brand-accent/20"
                 />
                 <StatCard 
-                    title="Total QCM" 
+                    title="Total QCM"
+                    label="Total QCM" 
                     count={stats?.totalQuizzes || 0} 
                     icon={<CheckCircle className="w-6 h-6 text-green-500" />} 
                     badgeColor="bg-green-50 border-green-200"
                 />
                 <StatCard 
-                    title="En attente" 
+                    title="En attente"
+                    label="En attente" 
                     count={stats?.pending || 0} 
                     icon={<Clock className="w-6 h-6 text-orange-500" />} 
                     badgeColor="bg-orange-50 border-orange-200"

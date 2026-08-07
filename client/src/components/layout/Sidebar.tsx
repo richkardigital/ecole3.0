@@ -5,7 +5,8 @@ import {
   FileText, Megaphone, X, Calendar, MessageCircle, 
   ClipboardList, Network, Settings, 
   Plus, FolderOpen, Library as LibraryIcon, Layers,
-  PenTool, Zap, Users, CheckSquare, BarChart3, Sparkles
+  PenTool, Zap, Users, CheckSquare, BarChart3, Sparkles,
+  CheckCircle
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
