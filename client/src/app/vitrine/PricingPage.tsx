@@ -1,67 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, ArrowRight, Sparkles, Zap, Building2, ShieldCheck, HelpCircle } from 'lucide-react';
-
-const PLANS = [
-  {
-    key: "decouverte",
-    name: "Découverte",
-    priceMonth: "0 FCFA",
-    priceYear: "0 FCFA",
-    period: "Essai 14 jours",
-    desc: "Idéal pour tester toutes les fonctionnalités avec vos premiers enseignants.",
-    features: [
-      "Jusqu'à 100 élèves",
-      "1 Directeur + 5 Enseignants",
-      "Calcul des bulletins trimestriels",
-      "Génération PDF officielle",
-      "Support par email",
-    ],
-    cta: "Tester Gratuitement",
-    variant: "outline" as const,
-  },
-  {
-    key: "pro",
-    name: "Établissement Pro",
-    priceMonth: "45 000 FCFA",
-    priceYear: "450 000 FCFA",
-    period: "par trimestre",
-    popular: true,
-    desc: "La solution complète pour les écoles primaires, collèges et lycées.",
-    features: [
-      "Élèves illimités",
-      "Professeurs & Éducateurs illimités",
-      "Bulletins + Rang + Appréciations",
-      "Espaces Enseignant & Élève distincts",
-      "Annonces Flash & Messagerie",
-      "Réseau Inter-Écoles SEEC",
-      "Support Téléphone & WhatsApp prioritaire",
-    ],
-    cta: "Choisir le Plan Pro",
-    variant: "glow" as const,
-  },
-  {
-    key: "mixte",
-    name: "Complexe Mixte",
-    priceMonth: "Sur Devise",
-    priceYear: "Sur Devise",
-    period: "sur-mesure",
-    desc: "Pour les grands groupes scolaires comprenant Général + Technique & Professionnel.",
-    features: [
-      "Multi-établissements & multi-sites",
-      "Support des coefs modulaires du Technique",
-      "Administrateurs multiples",
-      "Formations personnalisées sur site",
-      "Gestionnaire de compte dédié",
-    ],
-    cta: "Demander un Devis",
-    variant: "outline" as const,
-  },
-];
+import api from '@/lib/api';
 
 export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
+  const [plans, setPlans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const res = await api.get('/subscriptions'); // Retrieves active plans only
+        setPlans(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPlans();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] overflow-x-hidden">
@@ -106,51 +66,80 @@ export default function PricingPage() {
 
       {/* ── PRICING CARDS ── */}
       <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-3 gap-8 items-stretch">
-          {PLANS.map((p, i) => (
-            <div
-              key={i}
-              className={`flex flex-col rounded-3xl p-8 bg-white border transition-all duration-300 relative ${
-                p.popular
-                  ? 'border-emerald-500 shadow-xl shadow-emerald-500/10'
-                  : 'border-slate-200 shadow-sm hover:border-slate-300'
-              }`}
-            >
-              {p.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 chip chip-green px-4 py-1 shadow-md">
-                  ✨ Le Plus Prisé des Directeurs
-                </div>
-              )}
-
-              <div className="mb-6">
-                <h3 className="text-xl font-black text-slate-900 mb-2">{p.name}</h3>
-                <p className="text-xs text-slate-500 min-h-[36px] font-medium">{p.desc}</p>
-              </div>
-
-              <div className="mb-8 pt-4 border-t border-slate-100">
-                <div className="text-4xl font-black text-slate-900 tracking-tight">
-                  {annual ? p.priceYear : p.priceMonth}
-                </div>
-                <div className="text-xs text-slate-500 font-bold mt-1 uppercase tracking-wider">{p.period}</div>
-              </div>
-
-              <div className="space-y-3 flex-1 mb-8">
-                {p.features.map((feat, j) => (
-                  <div key={j} className="flex items-center gap-3 text-xs font-semibold text-slate-700">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{feat}</span>
-                  </div>
-                ))}
-              </div>
-
-              <Link to={`/inscription?plan=${p.key}&billing=${annual ? 'annuel' : 'trimestriel'}`}>
-                <Button variant={p.variant} size="lg" className="w-full">
-                  {p.cta}
-                </Button>
-              </Link>
+          {loading ? (
+            <div className="flex justify-center items-center h-32">
+              <p className="text-slate-500 font-medium">Chargement des abonnements...</p>
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {plans.map((plan, i) => {
+                // Dynamically determine popular status or variant
+                const isPopular = plan.price > 0 && plan.price <= 50000;
+                const ctaText = plan.price === 0 ? "Tester Gratuitement" : plan.price > 0 ? `Choisir ${plan.name}` : "Demander un Devis";
+                
+                return (
+                  <div 
+                    key={plan.id}
+                    className={`relative rounded-3xl p-8 border ${
+                      isPopular 
+                        ? 'bg-slate-900 border-slate-900 shadow-2xl scale-105 z-10' 
+                        : 'bg-white border-slate-200 shadow-xl'
+                    }`}
+                  >
+                    {isPopular && (
+                      <div className="absolute -top-4 left-0 right-0 flex justify-center">
+                        <span className="bg-emerald-500 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-lg flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          Le plus choisi
+                        </span>
+                      </div>
+                    )}
+  
+                    <h3 className={`text-xl font-black mb-2 ${isPopular ? 'text-white' : 'text-slate-900'}`}>
+                      {plan.name}
+                    </h3>
+                    <p className={`text-sm mb-6 ${isPopular ? 'text-slate-300' : 'text-slate-500'}`}>
+                      {plan.description}
+                    </p>
+  
+                    <div className="mb-8">
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-4xl font-black ${isPopular ? 'text-white' : 'text-slate-900'}`}>
+                          {plan.price === 0 ? "Gratuit" : `${plan.price} FCFA`}
+                        </span>
+                      </div>
+                      <span className={`text-xs font-bold uppercase tracking-wider ${isPopular ? 'text-emerald-400' : 'text-slate-400'}`}>
+                        {plan.period}
+                      </span>
+                    </div>
+  
+                    <Link to={`/register-school?plan=${plan.planKey}&billing=${annual ? 'annuel' : 'trimestriel'}`} className="block w-full">
+                      <Button 
+                        variant={isPopular ? 'default' : 'outline'} 
+                        className={`w-full ${isPopular ? '' : 'border-slate-200 text-slate-700 hover:border-emerald-600 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                      >
+                        {ctaText}
+                      </Button>
+                    </Link>
+  
+                    <div className="mt-8 space-y-4">
+                      <p className={`text-[10px] font-black uppercase tracking-wider ${isPopular ? 'text-slate-400' : 'text-slate-400'}`}>
+                        Inclus dans ce plan
+                      </p>
+                      {plan.features.map((feat: string, j: number) => (
+                        <div key={j} className="flex items-start gap-3">
+                          <CheckCircle2 className={`w-5 h-5 shrink-0 ${isPopular ? 'text-emerald-400' : 'text-emerald-500'}`} />
+                          <span className={`text-sm font-medium ${isPopular ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {feat}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
       </section>
     </div>
   );

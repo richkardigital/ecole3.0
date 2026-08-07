@@ -59,6 +59,37 @@ const MainLayout = () => {
   const { user } = useAuth();
   const clock = useClock();
 
+  // Redirect or block if subscription is expired
+  if (user?.role !== 'SUPER_ADMIN' && user?.subscriptionStatus === 'EXPIRED') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-red-100 p-8 text-center animate-fade-in-up">
+          <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-2">Abonnement Expiré</h2>
+          <p className="text-slate-500 mb-8 font-medium">
+            L'abonnement de votre établissement est arrivé à expiration. L'accès à la plateforme a été restreint. Veuillez contacter le support ou renouveler votre abonnement pour restaurer l'accès.
+          </p>
+          <div className="space-y-3">
+            <button className="w-full py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20">
+              Contacter le Support
+            </button>
+            <Link to="/login" className="block w-full py-3 text-slate-600 font-bold hover:text-slate-900 transition-colors">
+              Retour à la connexion
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate if subscription is expiring soon (less than 7 days)
+  const isExpiringSoon = user?.role !== 'SUPER_ADMIN' && user?.subscriptionStatus === 'ACTIVE' && user?.subscriptionEndDate && 
+    (new Date(user.subscriptionEndDate).getTime() - new Date().getTime()) < 7 * 24 * 60 * 60 * 1000;
+
   const breadcrumbs = location.pathname
     .split('/')
     .filter(Boolean)
@@ -81,7 +112,7 @@ const MainLayout = () => {
 
         {/* ── TOPBAR ── */}
         <header
-          className="h-14 flex items-center justify-between px-4 md:px-6 shrink-0 sticky top-0 z-30"
+          className="flex flex-col sticky top-0 z-30"
           style={{
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(20px)',
@@ -89,7 +120,15 @@ const MainLayout = () => {
             boxShadow: '0 1px 3px rgba(15, 23, 42, 0.03)',
           }}
         >
-          <div className="flex items-center gap-4 min-w-0">
+          {isExpiringSoon && (
+            <div className="bg-orange-50 border-b border-orange-200 px-4 py-2 flex items-center justify-center gap-2">
+              <span className="flex w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
+              <p className="text-xs font-bold text-orange-800">
+                Attention : Votre abonnement expire bientôt (le {new Date(user!.subscriptionEndDate!).toLocaleDateString('fr-FR')}). Pensez à le renouveler.
+              </p>
+            </div>
+          )}
+          <div className="flex h-14 items-center gap-4 min-w-0 px-4 md:px-6">
             {/* Mobile hamburger */}
             <button
               className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all"

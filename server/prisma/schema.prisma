@@ -140,6 +140,27 @@ model SchoolType {
 }
 
 // =============================================
+// SUBSCRIPTION — Abonnement des Écoles
+// =============================================
+
+model Subscription {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  planKey     String   @unique // 'starter', 'pro', 'premium' etc.
+  description String?
+  price       Float    @default(0)
+  period      String   @default("Mensuel") // Mensuel, Annuel, etc.
+  features    String[] // Liste des fonctionnalités incluses
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  schools     School[]
+
+  @@index([isActive])
+}
+
+// =============================================
 // SCHOOL — Établissement scolaire
 // =============================================
 
@@ -167,6 +188,13 @@ model School {
   // Directeur de l'école
   managerId String? @unique
   manager   User?   @relation("SchoolManager", fields: [managerId], references: [id])
+
+  // Abonnement
+  subscriptionId        String?
+  subscription          Subscription? @relation(fields: [subscriptionId], references: [id])
+  subscriptionStatus    String        @default("ACTIVE") // ACTIVE, EXPIRED, PENDING
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
 
   // Relations
   users         User[]         @relation("SchoolUsers")

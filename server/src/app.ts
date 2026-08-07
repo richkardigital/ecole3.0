@@ -41,6 +41,7 @@ import uploadRoutes from "./routes/upload.routes.js";
 import resourceRoutes from "./routes/resource.routes.js";
 import bulletinRoutes from "./routes/bulletin.routes.js";
 import calendarRoutes from "./routes/calendar.routes.js";
+import subscriptionRoutes from "./routes/subscription.routes.js";
 
 const app = express();
 
@@ -111,6 +112,7 @@ app.use("/api/academic-years", academicRoutes);     // Alias Années scolaires
 app.use("/api/uploads", uploadRoutes);             // Upload de fichiers
 app.use("/api/bulletins", bulletinRoutes);         // Bulletins individuels (workflow)
 app.use("/api/calendar", calendarRoutes);          // Calendrier unifié
+app.use("/api/subscriptions", subscriptionRoutes); // Gestion des abonnements
 
 import { globalErrorHandler } from "./middleware/error-handler.js";
 

@@ -125,7 +125,7 @@ export default function AcademicYears() {
       startDate: '', 
       endDate: '', 
       isCurrent: false,
-      schoolIds: schools.map(s => s.id) // Select all by default
+      schoolIds: [] // No schools selected by default
     });
     setFormError(null);
     setIsYearModalOpen(true);

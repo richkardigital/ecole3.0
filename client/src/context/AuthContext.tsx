@@ -14,6 +14,8 @@ interface User {
   firstName: string;
   lastName: string;
   schoolId?: string;
+  subscriptionStatus?: string;
+  subscriptionEndDate?: string | null;
   matricule?: string;
   phone?: string;
   parentPhone?: string;

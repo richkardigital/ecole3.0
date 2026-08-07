@@ -21,6 +21,7 @@ import AcademicYearDetailsPage from '@/app/admin/academic-years/[id]/page';
 import Courses from '@/app/academic/courses/page';
 import CourseDetails from '@/app/academic/courses/details';
 import AssignmentDetails from '@/app/academic/assignments/details';
+import SubscriptionsPage from '@/app/admin/subscriptions/page';
 import Library from '@/app/academic/library/page';
 import AdminLibrary from '@/app/admin/library/page';
 import NewLibraryDocumentPage from '@/app/admin/library/new/page';
@@ -136,6 +137,7 @@ function App() {
                     <Route path="/admin/news" element={<News />} />
                     <Route path="/admin/absences" element={<Absences />} />
                     <Route path="/admin/conduct" element={<Conduct />} />
+                    <Route path="/admin/subscriptions" element={<SubscriptionsPage />} />
                     <Route path="/admin/chat" element={<Chat />} />
                     <Route path="/admin/forum" element={<Forum />} />
                     <Route path="/admin/agenda" element={<Agenda />} />

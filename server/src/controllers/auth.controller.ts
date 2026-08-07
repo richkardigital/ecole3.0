@@ -112,7 +112,30 @@ export const registerSchool = async (req: Request, res: Response) => {
         if (existingSt) validSchoolTypeId = existingSt.id;
       }
 
-      // Créer l'école en lui associant le directeur
+      // 1.5. Trouver l'abonnement par défaut ou celui sélectionné (planKey dans formData, s'il existe, sinon 'pro')
+      const planKey = (req.body.selectedPlan && typeof req.body.selectedPlan === 'string') 
+          ? (req.body.selectedPlan.toLowerCase().includes('découverte') ? 'decouverte' : 
+             req.body.selectedPlan.toLowerCase().includes('mixte') ? 'mixte' : 'pro') 
+          : 'pro';
+      
+      const subscription = await tx.subscription.findUnique({
+        where: { planKey: planKey }
+      });
+
+      // Calculer la date de fin d'abonnement selon la période
+      let endDate = new Date();
+      if (subscription?.period.toLowerCase().includes('trimestre')) {
+        endDate.setMonth(endDate.getMonth() + 3);
+      } else if (subscription?.period.toLowerCase().includes('an')) {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      } else if (subscription?.period.toLowerCase().includes('essai') || subscription?.period.toLowerCase().includes('14')) {
+        endDate.setDate(endDate.getDate() + 14);
+      } else {
+        // Par défaut (Mensuel ou sur-mesure si on bloque pas), +1 mois
+        endDate.setMonth(endDate.getMonth() + 1);
+      }
+
+      // 2. Créer l'école en lui associant le directeur et l'abonnement
       const newSchool = await tx.school.create({
         data: {
           name: schoolName,
@@ -121,7 +144,11 @@ export const registerSchool = async (req: Request, res: Response) => {
           address: schoolAddress,
           teachingTypeId: validTeachingTypeId,
           schoolTypeId: validSchoolTypeId,
-          managerId: newManager.id
+          managerId: newManager.id,
+          subscriptionId: subscription?.id,
+          subscriptionStatus: "ACTIVE",
+          subscriptionStartDate: new Date(),
+          subscriptionEndDate: endDate
         }
       });
 
@@ -205,7 +232,9 @@ export const login = async (req: Request, res: Response) => {
         role: user.role, 
         firstName: user.firstName, 
         lastName: user.lastName, 
-        schoolId: user.schoolId 
+        schoolId: user.schoolId,
+        subscriptionStatus: user.school?.subscriptionStatus || "ACTIVE",
+        subscriptionEndDate: user.school?.subscriptionEndDate || null
       } 
     });
   } catch (error: any) {

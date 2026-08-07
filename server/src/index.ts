@@ -7,6 +7,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import app from "./app.js";
 import { setupSocket } from "./socket/index.js";
+import { startSubscriptionCron } from "./cron/subscription.cron.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -22,6 +23,9 @@ const io = new Server(server, {
 
 setupSocket(io);
 app.set("io", io);
+
+// Lancer les tâches en arrière-plan (ex: vérifier les expirations d'abonnement)
+startSubscriptionCron();
 
 // Only listen if not running in Vercel/Serverless environment
 if (process.env.NODE_ENV !== 'production') {

@@ -7,34 +7,16 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 
-const PLAN_DETAILS: Record<string, { name: string; price: string; period: string; color: string }> = {
-  decouverte: {
-    name: "Plan Découverte",
-    price: "0 FCFA",
-    period: "Essai gratuit 14 jours",
-    color: "bg-emerald-50 text-emerald-800 border-emerald-200"
-  },
-  pro: {
-    name: "Établissement Pro",
-    price: "45 000 FCFA",
-    period: "par trimestre",
-    color: "bg-emerald-100 text-emerald-900 border-emerald-300"
-  },
-  mixte: {
-    name: "Complexe Mixte",
-    price: "Sur Devis",
-    period: "sur-mesure",
-    color: "bg-sky-50 text-sky-800 border-sky-200"
-  }
-};
+// We now fetch plans dynamically
 
 export default function RegisterSchoolPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const planKey = searchParams.get('plan') || 'pro';
+  const [plans, setPlans] = useState<any[]>([]);
+  const [selectedPlanInfo, setSelectedPlanInfo] = useState<any>(null);
+  
   const billingKey = searchParams.get('billing') || 'trimestriel';
-  const selectedPlanInfo = PLAN_DETAILS[planKey] || PLAN_DETAILS.pro;
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
@@ -56,7 +38,7 @@ export default function RegisterSchoolPage() {
     schoolAddress: '',
     teachingTypeId: '',
     schoolTypeId: '',
-    selectedPlan: selectedPlanInfo.name,
+    selectedPlan: '',
     billingPeriod: billingKey,
   });
 
@@ -77,9 +59,10 @@ export default function RegisterSchoolPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [ttRes, stRes] = await Promise.all([
+        const [ttRes, stRes, planRes] = await Promise.all([
           api.get('/teaching-types'),
-          api.get('/school-types')
+          api.get('/school-types'),
+          api.get('/subscriptions')
         ]);
         
         const activeTt = ttRes.data?.filter((t: any) => t.isActive);
@@ -87,13 +70,26 @@ export default function RegisterSchoolPage() {
 
         const activeSt = stRes.data?.filter((t: any) => t.isActive);
         setSchoolTypes(activeSt?.length > 0 ? activeSt : FALLBACK_SCHOOL_TYPES);
+
+        const fetchedPlans = planRes.data;
+        setPlans(fetchedPlans);
+        
+        const pKey = searchParams.get('plan') || 'pro';
+        const foundPlan = fetchedPlans.find((p: any) => p.planKey === pKey) || fetchedPlans.find((p: any) => p.planKey === 'pro') || fetchedPlans[0];
+        setSelectedPlanInfo(foundPlan);
+        
+        setFormData(prev => ({ ...prev, selectedPlan: foundPlan?.planKey || '' }));
       } catch {
         setTeachingTypes(FALLBACK_TEACHING_TYPES);
         setSchoolTypes(FALLBACK_SCHOOL_TYPES);
+        // Fallback minimal pour éviter le crash complet
+        const fallbackPlan = { name: "Établissement Pro", price: 45000, period: "par trimestre", color: "bg-emerald-100 text-emerald-900", planKey: "pro" };
+        setSelectedPlanInfo(fallbackPlan);
+        setFormData(prev => ({ ...prev, selectedPlan: "pro" }));
       }
     };
     fetchData();
-  }, []);
+  }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -143,7 +139,7 @@ export default function RegisterSchoolPage() {
     try {
       await api.post('/auth/register-school', formData);
       navigate('/login', {
-        state: { message: `Inscription réussie pour le plan "${selectedPlanInfo.name}" ! Connectez-vous avec vos identifiants.` }
+        state: { message: `Inscription réussie pour le plan "${selectedPlanInfo?.name}" ! Connectez-vous avec vos identifiants.` }
       });
     } catch (err: any) {
       setError(err.response?.data?.message || "Une erreur est survenue lors de l'enregistrement de l'école.");
@@ -563,9 +559,9 @@ export default function RegisterSchoolPage() {
                       <p className="text-slate-500 text-[11px] mt-1 font-semibold">Type: {selectedTypeName}</p>
                     </div>
 
-                    <div className={`rounded-2xl p-4 border ${selectedPlanInfo.color}`}>
+                    <div className={`rounded-2xl p-4 border ${selectedPlanInfo?.color || 'bg-indigo-50 text-indigo-900 border-indigo-200'}`}>
                       <p className="text-[10px] font-black uppercase tracking-wider mb-1">Formule choisie</p>
-                      <p className="font-black text-slate-900 text-sm">{selectedPlanInfo.name} — {selectedPlanInfo.price}</p>
+                      <p className="font-black text-slate-900 text-sm">{selectedPlanInfo?.name} — {selectedPlanInfo?.price === 0 ? "Gratuit" : `${selectedPlanInfo?.price} FCFA`}</p>
                     </div>
                   </div>
 

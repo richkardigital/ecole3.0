@@ -5,7 +5,7 @@ import {
   FileText, Megaphone, X, Calendar, MessageCircle, 
   ClipboardList, Network, Settings, 
   Plus, FolderOpen, Library as LibraryIcon, Layers,
-  PenTool, Zap, Users, CheckSquare, BarChart3, Sparkles
+  PenTool, Zap, Users, CheckSquare, BarChart3, Sparkles, CreditCard
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
@@ -155,6 +155,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/admin/school-types" icon={School} isActive={p === '/admin/school-types'}>Types d'établissement</NavItem>
                 <NavItem to="/admin/academic-years" icon={Calendar} isActive={p === '/admin/academic-years'}>Années Scolaires</NavItem>
                 <NavItem to="/admin/niveaux" icon={GraduationCap} isActive={p === '/admin/niveaux'}>Niveaux Scolaires</NavItem>
+                <NavItem to="/admin/subscriptions" icon={CreditCard} isActive={p === '/admin/subscriptions'}>Abonnements</NavItem>
               </NavSection>
               <NavSection title="Académique">
                 <NavItem to="/admin/courses" icon={BookOpen} isActive={p.startsWith('/admin/courses')}>Cours & Chapitres</NavItem>
