@@ -12,7 +12,13 @@ interface Subscription {
   period: string;
   features: string[];
   isActive: boolean;
-  schools?: { id: string; name: string }[];
+  schools?: { 
+    id: string; 
+    name: string; 
+    ville: string;
+    subscriptionStatus?: string;
+    subscriptionEndDate?: string;
+  }[];
 }
 
 export default function SubscriptionsPage() {

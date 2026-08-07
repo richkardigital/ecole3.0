@@ -115,7 +115,7 @@ export default function PricingPage() {
   
                     <Link to={`/register-school?plan=${plan.planKey}&billing=${annual ? 'annuel' : 'trimestriel'}`} className="block w-full">
                       <Button 
-                        variant={isPopular ? 'default' : 'outline'} 
+                        variant={isPopular ? 'glow' : 'outline'} 
                         className={`w-full ${isPopular ? '' : 'border-slate-200 text-slate-700 hover:border-emerald-600 hover:text-emerald-600 hover:bg-emerald-50'}`}
                       >
                         {ctaText}
