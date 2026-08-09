@@ -110,15 +110,15 @@ export default function TeacherGradesGrid({ classId, termId, onRefresh }: Teache
       setCourse(data.course);
       setStudents(data.students);
 
-      // Combiner devoirs + quizzes
+      // Combiner devoirs + quizzes, mais exclure les exercices (non notés)
       const combinedAssessments: Assessment[] = [
-        ...data.assignments.map((a: any) => ({
+        ...data.assignments.filter((a: any) => a.type !== 'EXERCICE_MAISON').map((a: any) => ({
           id: a.id,
           title: a.title,
           coefficient: a.coefficient,
           type: 'assignment' as const,
         })),
-        ...data.quizzes.map((q: any) => ({
+        ...data.quizzes.filter((q: any) => q.type !== 'EXERCICE_MAISON').map((q: any) => ({
           id: q.id,
           title: q.title + ' (Quiz)',
           coefficient: q.coefficient,

@@ -5,8 +5,11 @@ import { Button } from '@/components/ui/Button';
 import { Plus, Eye, Edit2, Trash2, LayoutGrid, List, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AssignmentsPage() {
+  const { user } = useAuth();
+  const isEnseignant = user?.role === 'ENSEIGNANT';
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,10 +51,10 @@ export default function AssignmentsPage() {
       header: 'Action',
       render: (row: any) => (
         <div className="flex items-center gap-2">
-          <Link to={`/assignments/${row.id}`}>
+          <Link to={isEnseignant ? `/enseignant/assignments/${row.id}` : `/assignments/${row.id}`}>
             <Button variant="primary" size="sm" className="flex items-center gap-1">
               <Eye className="w-3.5 h-3.5" />
-              Faire le devoir
+              {isEnseignant ? 'Voir les détails' : 'Faire le devoir'}
             </Button>
           </Link>
         </div>
@@ -170,7 +173,7 @@ export default function AssignmentsPage() {
                         </div>
                         <Button variant="primary" size="sm" className="w-full flex items-center justify-center gap-1">
                             <Eye className="w-4 h-4" />
-                            Faire le devoir
+                            {isEnseignant ? 'Voir les détails' : 'Faire le devoir'}
                         </Button>
                     </div>
                 </div>

@@ -65,18 +65,18 @@ const QuizAttemptDetail = () => {
                 Retour
             </Button>
 
-            <div className="bg-brand-card p-8 rounded-2xl shadow-sm border border-brand-border/50 mb-8">
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 mb-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-brand-text">{attempt.quiz.title}</h1>
-                        <p className="text-brand-text-muted">
+                        <h1 className="text-2xl font-bold text-slate-900">{attempt.quiz.title}</h1>
+                        <p className="text-slate-500">
                             Par {attempt.student.firstName} {attempt.student.lastName} • 
                             Le {new Date(attempt.completedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                     </div>
-                    <div className="bg-brand-accent/10 px-6 py-3 rounded-xl border border-brand-accent/20 text-center">
-                        <span className="block text-sm text-brand-accent font-medium uppercase tracking-wider">Note Finale</span>
-                        <span className="text-4xl font-black text-brand-accent">
+                    <div className="bg-indigo-50 px-6 py-3 rounded-xl border border-indigo-200 text-center">
+                        <span className="block text-sm text-indigo-600 font-medium uppercase tracking-wider">Note Finale</span>
+                        <span className="text-4xl font-black text-indigo-600">
                             {attempt.score.toFixed(1)}<span className="text-xl opacity-60">/20</span>
                         </span>
                     </div>
@@ -84,8 +84,8 @@ const QuizAttemptDetail = () => {
             </div>
 
             <div className="space-y-6">
-                <h2 className="text-xl font-bold text-brand-text flex items-center gap-2">
-                    <Info className="w-5 h-5 text-brand-accent" />
+                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    <Info className="w-5 h-5 text-indigo-600" />
                     Détail des réponses
                 </h2>
 
@@ -106,10 +106,10 @@ const QuizAttemptDetail = () => {
                         }`}>
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex gap-3">
-                                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-brand-sidebar border border-brand-border/50 flex items-center justify-center font-bold text-brand-text">
+                                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center font-bold text-slate-900">
                                         {index + 1}
                                     </span>
-                                    <h3 className="text-lg font-bold text-brand-text pt-0.5">{question.text}</h3>
+                                    <h3 className="text-lg font-bold text-slate-900 pt-0.5">{question.text}</h3>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {isFullyCorrect ? (
@@ -121,7 +121,7 @@ const QuizAttemptDetail = () => {
                                             <XCircle className="w-4 h-4" /> Erreur
                                         </span>
                                     )}
-                                    <span className="text-sm text-brand-text-muted font-medium">
+                                    <span className="text-sm text-slate-500 font-medium">
                                         {question.points} pt{question.points > 1 ? 's' : ''}
                                     </span>
                                 </div>
@@ -132,7 +132,7 @@ const QuizAttemptDetail = () => {
                                     const isSelected = selectedIds.includes(option.id);
                                     const isCorrect = option.isCorrect;
                                     
-                                    let statusStyle = "border-brand-border/50 bg-brand-sidebar";
+                                    let statusStyle = "border-slate-200 bg-slate-50";
                                     let icon = null;
 
                                     if (isCorrect) {
@@ -147,11 +147,11 @@ const QuizAttemptDetail = () => {
                                         <div key={option.id} className={`p-3 rounded-lg border flex items-center justify-between ${statusStyle}`}>
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-4 h-4 rounded flex items-center justify-center border ${
-                                                    isSelected ? 'bg-brand-accent border-brand-accent' : 'border-brand-text-muted'
+                                                    isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-brand-text-muted'
                                                 }`}>
-                                                    {isSelected && <div className="w-1.5 h-1.5 bg-brand-bg rounded-full"></div>}
+                                                    {isSelected && <div className="w-1.5 h-1.5 bg-[#F8FAFC] rounded-full"></div>}
                                                 </div>
-                                                <span className="font-medium text-brand-text">{option.text}</span>
+                                                <span className="font-medium text-slate-900">{option.text}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {isSelected && <span className="text-xs font-bold uppercase tracking-tighter opacity-60">Votre réponse</span>}
@@ -163,10 +163,10 @@ const QuizAttemptDetail = () => {
                             </div>
 
                             {!isFullyCorrect && (
-                                <div className="mt-4 ml-11 p-3 bg-brand-accent/10 rounded-lg border border-brand-accent/20 flex items-start gap-2 text-sm text-brand-accent">
+                                <div className="mt-4 ml-11 p-3 bg-indigo-50 rounded-lg border border-indigo-200 flex items-start gap-2 text-sm text-indigo-600">
                                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                                     <p>
-                                        <strong className="text-brand-text">Solution correcte :</strong> {question.options.filter(o => o.isCorrect).map(o => o.text).join(', ')}
+                                        <strong className="text-slate-900">Solution correcte :</strong> {question.options.filter(o => o.isCorrect).map(o => o.text).join(', ')}
                                     </p>
                                 </div>
                             )}

@@ -42,13 +42,13 @@ const FEATURES_BENTO = [
     colSpan: "",
   },
   {
-    title: "Réseau Inter-Écoles SEEC",
+    title: "Réseau Inter-Écoles SEEEC",
     desc: "Connectez-vous au réseau des 150+ établissements partenaires pour partager épreuves, ressources et bonnes pratiques.",
     icon: Network,
     iconColor: "text-emerald-600",
     iconBg: "bg-emerald-50 border-emerald-200",
     colSpan: "lg:col-span-2",
-    tag: "🌐 Exclusif SEEC",
+    tag: "🌐 Exclusif SEEEC",
     tagClass: "chip-green",
   },
 ];
@@ -82,7 +82,7 @@ export default function LandingPage() {
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-xs font-bold text-slate-700 uppercase tracking-widest flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              ÉCOLE 3.0 — Plateforme Éducative SEEC
+              ÉCOLE 3.0 — Plateforme Éducative SEEEC
             </span>
           </div>
 
@@ -94,7 +94,7 @@ export default function LandingPage() {
 
           {/* Subtitle */}
           <p className="text-lg md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed mb-12 font-medium">
-            La solution tout-en-un conçue pour les directeurs et enseignants d'Afrique de l'Ouest. Bulletins automatiques, gestion des classes et réseau inter-écoles SEEC.
+            La solution tout-en-un conçue pour les directeurs et enseignants d'Afrique de l'Ouest. Bulletins automatiques, gestion des classes et réseau inter-écoles SEEEC.
           </p>
 
           {/* CTA Group */}
@@ -140,7 +140,7 @@ export default function LandingPage() {
               </div>
               <div className="text-[11px] font-bold text-slate-500 px-4 py-1 rounded-lg"
                 style={{ background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
-                🔒 app.ecole3-seec.ci/dashboard
+                🔒 app.ecole3-seeec.ci/dashboard
               </div>
               <div className="chip chip-green text-[10px]">🟢 Direct & Connecté</div>
             </div>
@@ -173,7 +173,7 @@ export default function LandingPage() {
               {/* Stat Card 3 */}
               <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Réseau SEEC</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Réseau SEEEC</span>
                   <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center font-bold text-xs">150+</div>
                 </div>
                 <div className="text-3xl font-black text-slate-900 mb-1">150+</div>

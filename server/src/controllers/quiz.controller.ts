@@ -14,6 +14,7 @@ const questionSchema = z.object({
   correctAnswer: z.string().optional().nullable(), // Pour FILL_IN_BLANK
   options: z.array(z.object({
     text: z.string().min(1),
+    imageUrl: z.string().optional().nullable(),
     isCorrect: z.boolean(),
   })).optional().default([]),
 });
@@ -21,7 +22,7 @@ const questionSchema = z.object({
 const createQuizSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional().nullable(),
-  type: z.enum(["EVALUATION", "DEVOIR", "EXAMEN", "NIVEAU"]).default("EVALUATION"),
+  type: z.enum(["EXERCICE_MAISON", "DEVOIR_MAISON", "DEVOIR_CLASSE", "DEVOIR_NIVEAU"]).default("DEVOIR_MAISON"),
   courseId: z.string().uuid().optional().nullable(),
   niveauId: z.string().uuid().optional().nullable(),
   termId: z.string().uuid().optional().nullable(),
@@ -88,12 +89,16 @@ const createAutoGrade = async (
     }
   }
 
+  if (quiz.type === "EXERCICE_MAISON") {
+    // Non noté
+    return;
+  }
+
   // Mapper QuizType → GradeType
   const gradeTypeMap: Record<string, string> = {
-    EVALUATION: "EVALUATION",
-    DEVOIR: "DEVOIR",
-    EXAMEN: "EXAMEN",
-    NIVEAU: "DEVOIR",
+    DEVOIR_MAISON: "DEVOIR",
+    DEVOIR_CLASSE: "EVALUATION",
+    DEVOIR_NIVEAU: "EXAMEN",
   };
 
   try {
@@ -169,6 +174,7 @@ export const createQuiz = async (req: AuthRequest, res: Response) => {
             options: q.options && q.options.length > 0 ? {
               create: q.options.map(opt => ({
                 text: opt.text,
+                imageUrl: opt.imageUrl,
                 isCorrect: opt.isCorrect,
               })),
             } : undefined,
@@ -232,7 +238,7 @@ export const updateQuiz = async (req: AuthRequest, res: Response) => {
             imageUrl: q.imageUrl,
             position: q.position ?? idx,
             options: q.options && q.options.length > 0 ? {
-              create: q.options.map(opt => ({ text: opt.text, isCorrect: opt.isCorrect })),
+              create: q.options.map(opt => ({ text: opt.text, imageUrl: opt.imageUrl, isCorrect: opt.isCorrect })),
             } : undefined,
           })),
         },

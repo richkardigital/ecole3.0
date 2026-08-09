@@ -56,7 +56,7 @@ export const VitrineNavbar = () => {
                 ÉCOLE 3.0
               </span>
               <span className="text-[9px] font-black tracking-[0.18em] text-emerald-600 uppercase flex items-center gap-1 mt-0.5">
-                <Sparkles className="w-2.5 h-2.5" /> Signé SEEC
+                <Sparkles className="w-2.5 h-2.5" /> Signé SEEEC
               </span>
             </div>
           </Link>

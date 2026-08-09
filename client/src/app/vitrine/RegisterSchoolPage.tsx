@@ -156,6 +156,17 @@ export default function RegisterSchoolPage() {
     { n: 3, title: 'Validation', desc: 'Formule & Activation' },
   ];
 
+  if (!selectedPlanInfo) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <GraduationCap className="w-12 h-12 text-emerald-600 mb-4 opacity-50" />
+          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4 py-12 relative overflow-hidden">
       
@@ -183,7 +194,7 @@ export default function RegisterSchoolPage() {
                 <div>
                   <span className="text-lg font-black text-slate-900 leading-none block">ÉCOLE 3.0</span>
                   <span className="text-[9px] font-black tracking-[0.18em] text-emerald-600 uppercase flex items-center gap-1">
-                    <Sparkles className="w-2.5 h-2.5" /> SEEC Platform
+                    <Sparkles className="w-2.5 h-2.5" /> SEEEC Platform
                   </span>
                 </div>
               </div>
@@ -192,7 +203,7 @@ export default function RegisterSchoolPage() {
                 Enregistrez votre<br />Établissement
               </h2>
               <p className="text-xs text-slate-600 leading-relaxed mb-8 font-medium">
-                Activez l'espace administrateur de votre école et bénéficiez de toutes les fonctionnalités SEEC.
+                Activez l'espace administrateur de votre école et bénéficiez de toutes les fonctionnalités SEEEC.
               </p>
 
               {/* Selected Plan Summary Badge */}
@@ -207,7 +218,9 @@ export default function RegisterSchoolPage() {
                 </div>
                 <p className="font-black text-sm text-slate-900">{selectedPlanInfo.name}</p>
                 <p className="text-xs font-semibold text-slate-600 mt-0.5">
-                  {selectedPlanInfo.price} <span className="text-[10px]">({billingKey === 'annuel' ? 'Annuel' : selectedPlanInfo.period})</span>
+                  {typeof selectedPlanInfo.price === 'number' 
+                    ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(selectedPlanInfo.price)
+                    : selectedPlanInfo.price} <span className="text-[10px]">({billingKey === 'annuel' ? 'Annuel' : selectedPlanInfo.period})</span>
                 </p>
               </div>
 

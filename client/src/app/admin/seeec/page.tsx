@@ -71,8 +71,8 @@ export default function SeecPage() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Réseau SEEC" 
-        description="Liste de toutes les écoles connectées au réseau SEEC."
+        title="Réseau SEEEC" 
+        description="Liste de toutes les écoles connectées au réseau SEEEC."
       >
         <Button variant="outline" onClick={handleExport}>
           <FileSpreadsheet className="w-4 h-4 mr-2" />

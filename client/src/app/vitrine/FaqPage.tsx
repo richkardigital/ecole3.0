@@ -9,7 +9,7 @@ const FAQS = [
   { category: 'BULLETINS', q: "Comment fonctionne la génération des bulletins trimestriels ?", a: "Dès que les enseignants saisissent les notes, la plateforme calcule automatiquement les moyennes coefficées, rangs et appréciations. Le directeur clique ensuite sur 'Imprimer les bulletins PDF'." },
   { category: 'BULLETINS', q: "Le système respecte-t-il le calendrier scolaire ivoirien ?", a: "Oui ! Découpage en 3 Trimestres (Octobre-Décembre, Janvier-Mars, Avril-Juin) avec verrouillage des périodes pour sécuriser les notes." },
   { category: 'SECURITE', q: "Où sont stockées les données des élèves ?", a: "Sur des serveurs sécurisés avec sauvegardes quotidiennes chiffrées. Les mots de passe sont hachés (Bcrypt) et les sessions protégées par JWT." },
-  { category: 'SECURITE', q: "Qu'est-ce que le Réseau SEEC ?", a: "Le Réseau SEEC réunit les établissements partenaires pour le partage sécurisé d'épreuves et de ressources. Seuls les comptes authentifiés d'écoles actives ont accès." },
+  { category: 'SECURITE', q: "Qu'est-ce que le Réseau SEEEC ?", a: "Le Réseau SEEEC réunit les établissements partenaires pour le partage sécurisé d'épreuves et de ressources. Seuls les comptes authentifiés d'écoles actives ont accès." },
   { category: 'INSCRIPTION', q: "Puis-je réinitialiser mon mot de passe ?", a: "Oui, cliquez sur 'Mot de passe oublié' sur la page de connexion et suivez les étapes pour définir un nouveau mot de passe." },
 ];
 
@@ -17,7 +17,7 @@ const CATEGORIES = [
   { key: 'TOUS', label: 'Toutes' },
   { key: 'INSCRIPTION', label: 'Inscription & Écoles' },
   { key: 'BULLETINS', label: 'Bulletins & Notes' },
-  { key: 'SECURITE', label: 'Sécurité & SEEC' },
+  { key: 'SECURITE', label: 'Sécurité & SEEEC' },
 ] as const;
 
 type CatKey = typeof CATEGORIES[number]['key'];

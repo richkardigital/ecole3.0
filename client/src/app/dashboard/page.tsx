@@ -20,7 +20,7 @@ interface DashboardStats {
 
 const ROLE_CONFIG = {
   SUPER_ADMIN: {
-    greeting: 'Plateforme SEEC',
+    greeting: 'Plateforme SEEEC',
     tagline: 'Vue d\'ensemble de tout le réseau des écoles connectées.',
     accentFrom: '#ef4444', accentTo: '#dc2626',
     tagClass: 'chip-rose',
@@ -206,7 +206,7 @@ const Dashboard = () => {
               <StatCard title="Bibliothèque" count="Accès" label="Toutes mes ressources" icon={<Library className="w-5 h-5" />} iconColor="text-blue-600" badgeColor="bg-blue-50 border-blue-200" onClick={() => navigate('/library')} />
             </>)}
 
-            <StatCard title="Forum" count="SEEC" label="Réseau inter-écoles" icon={<Network className="w-5 h-5" />} iconColor="text-sky-600" badgeColor="bg-sky-50 border-sky-200" onClick={() => navigate(user.role === 'SUPER_ADMIN' ? '/admin/forum' : user.role === 'DIRECTEUR' ? '/directeur/forum' : user.role === 'ENSEIGNANT' ? '/enseignant/forum' : user.role === 'EDUCATEUR' ? '/educateur/forum' : '/forum')} />
+            <StatCard title="Forum" count="SEEEC" label="Réseau inter-écoles" icon={<Network className="w-5 h-5" />} iconColor="text-sky-600" badgeColor="bg-sky-50 border-sky-200" onClick={() => navigate(user.role === 'SUPER_ADMIN' ? '/admin/forum' : user.role === 'DIRECTEUR' ? '/directeur/forum' : user.role === 'ENSEIGNANT' ? '/enseignant/forum' : user.role === 'EDUCATEUR' ? '/educateur/forum' : '/forum')} />
           </div>
 
           {/* ── QUICK ACTIONS ── */}
@@ -344,14 +344,14 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* ── LISTE RÉSEAU SEEC (Pour Enseignants/Directeurs) ── */}
+          {/* ── LISTE RÉSEAU SEEEC (Pour Enseignants/Directeurs) ── */}
           {(user.role === 'ENSEIGNANT' || user.role === 'DIRECTEUR') && (
             <div className="rounded-2xl p-6 bg-white border border-slate-200 shadow-xs mt-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 border border-blue-200">
                   <Network className="w-4.5 h-4.5 text-blue-600" style={{ width: '1.125rem', height: '1.125rem' }} />
                 </div>
-                <h3 className="font-black text-slate-900 tracking-tight">Réseau SEEC (Écoles connectées)</h3>
+                <h3 className="font-black text-slate-900 tracking-tight">Réseau SEEEC (Écoles connectées)</h3>
               </div>
               
               {seecSchools.length === 0 ? (
@@ -367,7 +367,7 @@ const Dashboard = () => {
                       </div>
                       <div>
                         <p className="font-bold text-slate-800 text-sm leading-tight">{school.name}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Partenaire SEEC</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Partenaire SEEEC</p>
                       </div>
                     </div>
                   ))}

@@ -57,12 +57,13 @@ import TeachingTypesPage from '@/app/admin/teaching-types/page';
 import SchoolTypesPage from '@/app/admin/school-types/page';
 import NiveauxPage from '@/app/admin/niveaux/page';
 import NiveauDetailsPage from '@/app/admin/niveaux/[id]/page';
-import SeecPage from '@/app/admin/seec/page';
+import SeecPage from '@/app/admin/seeec/page';
 import AssignmentsPage from '@/app/academic/assignments/page';
 import GlobalAssignmentsPage from '@/app/admin/assignments/page';
 import NewGlobalAssignmentPage from '@/app/admin/assignments/new/page';
 import GlobalAssignmentDetailsPage from '@/app/admin/assignments/[id]/page';
 import EditGlobalAssignmentPage from '@/app/admin/assignments/[id]/edit/page';
+import NewCourseAssignmentPage from '@/app/academic/assignments/new/course-assignment';
 import ReportCards from '@/app/academic/report-cards/page';
 import AcademicYearStatsPage from '@/app/admin/academic-years/[id]/stats/page';
 
@@ -132,7 +133,7 @@ function App() {
                     <Route path="/admin/assignments/:id" element={<GlobalAssignmentDetailsPage />} />
                     <Route path="/admin/assignments/:id/edit" element={<EditGlobalAssignmentPage />} />
                     <Route path="/admin/report-cards" element={<ReportCards />} />
-                    <Route path="/admin/seec" element={<SeecPage />} />
+                    <Route path="/admin/seeec" element={<SeecPage />} />
                     <Route path="/admin/broadcast" element={<Broadcast />} />
                     <Route path="/admin/news" element={<News />} />
                     <Route path="/admin/absences" element={<Absences />} />
@@ -190,6 +191,7 @@ function App() {
                     <Route path="/enseignant/library/new" element={<NewLibraryDocumentPage />} />
                     <Route path="/enseignant/report-cards" element={<ReportCards />} />
                     <Route path="/enseignant/courses/:courseId/quizzes/new" element={<NewQuizPage />} />
+                    <Route path="/enseignant/courses/:courseId/assignments/new" element={<NewCourseAssignmentPage />} />
                     <Route path="/enseignant/courses/:courseId/quizzes/:quizId/edit" element={<EditQuizPage />} />
                     <Route path="/enseignant/chat" element={<Chat />} />
                     <Route path="/enseignant/forum" element={<Forum />} />
@@ -237,7 +239,7 @@ function App() {
                     <Route path="corrections" element={<Corrections />} />
 
                     {/* Réseau */}
-                    <Route path="seec" element={<SeecPage />} />
+                    <Route path="seeec" element={<SeecPage />} />
 
                     {/* Communication & Quiz */}
                     <Route path="chat" element={<Chat />} />

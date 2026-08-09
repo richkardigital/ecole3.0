@@ -12,7 +12,7 @@ const createAssignmentSchema = z.object({
   courseId: z.string().optional(),
   niveauId: z.string().optional(),
   subjectId: z.string().optional(),
-  type: z.enum(["DEVOIR", "PROJET", "EXAMEN", "EVALUATION", "NIVEAU"]).optional(),
+  type: z.enum(["EXERCICE_MAISON", "DEVOIR_MAISON", "DEVOIR_CLASSE", "DEVOIR_NIVEAU"]).optional(),
   termId: z.string().optional(),
   autoGrade: z.boolean().optional(),
   isNiveauWide: z.boolean().optional(),
@@ -81,6 +81,10 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
         return res.status(403).json({ message: "Only Super Admin can create level-wide assignments" });
     }
 
+    if (type === 'DEVOIR_NIVEAU' && req.user?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ message: "Seul un Super Admin peut créer un devoir de niveau." });
+    }
+
     const assignment = await prisma.assignment.create({
       data: {
         title,
@@ -90,7 +94,7 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
         niveauId: niveauId || null,
         subjectId: subjectId || null,
         academicYearId: req.body.academicYearId || null,
-        termId: req.body.termId || null,
+        termId: termId || null,
         type: type || "DEVOIR",
         coefficient: parsedCoefficient,
         startDate: startDate ? new Date(startDate) : null,

@@ -216,7 +216,7 @@ const SharedResources = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <PageHeader
-          title={user?.role === 'APPRENANT' ? "Ressources réseau SEEC" : "Écoles connectées"}
+          title={user?.role === 'APPRENANT' ? "Ressources réseau SEEEC" : "Écoles connectées"}
           subtitle={user?.role === 'APPRENANT' ? "Consultez les cours mutualisés des autres écoles de votre niveau" : "Consultez les documents partagés par les enseignants des autres écoles"}
         />
         {canEditInSelectedSchool && (

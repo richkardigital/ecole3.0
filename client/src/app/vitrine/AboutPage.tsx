@@ -12,7 +12,7 @@ const VALUES = [
 const TIMELINE = [
   { year: '2021', title: 'Naissance du Projet', desc: 'Constat du manque d\'outils numériques adaptés aux écoles ivoiriennes. Début des recherches et interviews auprès de 40 directeurs.' },
   { year: '2022', title: 'Premiers Prototypes', desc: 'Développement du module de calcul de bulletins et des premiers tests dans 5 établissements pilotes d\'Abidjan.' },
-  { year: '2023', title: 'Lancement SEEC Beta', desc: 'Ouverture du réseau SEEC à 30 établissements partenaires avec le module de gestion des classes et des notes.' },
+  { year: '2023', title: 'Lancement SEEEC Beta', desc: 'Ouverture du réseau SEEEC à 30 établissements partenaires avec le module de gestion des classes et des notes.' },
   { year: '2024', title: 'Réseau de 100 Écoles', desc: 'Cap des 100 établissements connectés. Lancement des fonctionnalités de messagerie et d\'agenda scolaire.' },
   { year: '2025', title: 'ÉCOLE 3.0 & 150+ Partenaires', desc: 'Refonte complète de la plateforme en ÉCOLE 3.0. Intégration des modules Quiz, Push SMS et réseau inter-lycées.' },
 ];
@@ -33,14 +33,14 @@ export default function AboutPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           <span className="chip chip-green mb-8 inline-flex">
             <Sparkles className="w-3 h-3" />
-            Système Éducatif d'Écoles Connectées
+            Stimuler l'Excellence et l'Entrepreneuriat à l'Ecole Connectée
           </span>
           <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 mb-6 leading-[0.95]">
             Moderniser l'éducation<br />
             <span className="gradient-text">ivoirienne.</span>
           </h1>
           <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed mb-10 font-medium">
-            ÉCOLE 3.0 (SEEC) est née d'une conviction simple : les établissements scolaires d'Afrique de l'Ouest méritent des outils numériques à la hauteur de leur ambition pédagogique.
+            ÉCOLE 3.0 (SEEEC) est née d'une conviction simple : les établissements scolaires d'Afrique de l'Ouest méritent des outils numériques à la hauteur de leur ambition pédagogique.
           </p>
         </div>
       </section>
@@ -77,7 +77,7 @@ export default function AboutPage() {
               Chaque année, des milliers d'enseignants ivoiriens passent des centaines d'heures à calculer manuellement des moyennes, trier des bulletins et coordonner des conseils de classe.
             </p>
             <p className="text-slate-600 text-base leading-relaxed font-medium">
-              SEEC est construit pour restituer ce temps aux professeurs — pour qu'ils se consacrent à ce qui compte vraiment : <strong className="text-slate-900">enseigner</strong>.
+              SEEEC est construit pour restituer ce temps aux professeurs — pour qu'ils se consacrent à ce qui compte vraiment : <strong className="text-slate-900">enseigner</strong>.
             </p>
           </div>
 
@@ -136,7 +136,7 @@ export default function AboutPage() {
       {/* ── CTA ── */}
       <section className="py-24 max-w-3xl mx-auto px-4 text-center">
         <h2 className="text-5xl font-black text-slate-900 tracking-tighter leading-[0.95] mb-6">
-          Rejoignez le<br /><span className="gradient-text">mouvement SEEC</span>
+          Rejoignez le<br /><span className="gradient-text">mouvement SEEEC</span>
         </h2>
         <p className="text-xl text-slate-600 mb-10 leading-relaxed font-medium">
           Faites partie des 150+ établissements qui ont choisi de piloter leur école avec ÉCOLE 3.0.

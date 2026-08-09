@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast';
 interface Option {
     id?: string;
     text: string;
+    imageUrl?: string;
     isCorrect: boolean;
 }
 
@@ -27,6 +28,8 @@ interface QuizForm {
     startDate?: string;
     endDate?: string;
     timeLimit?: number;
+    imageUrl?: string;
+    type?: string;
     questions: Question[];
 }
 
@@ -37,35 +40,36 @@ const QuestionField = ({ qIndex, control, register, onRemove }: any) => {
     });
 
     return (
-        <div className="bg-brand-sidebar p-6 rounded-xl border border-brand-border/50 space-y-4">
+        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-4">
             <div className="flex justify-between items-start gap-4">
                 <div className="flex-1 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-brand-text-muted mb-1">Question {qIndex + 1}</label>
+                        <label className="block text-sm font-medium text-slate-500 mb-1">Question {qIndex + 1}</label>
                         <input
                             {...register(`questions.${qIndex}.text`, { required: 'La question est requise' })}
-                            className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-card text-brand-text"
+                            className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-slate-900"
                             placeholder="Entrez votre question..."
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-brand-text-muted mb-1">Type de question</label>
+                            <label className="block text-sm font-medium text-slate-500 mb-1">Type de question</label>
                             <select
                                 {...register(`questions.${qIndex}.type`)}
-                                className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-card text-brand-text"
+                                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-slate-900"
                             >
                                 <option value="SINGLE">Choix unique</option>
                                 <option value="MULTIPLE">Choix multiple</option>
+                                <option value="FILL_IN_BLANK">Texte à trous</option>
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-brand-text-muted mb-1">Points</label>
+                            <label className="block text-sm font-medium text-slate-500 mb-1">Points</label>
                             <input
                                 type="number"
                                 min="1"
                                 {...register(`questions.${qIndex}.points`)}
-                                className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-card text-brand-text"
+                                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-slate-900"
                             />
                         </div>
                     </div>
@@ -73,31 +77,38 @@ const QuestionField = ({ qIndex, control, register, onRemove }: any) => {
                 <button
                     type="button"
                     onClick={onRemove}
-                    className="p-2 text-brand-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition mt-6"
+                    className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition mt-6"
                 >
                     <Trash2 className="w-5 h-5" />
                 </button>
             </div>
 
             <div className="space-y-3">
-                <label className="block text-sm font-medium text-brand-text-muted">Options de réponse</label>
+                <label className="block text-sm font-medium text-slate-500">Options de réponse</label>
                 {options.map((option, oIndex) => (
                     <div key={option.id} className="flex items-center gap-3">
                         <input
                             type="checkbox"
                             {...register(`questions.${qIndex}.options.${oIndex}.isCorrect`)}
-                            className="w-5 h-5 text-brand-accent rounded border-brand-border/50 focus:ring-brand-accent"
+                            className="w-5 h-5 text-indigo-600 rounded border-slate-200 focus:ring-indigo-600"
                         />
-                        <input
-                            {...register(`questions.${qIndex}.options.${oIndex}.text`, { required: 'Option requise' })}
-                            className="flex-1 p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-card text-brand-text"
-                            placeholder={`Option ${oIndex + 1}`}
-                        />
+                        <div className="flex-1 space-y-2">
+                            <input
+                                {...register(`questions.${qIndex}.options.${oIndex}.text`, { required: 'Option requise' })}
+                                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-slate-900"
+                                placeholder={`Option ${oIndex + 1}`}
+                            />
+                            <input
+                                {...register(`questions.${qIndex}.options.${oIndex}.imageUrl`)}
+                                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-slate-900 text-sm"
+                                placeholder="URL de l'image de l'option (optionnel)"
+                            />
+                        </div>
                         {options.length > 2 && (
                             <button
                                 type="button"
                                 onClick={() => removeOption(oIndex)}
-                                className="p-2 text-brand-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
+                                className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
                             >
                                 <Trash2 className="w-4 h-4" />
                             </button>
@@ -107,7 +118,7 @@ const QuestionField = ({ qIndex, control, register, onRemove }: any) => {
                 <button
                     type="button"
                     onClick={() => appendOption({ text: '', isCorrect: false })}
-                    className="text-brand-accent text-sm font-medium flex items-center gap-1 hover:underline"
+                    className="text-indigo-600 text-sm font-medium flex items-center gap-1 hover:underline"
                 >
                     <Plus className="w-4 h-4" /> Ajouter une option
                 </button>
@@ -194,12 +205,12 @@ export default function EditQuizPage() {
         }
     };
 
-    if (isLoading) return <div className="p-8 text-brand-text">Chargement...</div>;
+    if (isLoading) return <div className="p-8 text-slate-900">Chargement...</div>;
 
     return (
         <div className="space-y-6 pb-20">
             <div className="flex items-center gap-4">
-                <Link to={`/enseignant/courses/${courseId}`} className="p-2 text-brand-text-muted hover:text-brand-text hover:bg-brand-sidebar rounded-lg transition-colors">
+                <Link to={`/enseignant/courses/${courseId}`} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
                 <PageHeader 
@@ -209,52 +220,65 @@ export default function EditQuizPage() {
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 max-w-4xl mx-auto">
-                <div className="bg-brand-card p-6 rounded-xl border border-brand-border/50 shadow-sm space-y-4">
-                    <h3 className="text-lg font-bold text-brand-text">Informations générales</h3>
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 className="text-lg font-bold text-slate-900">Informations générales</h3>
                     <div>
-                        <label className="block text-sm font-medium text-brand-text-muted mb-1">Titre de l'évaluation <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-slate-500 mb-1">Titre de l'évaluation <span className="text-red-500">*</span></label>
                         <input
                             {...register('title', { required: 'Titre requis' })}
-                            className="w-full p-3 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text"
+                            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-slate-50 text-slate-900"
                             placeholder="Ex: Évaluation Chapitre 1"
                         />
                         {errors.title && <span className="text-red-500 text-sm mt-1">{errors.title.message}</span>}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-brand-text-muted mb-1">Description (Optionnel)</label>
+                        <label className="block text-sm font-medium text-slate-500 mb-1">Description (Optionnel)</label>
                         <textarea
                             {...register('description')}
-                            className="w-full p-3 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text resize-y"
+                            className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-slate-50 text-slate-900 resize-y"
                             placeholder="Instructions pour les élèves..."
                             rows={3}
                         />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                         <div>
-                            <label className="block text-sm font-medium text-brand-text-muted mb-1">Date d'ouverture <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-medium text-slate-500 mb-1">Type d'évaluation</label>
+                            <select
+                                {...register('type')}
+                                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-slate-50 text-slate-900"
+                            >
+                                <option value="EXERCICE_MAISON">Exercice Maison (Non noté)</option>
+                                <option value="DEVOIR_MAISON">Devoir Maison (Noté)</option>
+                                <option value="DEVOIR_CLASSE">Devoir en Classe (Noté)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-500 mb-1">Date d'ouverture <span className="text-red-500">*</span></label>
                             <input
                                 type="datetime-local"
                                 {...register('startDate', { required: 'Date de début requise' })}
-                                className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text"
+                                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-slate-50 text-slate-900"
                             />
                             {errors.startDate && <span className="text-red-500 text-sm mt-1">{errors.startDate.message}</span>}
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-brand-text-muted mb-1">Date de fermeture <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-medium text-slate-500 mb-1">Date de fermeture <span className="text-red-500">*</span></label>
                             <input
                                 type="datetime-local"
                                 {...register('endDate', { required: 'Date de fin requise' })}
-                                className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text"
+                                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-slate-50 text-slate-900"
                             />
                             {errors.endDate && <span className="text-red-500 text-sm mt-1">{errors.endDate.message}</span>}
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-brand-text-muted mb-1">Durée (minutes)</label>
+                            <label className="block text-sm font-medium text-slate-500 mb-1">Durée (minutes)</label>
                             <input
                                 type="number"
                                 min="1"
                                 {...register('timeLimit')}
-                                className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text"
+                                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-slate-50 text-slate-900"
                                 placeholder="Ex: 30"
                             />
                         </div>
@@ -263,7 +287,7 @@ export default function EditQuizPage() {
 
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-bold text-brand-text">Questions</h3>
+                        <h3 className="text-lg font-bold text-slate-900">Questions</h3>
                     </div>
                     
                     {error && (
@@ -292,14 +316,14 @@ export default function EditQuizPage() {
                             points: 1, 
                             options: [{ text: '', isCorrect: false }, { text: '', isCorrect: false }] 
                         })}
-                        className="w-full py-4 border-2 border-dashed border-brand-border hover:border-brand-accent rounded-xl text-brand-text-muted hover:text-brand-accent transition flex items-center justify-center gap-2 font-medium"
+                        className="w-full py-4 border-2 border-dashed border-slate-300 hover:border-indigo-600 rounded-xl text-slate-500 hover:text-indigo-600 transition flex items-center justify-center gap-2 font-medium"
                     >
                         <Plus className="w-5 h-5" />
                         Ajouter une nouvelle question
                     </button>
                 </div>
 
-                <div className="flex justify-end gap-4 sticky bottom-6 bg-brand-card/80 backdrop-blur-md p-4 rounded-xl border border-brand-border/50 shadow-lg">
+                <div className="flex justify-end gap-4 sticky bottom-6 bg-white/80 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-lg">
                     <Button
                         type="button"
                         variant="secondary"

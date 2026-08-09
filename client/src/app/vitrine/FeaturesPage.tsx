@@ -51,12 +51,12 @@ const FEATURES = [
   },
   {
     category: 'COMMUNICATION',
-    title: 'Réseau Inter-Écoles SEEC',
+    title: 'Réseau Inter-Écoles SEEEC',
     desc: 'Partage sécurisé d’épreuves d’examens, de fiches de cours et de bonnes pratiques entre directeurs.',
     icon: Network,
     color: 'text-emerald-600',
     bg: 'bg-emerald-50 border-emerald-200',
-    badge: 'Exclusif SEEC',
+    badge: 'Exclusif SEEEC',
     badgeClass: 'chip-green',
   },
   {

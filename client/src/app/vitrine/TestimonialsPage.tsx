@@ -35,9 +35,9 @@ const TESTIMONIALS = [
     role: 'Fondateur & Directeur',
     school: 'Complexe Éducatif Avenir (Bouaké)',
     type: 'DIRECTEUR',
-    content: 'Le réseau inter-écoles SEEC nous permet de partager des banques d\'épreuves avec d\'autres établissements et d\'harmoniser nos standards pour les examens d\'État.',
+    content: 'Le réseau inter-écoles SEEEC nous permet de partager des banques d\'épreuves avec d\'autres établissements et d\'harmoniser nos standards pour les examens d\'État.',
     rating: 5,
-    impact: 'Réseau SEEC Certifié',
+    impact: 'Réseau SEEEC Certifié',
     impactClass: 'chip-green',
     initials: 'KB',
     avatarFrom: '#F59E0B',
@@ -92,7 +92,7 @@ export default function TestimonialsPage() {
             <span className="gradient-text">Chefs d'Établissement</span>
           </h1>
           <p className="text-xl text-slate-600 leading-relaxed max-w-2xl mx-auto mb-10 font-medium">
-            Plus de 150 écoles font confiance au Système SEEC pour piloter leur gestion au quotidien.
+            Plus de 150 écoles font confiance au Système SEEEC pour piloter leur gestion au quotidien.
           </p>
 
           {/* Filter tabs */}

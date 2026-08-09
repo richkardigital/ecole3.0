@@ -59,40 +59,40 @@ const QuizAttemptsList = () => {
                 subtitle={`${attempts.length} tentative(s) enregistrée(s)`}
             />
 
-            <div className="bg-brand-card rounded-xl border border-brand-border/50 overflow-hidden shadow-sm">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-brand-sidebar border-b border-brand-border/50">
+                    <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                            <th className="px-6 py-4 text-sm font-semibold text-brand-text-muted">Élève</th>
-                            <th className="px-6 py-4 text-sm font-semibold text-brand-text-muted">Date</th>
-                            <th className="px-6 py-4 text-sm font-semibold text-brand-text-muted">Note /20</th>
-                            <th className="px-6 py-4 text-sm font-semibold text-brand-text-muted">Actions</th>
+                            <th className="px-6 py-4 text-sm font-semibold text-slate-500">Élève</th>
+                            <th className="px-6 py-4 text-sm font-semibold text-slate-500">Date</th>
+                            <th className="px-6 py-4 text-sm font-semibold text-slate-500">Note /20</th>
+                            <th className="px-6 py-4 text-sm font-semibold text-slate-500">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-border/50">
                         {attempts.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="px-6 py-10 text-center text-brand-text-muted">
+                                <td colSpan={4} className="px-6 py-10 text-center text-slate-500">
                                     Aucune tentative pour le moment.
                                 </td>
                             </tr>
                         ) : (
                             attempts.map((attempt) => (
-                                <tr key={attempt.id} className="hover:bg-brand-sidebar transition">
+                                <tr key={attempt.id} className="hover:bg-slate-50 transition">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-brand-accent/10 flex items-center justify-center text-brand-accent">
+                                            <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
                                                 <User className="w-4 h-4" />
                                             </div>
                                             <div>
-                                                <p className="font-medium text-brand-text">
+                                                <p className="font-medium text-slate-900">
                                                     {attempt.student.firstName} {attempt.student.lastName}
                                                 </p>
-                                                <p className="text-xs text-brand-text-muted">{attempt.student.email}</p>
+                                                <p className="text-xs text-slate-500">{attempt.student.email}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-brand-text-muted">
+                                    <td className="px-6 py-4 text-sm text-slate-500">
                                         <div className="flex items-center gap-1">
                                             <Calendar className="w-4 h-4" />
                                             {new Date(attempt.completedAt).toLocaleDateString('fr-FR', {
@@ -114,7 +114,7 @@ const QuizAttemptsList = () => {
                                     <td className="px-6 py-4">
                                         <button
                                             onClick={() => navigate(`/quizzes/attempts/${attempt.id}`)}
-                                            className="text-brand-accent hover:underline text-sm font-medium"
+                                            className="text-indigo-600 hover:underline text-sm font-medium"
                                         >
                                             Voir détails
                                         </button>

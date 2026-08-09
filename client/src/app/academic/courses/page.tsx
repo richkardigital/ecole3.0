@@ -57,6 +57,8 @@ const Courses = () => {
   
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isDirecteur = user?.role === 'DIRECTEUR';
+  const isEnseignant = user?.role === 'ENSEIGNANT';
+  const isEducateur = user?.role === 'EDUCATEUR';
   const isAdmin = isSuperAdmin || isDirecteur;
   const isTeacher = user?.role === 'ENSEIGNANT';
 
@@ -315,6 +317,8 @@ const Courses = () => {
   const getDetailPath = (courseId: string) => {
     if (isSuperAdmin) return `/admin/courses/${courseId}`;
     if (isDirecteur) return `/directeur/courses/${courseId}`;
+    if (isEnseignant) return `/enseignant/courses/${courseId}`;
+    if (isEducateur) return `/educateur/courses/${courseId}`;
     return `/courses/${courseId}`;
   };
 

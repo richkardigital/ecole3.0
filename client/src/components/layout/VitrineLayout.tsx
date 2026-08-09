@@ -33,7 +33,7 @@ export const VitrineLayout = () => {
               border: '1px solid rgba(16,185,129,0.2)',
             }}>
             <div className="relative z-10">
-              <p className="text-xs font-black uppercase tracking-widest text-emerald-600 mb-3">Rejoignez le réseau SEEC</p>
+              <p className="text-xs font-black uppercase tracking-widest text-emerald-600 mb-3">Rejoignez le réseau SEEEC</p>
               <h3 className="text-2xl md:text-3xl font-black text-slate-900 mb-6 tracking-tight">
                 Votre école mérite le meilleur.
               </h3>
@@ -59,7 +59,7 @@ export const VitrineLayout = () => {
                 <div>
                   <span className="text-lg font-black text-slate-900 leading-none block">ÉCOLE 3.0</span>
                   <span className="text-[9px] font-black tracking-[0.18em] text-emerald-600 uppercase flex items-center gap-1 mt-0.5">
-                    <Sparkles className="w-2 h-2" /> Signé SEEC
+                    <Sparkles className="w-2 h-2" /> Signé SEEEC
                   </span>
                 </div>
               </Link>
@@ -113,11 +113,11 @@ export const VitrineLayout = () => {
 
             {/* Contact */}
             <div>
-              <h4 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-5">Contact SEEC</h4>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-5">Contact SEEEC</h4>
               <ul className="space-y-3.5 text-sm text-slate-600">
                 <li className="flex items-start gap-3">
                   <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Abidjan, Côte d'Ivoire<br />Plateau, Imm. SEEC</span>
+                  <span>Abidjan, Côte d'Ivoire<br />Plateau, Imm. SEEEC</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -125,7 +125,7 @@ export const VitrineLayout = () => {
                 </li>
                 <li className="flex items-center gap-3">
                   <Mail className="w-4 h-4 text-sky-600 shrink-0" />
-                  <span>contact@seec-ecole30.ci</span>
+                  <span>contact@seeec-ecole30.ci</span>
                 </li>
               </ul>
             </div>
@@ -133,7 +133,7 @@ export const VitrineLayout = () => {
 
           {/* Bottom row */}
           <div className="pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-            <span>© {new Date().getFullYear()} SEEC — Système Éducatif d'Écoles Connectées. Tous droits réservés.</span>
+            <span>© {new Date().getFullYear()} SEEEC — Stimuler l'Excellence et l'Entrepreneuriat à l'Ecole Connectée. Tous droits réservés.</span>
             <span className="flex items-center gap-1.5 font-medium">
               Conçu avec <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" /> pour l'Éducation Africaine
             </span>

@@ -74,19 +74,18 @@ enum Gender {
 }
 
 enum AssignmentType {
-  DEVOIR
-  PROJET
-  EXAMEN
-  EVALUATION
-  NIVEAU
+  EXERCICE_MAISON
+  DEVOIR_MAISON
+  DEVOIR_CLASSE
+  DEVOIR_NIVEAU
 }
 
 // Type de quiz / évaluation
 enum QuizType {
-  EVALUATION  // Programmée par enseignant, toujours notée, auto-corrigée
-  DEVOIR      // Peut être quiz ou fichier, souvent noté
-  EXAMEN      // Examen officiel
-  NIVEAU      // Devoir de niveau programmé par super admin
+  EXERCICE_MAISON
+  DEVOIR_MAISON
+  DEVOIR_CLASSE
+  DEVOIR_NIVEAU
 }
 
 // Type de question
@@ -576,7 +575,7 @@ model Assignment {
   autoGrade     Boolean    @default(false) // Si QCM → correction auto
   isNiveauWide  Boolean    @default(false) // Si devoir de niveau
 
-  type          AssignmentType @default(DEVOIR)
+  type          AssignmentType @default(DEVOIR_MAISON)
 
   courseId String?
   course  Course? @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -776,7 +775,7 @@ model Quiz {
   maxAttempts Int       @default(1)     // Nombre de tentatives max
   isNiveauWide Boolean  @default(false) // Si true = devoir de niveau
 
-  type        QuizType  @default(EVALUATION)
+  type        QuizType  @default(DEVOIR_MAISON)
 
   courseId  String?
   course    Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -825,6 +824,7 @@ model QuizQuestion {
 model QuizOption {
   id         String       @id @default(uuid())
   text       String
+  imageUrl   String?      // Image attachée à l'option
   isCorrect  Boolean      @default(false)
   questionId String
   question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)

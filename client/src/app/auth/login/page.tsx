@@ -16,7 +16,7 @@ const DEMO_ACCOUNTS = [
 const BRAND_POINTS = [
   { icon: BookOpen, label: 'Bulletins automatisés en 1 clic', color: 'text-emerald-600' },
   { icon: Users, label: 'Gestion multi-rôles & classes', color: 'text-sky-600' },
-  { icon: ShieldCheck, label: 'Réseau inter-écoles SEEC certifié', color: 'text-violet-600' },
+  { icon: ShieldCheck, label: 'Réseau inter-écoles SEEEC certifié', color: 'text-violet-600' },
 ];
 
 const Login = () => {
@@ -68,7 +68,7 @@ const Login = () => {
             <div>
               <span className="text-2xl font-black text-slate-900 tracking-tight leading-none block">ÉCOLE 3.0</span>
               <span className="text-[9px] font-bold tracking-[0.2em] text-emerald-600 uppercase flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5" /> SEEC Platform
+                <Sparkles className="w-2.5 h-2.5" /> SEEEC Platform
               </span>
             </div>
           </Link>
@@ -82,7 +82,7 @@ const Login = () => {
             </h1>
             
             <p className="text-slate-600 text-lg leading-relaxed mb-12 max-w-md font-medium">
-              La plateforme SEEC unifie la gestion pédagogique, administrative et communicationnelle de votre établissement.
+              La plateforme SEEEC unifie la gestion pédagogique, administrative et communicationnelle de votre établissement.
             </p>
 
             {/* Feature points */}
@@ -126,7 +126,7 @@ const Login = () => {
           {/* Form header */}
           <div className="mb-8">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Bon retour 👋</h2>
-            <p className="text-slate-600 text-sm font-medium">Connectez-vous à votre espace SEEC.</p>
+            <p className="text-slate-600 text-sm font-medium">Connectez-vous à votre espace SEEEC.</p>
           </div>
 
           {/* Demo accounts */}

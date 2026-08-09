@@ -24,6 +24,7 @@ interface AssignmentModel {
   title: string;
   description?: string;
   dueDate: string;
+  type: string;
   _count?: {
     submissions: number;
   };
@@ -147,7 +148,9 @@ const CourseDetails = () => {
   };
   const { register: registerMat, handleSubmit: handleSubmitMat, reset: resetMat, watch: watchMat, formState: { errors: errorsMat } } = useForm<{ title: string; type: string; url: string; source?: string; chapterId?: string; file?: FileList }>();
   const { register: registerChap, handleSubmit: handleSubmitChap, reset: resetChap } = useForm<{ title: string; content?: string }>();
-  const { register: registerAssign, handleSubmit: handleSubmitAssign, reset: resetAssign, formState: { errors: errorsAssign } } = useForm<{ title: string; description?: string; dueDate: string; coefficient: number; file?: FileList; voiceNote?: FileList; correction?: FileList }>();
+  const { register: registerAssign, handleSubmit: handleSubmitAssign, reset: resetAssign, formState: { errors: errorsAssign } } = useForm<{ title: string; description?: string; type: string; dueDate: string; coefficient: number; file?: FileList; voiceNote?: FileList; correction?: FileList }>({
+    defaultValues: { type: 'DEVOIR_MAISON' }
+  });
 
   const isTeacher = user?.role === 'ENSEIGNANT' || user?.role === 'DIRECTEUR' || user?.role === 'SUPER_ADMIN';
 
@@ -284,7 +287,7 @@ const CourseDetails = () => {
     }
   }, [id]);
 
-  const onSubmitAssignment = async (data: { title: string; description?: string; dueDate: string; coefficient: number; file?: FileList; voiceNote?: FileList; correction?: FileList }) => {
+  const onSubmitAssignment = async (data: { title: string; description?: string; type: string; dueDate: string; coefficient: number; file?: FileList; voiceNote?: FileList; correction?: FileList }) => {
     try {
       setIsSubmittingAssign(true);
       setAssignmentError(null);
@@ -292,7 +295,8 @@ const CourseDetails = () => {
       const formData = new FormData();
       formData.append('title', data.title);
       formData.append('description', data.description || '');
-      formData.append('dueDate', data.dueDate);
+      formData.append('type', data.type);
+    formData.append('dueDate', data.dueDate);
       formData.append('courseId', id as string);
       formData.append('coefficient', String(data.coefficient || 1));
       
@@ -675,7 +679,7 @@ const CourseDetails = () => {
                 {isTeacher && (
                     <Button
                         variant="primary"
-                        onClick={() => setIsAssignmentModalOpen(true)}
+                        onClick={() => navigate(`/enseignant/courses/${id}/assignments/new`)}
                         leftIcon={<Plus className="w-4 h-4" />}
                     >
                         Ajouter Devoir
@@ -703,6 +707,13 @@ const CourseDetails = () => {
                                             {new Date(assignment.dueDate).toLocaleDateString()}
                                         </span>
                                     </div>
+                                </div>
+                                <div className="mb-3">
+                                    <span className="text-[10px] uppercase font-bold tracking-wider bg-indigo-500/10 text-indigo-500 px-2 py-1 rounded">
+                                        {assignment.type === 'EXERCICE_MAISON' ? 'Exercice (Non noté)' : 
+                                         assignment.type === 'DEVOIR_CLASSE' ? 'Devoir de classe' : 
+                                         assignment.type === 'DEVOIR_NIVEAU' ? 'Devoir de niveau' : 'Devoir maison'}
+                                    </span>
                                 </div>
 
                                 <h3 className="font-bold text-lg text-brand-text group-hover:text-brand-accent transition mb-2">{assignment.title}</h3>

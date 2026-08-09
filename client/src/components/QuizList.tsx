@@ -8,6 +8,7 @@ interface Quiz {
     id: string;
     title: string;
     description?: string;
+    type: string;
     _count: { questions: number };
     attempts?: { id: string, score: number }[];
     questions?: any[];
@@ -89,7 +90,14 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
                         <div key={quiz.id} className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <h3 className="text-lg font-bold text-gray-800 dark:text-white">{quiz.title}</h3>
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="text-lg font-bold text-gray-800 dark:text-white">{quiz.title}</h3>
+                                        <span className="text-[10px] uppercase font-bold tracking-wider bg-indigo-500/10 text-indigo-500 px-2 py-1 rounded">
+                                            {quiz.type === 'EXERCICE_MAISON' ? 'Exercice (Non noté)' : 
+                                             quiz.type === 'DEVOIR_CLASSE' ? 'Devoir de classe' : 
+                                             quiz.type === 'DEVOIR_NIVEAU' ? 'Devoir de niveau' : 'Devoir maison'}
+                                        </span>
+                                    </div>
                                     {quiz.description && <p className="text-gray-600 dark:text-gray-300 mt-1">{quiz.description}</p>}
                                     <div className="flex items-center gap-4 mt-3 text-sm text-gray-500 dark:text-gray-400">
                                         <span className="flex items-center gap-1">

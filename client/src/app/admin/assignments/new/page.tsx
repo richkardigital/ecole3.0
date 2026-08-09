@@ -261,9 +261,7 @@ export default function NewGlobalAssignmentPage() {
                 <div>
                   <label className="block text-sm font-medium text-brand-text-muted mb-1">Type *</label>
                   <select {...register('type', { required: true })} className="w-full p-3 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary transition-all">
-                    <option value="DEVOIR">Devoir</option>
-                    <option value="PROJET">Projet</option>
-                    <option value="EXAMEN">Examen</option>
+                    <option value="DEVOIR_NIVEAU">Devoir de Niveau (Noté)</option>
                   </select>
                 </div>
                 <div>
@@ -404,8 +402,9 @@ export default function NewGlobalAssignmentPage() {
                         <div>
                           <label className="block text-xs font-bold text-brand-text-muted uppercase mb-1">Type</label>
                           <select {...register(`questions.${index}.type` as const)} className="w-full p-2.5 bg-brand-surface border border-brand-border rounded-lg text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary">
-                            <option value="MULTIPLE_CHOICE">QCM (Choix Multiple)</option>
-                            <option value="OPEN">Question Ouverte</option>
+                            <option value="SINGLE_CHOICE">Choix unique</option>
+                            <option value="MULTIPLE_CHOICE">Choix multiple</option>
+                            <option value="OPEN">Question ouverte</option>
                           </select>
                         </div>
                         <div>

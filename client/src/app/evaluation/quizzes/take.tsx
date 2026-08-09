@@ -77,17 +77,17 @@ const QuizTake = () => {
         }
     };
 
-    if (!quiz) return <div className="p-10 text-center text-brand-text">Chargement...</div>;
+    if (!quiz) return <div className="p-10 text-center text-slate-900">Chargement...</div>;
 
     // Intro Screen
     if (currentStep === 0) {
         return (
             <div className="max-w-2xl mx-auto p-6 mt-10">
-                <div className="bg-brand-card p-8 rounded-xl shadow-lg text-center border border-brand-border/50">
-                    <h1 className="text-3xl font-bold text-brand-text mb-4">{quiz.title}</h1>
-                    {quiz.description && <p className="text-brand-text-muted mb-8 text-lg">{quiz.description}</p>}
+                <div className="bg-white p-8 rounded-xl shadow-lg text-center border border-slate-200">
+                    <h1 className="text-3xl font-bold text-slate-900 mb-4">{quiz.title}</h1>
+                    {quiz.description && <p className="text-slate-500 mb-8 text-lg">{quiz.description}</p>}
                     
-                    <div className="bg-brand-accent/10 p-4 rounded-lg inline-block mb-8 text-brand-accent text-sm border border-brand-accent/20">
+                    <div className="bg-indigo-50 p-4 rounded-lg inline-block mb-8 text-indigo-600 text-sm border border-indigo-200">
                         <p className="font-semibold">Ce QCM contient {quiz.questions.length} questions.</p>
                         <p>Attention: Une seule tentative est autorisée.</p>
                     </div>
@@ -109,17 +109,17 @@ const QuizTake = () => {
     if (result) {
         return (
             <div className="max-w-xl mx-auto p-6 mt-10">
-                <div className="bg-brand-card p-8 rounded-xl shadow-lg text-center border border-brand-border/50">
+                <div className="bg-white p-8 rounded-xl shadow-lg text-center border border-slate-200">
                     <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                         <CheckCircle className="w-10 h-10 text-emerald-500" />
                     </div>
-                    <h2 className="text-2xl font-bold text-brand-text mb-2">Quiz Terminé !</h2>
-                    <p className="text-brand-text-muted mb-6">Vos réponses ont été enregistrées avec succès.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Quiz Terminé !</h2>
+                    <p className="text-slate-500 mb-6">Vos réponses ont été enregistrées avec succès.</p>
                     
-                    <div className="text-5xl font-bold text-brand-accent mb-2">
-                        {result.score.toFixed(1)}<span className="text-2xl text-brand-text-muted">/20</span>
+                    <div className="text-5xl font-bold text-indigo-600 mb-2">
+                        {result.score.toFixed(1)}<span className="text-2xl text-slate-500">/20</span>
                     </div>
-                    <p className="text-sm text-brand-text-muted mb-8">Votre note finale</p>
+                    <p className="text-sm text-slate-500 mb-8">Votre note finale</p>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <Button
@@ -147,19 +147,19 @@ const QuizTake = () => {
 
     return (
         <div className="max-w-3xl mx-auto p-6 mt-6">
-            <div className="mb-6 flex justify-between items-center text-sm text-brand-text-muted font-medium">
+            <div className="mb-6 flex justify-between items-center text-sm text-slate-500 font-medium">
                 <span>Question {currentStep} / {quiz.questions.length}</span>
                 <span>Progression: {Math.round((currentQuestionIndex / quiz.questions.length) * 100)}%</span>
             </div>
-            <div className="w-full bg-brand-sidebar h-2 rounded-full mb-8 overflow-hidden border border-brand-border/30">
+            <div className="w-full bg-slate-50 h-2 rounded-full mb-8 overflow-hidden border border-slate-100">
                 <div 
-                    className="bg-brand-accent h-full transition-all duration-300" 
+                    className="bg-indigo-600 h-full transition-all duration-300" 
                     style={{ width: `${((currentQuestionIndex) / quiz.questions.length) * 100}%` }}
                 ></div>
             </div>
 
-            <div className="bg-brand-card p-8 rounded-xl shadow-sm border border-brand-border/50">
-                <h2 className="text-xl font-bold text-brand-text mb-6">{currentQuestion.text}</h2>
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                <h2 className="text-xl font-bold text-slate-900 mb-6">{currentQuestion.text}</h2>
                 
                 <div className="space-y-3">
                     {currentQuestion.options.map(option => {
@@ -170,17 +170,17 @@ const QuizTake = () => {
                                 onClick={() => handleOptionSelect(currentQuestion.id, option.id, currentQuestion.type)}
                                 className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-center justify-between ${
                                     isSelected 
-                                        ? 'border-brand-accent bg-brand-accent/10' 
-                                        : 'border-brand-border/50 hover:border-brand-accent/50 hover:bg-brand-sidebar/50'
+                                        ? 'border-indigo-600 bg-indigo-50' 
+                                        : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50/50'
                                 }`}
                             >
-                                <span className={`font-medium ${isSelected ? 'text-brand-accent' : 'text-brand-text'}`}>{option.text}</span>
+                                <span className={`font-medium ${isSelected ? 'text-indigo-600' : 'text-slate-900'}`}>{option.text}</span>
                                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
                                     isSelected 
-                                        ? 'border-brand-accent bg-brand-accent' 
+                                        ? 'border-indigo-600 bg-indigo-600' 
                                         : 'border-brand-text-muted'
                                 }`}>
-                                    {isSelected && <div className="w-2 h-2 bg-brand-bg rounded-full"></div>}
+                                    {isSelected && <div className="w-2 h-2 bg-[#F8FAFC] rounded-full"></div>}
                                 </div>
                             </div>
                         );

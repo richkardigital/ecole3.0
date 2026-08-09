@@ -54,7 +54,7 @@ const ForgotPassword = () => {
               </div>
               <div>
                 <span className="text-lg font-black text-slate-900 leading-none block">ÉCOLE 3.0</span>
-                <span className="text-[9px] font-bold tracking-[0.18em] text-emerald-600 uppercase">SEEC Platform</span>
+                <span className="text-[9px] font-bold tracking-[0.18em] text-emerald-600 uppercase">SEEEC Platform</span>
               </div>
             </div>
 
@@ -68,7 +68,7 @@ const ForgotPassword = () => {
                     Mot de passe oublié
                   </h1>
                   <p className="text-slate-600 text-sm leading-relaxed font-medium">
-                    Entrez votre adresse email. Si un compte SEEC existe, vous recevrez un lien de réinitialisation.
+                    Entrez votre adresse email. Si un compte SEEEC existe, vous recevrez un lien de réinitialisation.
                   </p>
                 </div>
 
@@ -115,7 +115,7 @@ const ForgotPassword = () => {
                   Email envoyé !
                 </h2>
                 <p className="text-slate-600 text-sm leading-relaxed mb-2 font-medium">
-                  Si un compte SEEC existe pour{' '}
+                  Si un compte SEEEC existe pour{' '}
                   <span className="font-bold text-emerald-700">{submittedEmail}</span>,<br />
                   vous recevrez un email dans les prochaines minutes.
                 </p>

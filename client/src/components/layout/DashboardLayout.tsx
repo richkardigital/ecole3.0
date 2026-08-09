@@ -36,11 +36,11 @@ const ROUTE_LABELS: Record<string, string> = {
   niveaux: 'Niveaux',
   'teaching-types': "Types d'enseignement",
   'audit-logs': "Logs d'Audit",
-  seec: 'Réseau SEEC',
+  seeec: 'Réseau SEEEC',
   broadcast: 'Flash News',
   absences: 'Absences',
   conduct: 'Conduite',
-  'shared-resources': 'Ressources SEEC',
+  'shared-resources': 'Ressources SEEEC',
   corrections: 'Corrigés',
 };
 
