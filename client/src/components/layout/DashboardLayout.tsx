@@ -128,41 +128,42 @@ const MainLayout = () => {
               </p>
             </div>
           )}
-          <div className="flex h-14 items-center gap-4 min-w-0 px-4 md:px-6">
-            {/* Mobile hamburger */}
-            <button
-              className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all"
-              onClick={() => setIsSidebarOpen(true)}
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+          <div className="flex h-14 items-center justify-between px-4 md:px-6">
+            <div className="flex items-center gap-4 min-w-0">
+              {/* Mobile hamburger */}
+              <button
+                className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all"
+                onClick={() => setIsSidebarOpen(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </button>
 
-            {/* Mobile logo */}
-            <Link to="/dashboard" className="lg:hidden flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 2px 8px rgba(16,185,129,0.3)' }}>
-                <GraduationCap className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-sm font-black text-slate-900">ÉCOLE 3.0</span>
-            </Link>
-
-            {/* Breadcrumb */}
-            <nav className="hidden sm:flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider min-w-0">
-              {breadcrumbs.map((crumb, idx) => (
-                <div key={crumb.path} className="flex items-center gap-1 min-w-0">
-                  {idx > 0 && <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />}
-                  <span
-                    className="truncate transition-colors"
-                    style={idx === breadcrumbs.length - 1 ? { color: '#047857', fontWeight: 800 } : { color: '#64748B' }}
-                  >
-                    {crumb.name}
-                  </span>
+              {/* Mobile logo */}
+              <Link to="/dashboard" className="lg:hidden flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 2px 8px rgba(16,185,129,0.3)' }}>
+                  <GraduationCap className="w-4 h-4 text-white" />
                 </div>
-              ))}
-            </nav>
-          </div>
+                <span className="text-sm font-black text-slate-900">ÉCOLE 3.0</span>
+              </Link>
 
-          <div className="flex items-center gap-3 shrink-0">
+              {/* Breadcrumb */}
+              <nav className="hidden sm:flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider min-w-0">
+                {breadcrumbs.map((crumb, idx) => (
+                  <div key={crumb.path} className="flex items-center gap-1 min-w-0">
+                    {idx > 0 && <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />}
+                    <span
+                      className="truncate transition-colors"
+                      style={idx === breadcrumbs.length - 1 ? { color: '#047857', fontWeight: 800 } : { color: '#64748B' }}
+                    >
+                      {crumb.name}
+                    </span>
+                  </div>
+                ))}
+              </nav>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
             {/* Clock */}
             <div className="hidden md:flex items-center gap-2 text-xs font-bold text-slate-600 px-3 py-1.5 rounded-lg shadow-xs"
               style={{ background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
@@ -195,6 +196,7 @@ const MainLayout = () => {
                 </div>
               </Link>
             )}
+          </div>
           </div>
         </header>
 

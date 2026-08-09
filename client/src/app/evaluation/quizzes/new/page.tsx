@@ -221,20 +221,23 @@ export default function NewQuizPage() {
     };
 
     return (
-        <div className="space-y-6 pb-20">
-            <div className="flex items-center gap-4">
-                <Link to={`/enseignant/courses/${courseId}`} className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors">
+        <div className="p-6 md:p-8 lg:p-10 max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500">
+            <div className="flex items-center gap-4 mb-4">
+                <Link to={`/enseignant/courses/${courseId}?tab=QUIZZES`} className="p-2 text-brand-text-muted hover:text-brand-text hover:bg-brand-sidebar rounded-lg transition-colors">
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
-                <PageHeader 
-                    title="Nouvelle Évaluation"
-                    description="Créez un questionnaire interactif pour vos élèves"
-                />
+                <span className="text-sm font-medium text-brand-text-muted">Retour au cours</span>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 max-w-4xl mx-auto">
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                    <h3 className="text-lg font-bold text-slate-900">Informations générales</h3>
+            <PageHeader 
+                title="Nouvelle Évaluation"
+                description="Créez un questionnaire interactif pour vos élèves"
+            />
+
+            <div className="bg-brand-card rounded-2xl border border-brand-border/50 shadow-sm overflow-hidden">
+                <form onSubmit={handleSubmit(onSubmit)} className="divide-y divide-brand-border/50">
+                    <div className="p-6 space-y-6">
+                        <h3 className="text-lg font-bold text-slate-900">Informations générales</h3>
                     <div>
                         <label className="block text-sm font-medium text-slate-500 mb-1">Titre de l'évaluation <span className="text-red-500">*</span></label>
                         <input
@@ -305,7 +308,7 @@ export default function NewQuizPage() {
                     </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="p-6 bg-slate-50/50 space-y-4 border-t border-slate-200">
                     <div className="flex justify-between items-center">
                         <h3 className="text-lg font-bold text-slate-900">Questions</h3>
                     </div>
@@ -342,8 +345,7 @@ export default function NewQuizPage() {
                         Ajouter une nouvelle question
                     </button>
                 </div>
-
-                <div className="flex justify-end gap-4 sticky bottom-6 bg-white/80 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-lg">
+                <div className="p-6 flex justify-end gap-4 border-t border-slate-200">
                     <Button
                         type="button"
                         variant="secondary"
@@ -363,5 +365,6 @@ export default function NewQuizPage() {
                 </div>
             </form>
         </div>
-    );
+    </div>
+);
 }

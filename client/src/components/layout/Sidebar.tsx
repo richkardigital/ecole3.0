@@ -161,7 +161,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/admin/courses" icon={BookOpen} isActive={p.startsWith('/admin/courses')}>Cours & Chapitres</NavItem>
                 <NavItem to="/admin/assignments" icon={PenTool} isActive={p === '/admin/assignments'}>Devoirs & Projets</NavItem>
                 <NavItem to="/admin/report-cards" icon={FileText} isActive={p === '/admin/report-cards'}>Bulletins Scolaires</NavItem>
-                <NavItem to="/admin/library" icon={FolderOpen} isActive={p === '/admin/library'}>Bibliothèque Globale</NavItem>
+                <NavItem to="/admin/library" icon={FolderOpen} isActive={p === '/admin/library'}>Librairie 3.0</NavItem>
               </NavSection>
               <NavSection title="Effectifs">
                 <NavItem to="/admin/schools" icon={School} isActive={p === '/admin/schools'}>Toutes les Écoles</NavItem>
@@ -194,7 +194,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               <NavSection title="Pédagogie">
                 <NavItem to="/directeur/courses" icon={LibraryIcon} isActive={p.startsWith('/directeur/courses')}>Cours & Dossiers</NavItem>
                 <NavItem to="/directeur/report-cards" icon={FileText} isActive={p === '/directeur/report-cards'}>Bulletins Trimestriels</NavItem>
-                <NavItem to="/directeur/library" icon={FolderOpen} isActive={p === '/directeur/library'}>Bibliothèque Globale</NavItem>
+                <NavItem to="/directeur/library" icon={FolderOpen} isActive={p === '/directeur/library'}>Librairie 3.0</NavItem>
               </NavSection>
               <NavSection title="Vie Scolaire">
                 <NavItem to="/directeur/absences" icon={ClipboardList} isActive={p === '/directeur/absences'}>Registre Absences</NavItem>
@@ -249,7 +249,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               <NavSection title="Pédagogie">
                 <NavItem to="/enseignant/courses" icon={BookOpen} isActive={p.startsWith('/enseignant/courses')}>Mes Cours</NavItem>
                 <NavItem to="/enseignant/assignments" icon={PenTool} isActive={p === '/enseignant/assignments'}>Devoirs de niveau</NavItem>
-                <NavItem to="/enseignant/library" icon={FolderOpen} isActive={p === '/enseignant/library'}>Bibliothèque Globale</NavItem>
+                <NavItem to="/enseignant/library" icon={FolderOpen} isActive={p === '/enseignant/library'}>Librairie 3.0</NavItem>
               </NavSection>
               <NavSection title="Notes">
                 <NavItem to="/enseignant/report-cards" icon={BarChart3} isActive={p === '/enseignant/report-cards'}>Saisie Notes & Bulletins</NavItem>
@@ -275,7 +275,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               <NavSection title="Cours & Exercices">
                 <NavItem to="/courses" icon={BookOpen} isActive={p.startsWith('/courses')}>Mes Cours</NavItem>
                 <NavItem to="/assignments" icon={PenTool} isActive={p === '/assignments'}>Devoirs à rendre</NavItem>
-                <NavItem to="/library" icon={FolderOpen} isActive={p === '/library'}>Bibliothèque Globale</NavItem>
+                <NavItem to="/library" icon={FolderOpen} isActive={p === '/library'}>Librairie 3.0</NavItem>
               </NavSection>
               <NavSection title="Résultats">
                 <NavItem to="/report-cards" icon={BarChart3} isActive={p === '/report-cards'}>Notes & Bulletins</NavItem>

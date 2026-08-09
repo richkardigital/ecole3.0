@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Plus, CheckCircle, Clock, PlayCircle, Edit2, Trash2, AlertTriangle, Eye } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import CreateQuizModal from '@/components/CreateQuizModal';
 import api from '@/lib/api';
 
 interface Quiz {
@@ -25,7 +24,6 @@ interface QuizListProps {
 }
 
 const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => {
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
     const [deletingQuizId, setDeletingQuizId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -46,14 +44,8 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
         }
     };
 
-    const openEditModal = async (quizId: string) => {
-        try {
-            const res = await api.get(`/quizzes/${quizId}`);
-            setEditingQuiz(res.data);
-            setIsCreateModalOpen(true);
-        } catch (error) {
-            console.error("Error fetching quiz for edit", error);
-        }
+    const openEditModal = (quizId: string) => {
+        navigate(`/enseignant/courses/${courseId}/quizzes/${quizId}/edit`);
     };
 
     return (
@@ -208,22 +200,6 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
                         </div>
                     </div>
                 </div>
-            )}
-
-            {isCreateModalOpen && (
-                <CreateQuizModal 
-                    courseId={courseId} 
-                    initialData={editingQuiz}
-                    onClose={() => {
-                        setIsCreateModalOpen(false);
-                        setEditingQuiz(null);
-                    }} 
-                    onSuccess={() => {
-                        setIsCreateModalOpen(false);
-                        setEditingQuiz(null);
-                        onUpdate();
-                    }} 
-                />
             )}
         </div>
     );
