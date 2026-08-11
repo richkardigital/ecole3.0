@@ -18,7 +18,7 @@ interface Option {
 interface Question {
     id?: string;
     text: string;
-    type: 'SINGLE' | 'MULTIPLE';
+    type: 'SINGLE' | 'MULTIPLE' | 'FILL_IN_BLANK';
     points: number;
     options: Option[];
 }
@@ -139,7 +139,7 @@ export default function EditQuizPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const { register, control, handleSubmit, reset } = useForm<QuizForm>();
+    const { register, control, handleSubmit, reset, formState: { errors } } = useForm<QuizForm>();
 
     const { fields: questions, append: appendQuestion, remove: removeQuestion } = useFieldArray({
         control,
