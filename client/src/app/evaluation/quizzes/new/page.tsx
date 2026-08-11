@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/context/AuthContext';
 
 interface Option {
     id?: string;
@@ -159,6 +160,8 @@ export default function NewQuizPage() {
     const { courseId } = useParams<{ courseId: string }>();
     const navigate = useNavigate();
     const { toast: addToast } = useToast();
+    const { user } = useAuth();
+    const rolePrefix = user?.role === 'SUPER_ADMIN' ? '/admin' : user?.role === 'DIRECTEUR' ? '/directeur' : '/enseignant';
     
     const { register, control, handleSubmit, watch, formState: { errors } } = useForm<QuizForm>({
         defaultValues: {
@@ -203,7 +206,7 @@ export default function NewQuizPage() {
 
             await api.post('/quizzes', { ...data, courseId });
             addToast("success", "QCM créé avec succès");
-            navigate(`/enseignant/courses/${courseId}`);
+            navigate(`${rolePrefix}/courses/${courseId}`);
         } catch (err: any) {
             console.error(err);
             const errorMessage = err.response?.data?.message || err.message || `Erreur lors de la création du QCM.`;
@@ -223,7 +226,7 @@ export default function NewQuizPage() {
     return (
         <div className="p-6 md:p-8 lg:p-10 max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500">
             <div className="flex items-center gap-4 mb-4">
-                <Link to={`/enseignant/courses/${courseId}?tab=QUIZZES`} className="p-2 text-brand-text-muted hover:text-brand-text hover:bg-brand-sidebar rounded-lg transition-colors">
+                <Link to={`${rolePrefix}/courses/${courseId}?tab=QUIZZES`} className="p-2 text-brand-text-muted hover:text-brand-text hover:bg-brand-sidebar rounded-lg transition-colors">
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
                 <span className="text-sm font-medium text-brand-text-muted">Retour au cours</span>
@@ -322,10 +325,11 @@ export default function NewQuizPage() {
                     <div className="space-y-6">
                         {questions.map((question, qIndex) => (
                             <QuestionField 
-                                key={question.id} 
+                                key={question.id || qIndex} 
                                 qIndex={qIndex} 
                                 control={control} 
                                 register={register} 
+                                watch={watch}
                                 onRemove={() => removeQuestion(qIndex)}
                             />
                         ))}

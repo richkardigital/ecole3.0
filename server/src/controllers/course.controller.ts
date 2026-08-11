@@ -350,10 +350,8 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
       courses = await prisma.course.findMany({
         where: {
           ...classIdFilter,
-          OR: [
-            { teacherId: userId },
-            ...(schoolId ? [{ class: { schoolId } }] : [])
-          ]
+          teacherId: userId,
+          ...(schoolId ? { class: { schoolId } } : {})
         },
         include: courseInclude
       });

@@ -130,6 +130,8 @@ function App() {
                     <Route path="/admin/users" element={<Users />} />
                     <Route path="/admin/courses" element={<Courses />} />
                     <Route path="/admin/courses/:id" element={<CourseDetails />} />
+                    <Route path="/admin/courses/:courseId/quizzes/new" element={<NewQuizPage />} />
+                    <Route path="/admin/courses/:courseId/quizzes/:quizId/edit" element={<EditQuizPage />} />
                     <Route path="/admin/assignments" element={<GlobalAssignmentsPage />} />
                     <Route path="/admin/assignments/new" element={<NewGlobalAssignmentPage />} />
                     <Route path="/admin/assignments/:id" element={<GlobalAssignmentDetailsPage />} />
@@ -162,6 +164,8 @@ function App() {
                     <Route path="/directeur/subjects" element={<Subjects />} />
                     <Route path="/directeur/courses" element={<Courses />} />
                     <Route path="/directeur/courses/:id" element={<CourseDetails />} />
+                    <Route path="/directeur/courses/:courseId/quizzes/new" element={<NewQuizPage />} />
+                    <Route path="/directeur/courses/:courseId/quizzes/:quizId/edit" element={<EditQuizPage />} />
                     <Route path="/directeur/report-cards" element={<ReportCards />} />
                     <Route path="/directeur/library" element={<AdminLibrary />} />
                     <Route path="/directeur/library/new" element={<NewLibraryDocumentPage />} />

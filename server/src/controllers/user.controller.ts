@@ -12,13 +12,15 @@ const createUserSchema = z.object({
   matricule: z.string().optional(),
   role: z.enum(["SUPER_ADMIN", "DIRECTEUR", "ENSEIGNANT", "APPRENANT", "EDUCATEUR"]),
   schoolId: z.string().optional(),
+  gender: z.string().optional(),
+  birthDate: z.string().optional(),
 });
 
 import { sendEmail } from "../utils/mailer.js";
 
 export const createUser = async (req: AuthRequest, res: Response) => {
   try {
-    const { email, password, firstName, lastName, role, schoolId, matricule } = createUserSchema.parse(req.body);
+    const { email, password, firstName, lastName, role, schoolId, matricule, gender, birthDate } = createUserSchema.parse(req.body);
     const currentUser = req.user;
     const file = req.file;
 
@@ -67,6 +69,8 @@ export const createUser = async (req: AuthRequest, res: Response) => {
         firstName,
         lastName,
         matricule,
+        gender,
+        birthDate: birthDate ? new Date(birthDate) : null,
         avatarUrl,
         role,
         schoolId: targetSchoolId,

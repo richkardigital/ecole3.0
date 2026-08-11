@@ -221,6 +221,32 @@ export const enrollStudent = async (req: Request, res: Response) => {
   }
 };
 
+export const unenrollStudent = async (req: Request, res: Response) => {
+  try {
+    const { studentId, classId } = req.body;
+    
+    if (!studentId || !classId) {
+      return res.status(400).json({ message: "Missing studentId or classId" });
+    }
+    
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { studentId_classId: { studentId, classId } }
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({ message: "L'élève n'est pas inscrit dans cette classe." });
+    }
+
+    await prisma.enrollment.delete({
+      where: { studentId_classId: { studentId, classId } }
+    });
+
+    res.json({ message: "Désinscription réussie" });
+  } catch (error) {
+    res.status(500).json({ message: "Error unenrolling student", error });
+  }
+};
+
 export const getClassStudents = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;

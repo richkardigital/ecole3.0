@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, CheckCircle, Clock, PlayCircle, Edit2, Trash2, AlertTriangle, Eye } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 interface Quiz {
     id: string;
@@ -28,6 +29,8 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
     const [deletingQuizId, setDeletingQuizId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const rolePrefix = user?.role === 'SUPER_ADMIN' ? '/admin' : user?.role === 'DIRECTEUR' ? '/directeur' : '/enseignant';
 
     const handleDelete = async () => {
         if (!deletingQuizId) return;
@@ -45,7 +48,7 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
     };
 
     const openEditModal = (quizId: string) => {
-        navigate(`/enseignant/courses/${courseId}/quizzes/${quizId}/edit`);
+        navigate(`${rolePrefix}/courses/${courseId}/quizzes/${quizId}/edit`);
     };
 
     return (
@@ -54,7 +57,7 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white">Évaluations en ligne</h2>
                 {isTeacher && (
                     <button
-                        onClick={() => navigate(`/enseignant/courses/${courseId}/quizzes/new`)}
+                        onClick={() => navigate(`${rolePrefix}/courses/${courseId}/quizzes/new`)}
                         className="bg-brand-accent text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-brand-accent/90 transition"
                     >
                         <Plus className="w-4 h-4" />

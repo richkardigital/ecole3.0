@@ -9,6 +9,7 @@ import {
   createClass,
   getClasses,
   enrollStudent,
+  unenrollStudent,
   getClassStudents,
   deleteClass,
   importStudents,
@@ -26,6 +27,7 @@ router.use(authenticate);
 router.post("/", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), createClass);
 router.put("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), updateClass);
 router.post("/enroll", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), enrollStudent);
+router.post("/unenroll", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), unenrollStudent);
 router.post("/transfer", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), transferStudent);
 router.post("/:id/students/import", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.single('file'), importStudents);
 router.post("/:id/students/import-preview", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.single('file'), previewImportStudents);

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 const DEMO_ACCOUNTS = [
   { label: 'Super Admin', email: 'superadmin@example.com', color: 'text-red-600', bg: 'bg-red-50 border-red-200 hover:border-red-300', dot: '#ef4444', initial: 'SA' },
   { label: 'Directeur', email: 'directeur@ecole1.com', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200 hover:border-emerald-300', dot: '#10b981', initial: 'DI' },
+  { label: 'Éducateur', email: 'educateur@ecole1.com', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200 hover:border-orange-300', dot: '#f97316', initial: 'ED' },
   { label: 'Enseignant', email: 'enseignant@ecole1.com', color: 'text-sky-700', bg: 'bg-sky-50 border-sky-200 hover:border-sky-300', dot: '#06b6d4', initial: 'EN' },
   { label: 'Élève', email: 'apprenant@ecole1.com', color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200 hover:border-violet-300', dot: '#8b5cf6', initial: 'EL' },
 ];

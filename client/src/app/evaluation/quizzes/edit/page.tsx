@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/context/AuthContext';
 
 interface Option {
     id?: string;
@@ -131,17 +132,19 @@ export default function EditQuizPage() {
     const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
     const navigate = useNavigate();
     const { toast: addToast } = useToast();
-    const [isLoading, setIsLoading] = useState(true);
+    const { user } = useAuth();
+    const rolePrefix = user?.role === 'SUPER_ADMIN' ? '/admin' : user?.role === 'DIRECTEUR' ? '/directeur' : '/enseignant';
     
-    const { register, control, handleSubmit, reset, formState: { errors } } = useForm<QuizForm>();
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const { register, control, handleSubmit, reset } = useForm<QuizForm>();
 
     const { fields: questions, append: appendQuestion, remove: removeQuestion } = useFieldArray({
         control,
         name: "questions"
     });
-
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchQuiz = async () => {
@@ -179,16 +182,16 @@ export default function EditQuizPage() {
             
             // Basic validation
             for (const q of data.questions) {
-                if (!q.options.some(o => o.isCorrect)) {
+                if (q.type !== 'FILL_IN_BLANK' && (!q.options || !q.options.some(o => o.isCorrect))) {
                     setError(`La question "${q.text}" n'a aucune réponse correcte.`);
                     setIsSubmitting(false);
                     return;
                 }
             }
 
-            await api.put(`/quizzes/${quizId}`, { ...data, courseId });
+            await api.put(`/quizzes/${quizId}`, data);
             addToast("success", "QCM modifié avec succès");
-            navigate(`/enseignant/courses/${courseId}`);
+            navigate(`${rolePrefix}/courses/${courseId}`);
         } catch (err: any) {
             console.error(err);
             const errorMessage = err.response?.data?.message || err.message || `Erreur lors de la modification du QCM.`;
@@ -210,7 +213,7 @@ export default function EditQuizPage() {
     return (
         <div className="p-6 md:p-8 lg:p-10 max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500">
             <div className="flex items-center gap-4 mb-4">
-                <Link to={`/enseignant/courses/${courseId}?tab=QUIZZES`} className="p-2 text-brand-text-muted hover:text-brand-text hover:bg-brand-sidebar rounded-lg transition-colors">
+                <Link to={`${rolePrefix}/courses/${courseId}?tab=QUIZZES`} className="p-2 text-brand-text-muted hover:text-brand-text hover:bg-brand-sidebar rounded-lg transition-colors">
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
                 <span className="text-sm font-medium text-brand-text-muted">Retour au cours</span>

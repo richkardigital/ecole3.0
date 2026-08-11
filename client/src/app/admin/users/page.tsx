@@ -234,28 +234,34 @@ const Users = () => {
       const XLSX = await import('xlsx');
       const sampleData = [
         {
+          'Matricule': 'ENS-2026-001',
           'Prénom': 'Jean',
           'Nom': 'Dupont',
           'Email': 'jean.dupont@example.com',
+          'Sexe': 'M',
+          'Date de naissance': '1985-05-12',
           'Rôle': 'Enseignant',
-          'Téléphone': '+2250700000000',
-          'Matricule': 'ENS-2026-001'
+          'Téléphone': '+2250700000000'
         },
         {
+          'Matricule': 'EDU-2026-001',
           'Prénom': 'Marie',
           'Nom': 'Kouassi',
           'Email': 'marie.kouassi@example.com',
+          'Sexe': 'F',
+          'Date de naissance': '1990-08-25',
           'Rôle': 'Éducateur',
-          'Téléphone': '+2250700000001',
-          'Matricule': 'EDU-2026-001'
+          'Téléphone': '+2250700000001'
         },
         {
+          'Matricule': 'MAT-2026-001',
           'Prénom': 'Alexandre',
           'Nom': 'Traoré',
           'Email': 'alexandre.traore@example.com',
+          'Sexe': 'M',
+          'Date de naissance': '2010-02-14',
           'Rôle': 'Apprenant',
-          'Téléphone': '+2250700000002',
-          'Matricule': 'MAT-2026-001'
+          'Téléphone': '+2250700000002'
         }
       ];
 
@@ -318,12 +324,15 @@ const Users = () => {
                 }
 
                 const payload = {
+                    matricule: row['Matricule'] || row['matricule'] || '',
                     firstName: row['Prénom'] || row['Prenom'] || row['firstName'] || 'Inconnu',
                     lastName: row['Nom'] || row['lastName'] || 'Inconnu',
                     email: row['Email'] || row['email'] || `user${Date.now()}${Math.floor(Math.random()*1000)}@ecole.com`,
+                    gender: row['Sexe'] || row['Genre'] || row['sexe'] || '',
+                    birthDate: row['Date de naissance'] || row['DateNaissance'] || row['birthDate'] || '',
                     role: roleToAssign,
                     phone: row['Téléphone'] || row['Telephone'] || row['phone'] || '',
-                    password: 'password123', // Default password
+                    password: 'Ecole2026!', // Default password
                 };
 
                 const formDataPayload = new FormData();
@@ -544,8 +553,13 @@ const Users = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-2">Matricule (Optionnel)</label>
-                <input {...register('matricule')} className="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl focus:ring-2 focus:ring-brand-accent focus:border-transparent outline-none transition-all text-brand-text placeholder-brand-text-muted/50" placeholder="Ex: MAT-2023-001" />
+                <label className="block text-sm font-medium text-brand-text-muted mb-2">Matricule {editingUser ? '' : '(Optionnel)'}</label>
+                <input 
+                  {...register('matricule')} 
+                  disabled={!!editingUser}
+                  className={`w-full px-4 py-3 border border-brand-border rounded-xl focus:outline-none transition-all text-brand-text placeholder-brand-text-muted/50 ${editingUser ? 'bg-brand-sidebar cursor-not-allowed text-brand-text-muted opacity-70' : 'bg-brand-bg focus:ring-2 focus:ring-brand-accent focus:border-transparent'}`} 
+                  placeholder={editingUser ? "Le matricule ne peut pas être modifié" : "Ex: MAT-2023-001"} 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-brand-text-muted mb-2">Email</label>

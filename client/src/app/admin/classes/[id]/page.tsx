@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, GraduationCap, Users, BookOpen, Key, ArrowRightLeft, Edit2, Upload, Plus, AlertCircle, CheckCircle, Trash2, Download, Search } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Users, BookOpen, Key, ArrowRightLeft, Edit2, Upload, Plus, AlertCircle, CheckCircle, Trash2, Download, Search, UserMinus } from 'lucide-react';
 
 interface Student {
     id: string;
@@ -60,6 +60,10 @@ export default function ClassDetailsPage() {
   const [studentToReset, setStudentToReset] = useState<Student | null>(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+
+  // Remove Student
+  const [studentToRemove, setStudentToRemove] = useState<Student | null>(null);
+  const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -248,9 +252,27 @@ export default function ClassDetailsPage() {
           setStudents(response.data);
           setIsTransferModalOpen(false);
           setStudentToTransfer(null);
-          alert("Élève transféré avec succès");
+          setTargetClassId('');
       } catch (error) {
-          console.error("Error transferring student", error);
+          console.error('Error transferring student', error);
+          alert("Erreur lors du transfert");
+      }
+  };
+
+  const confirmRemoveStudent = async () => {
+      if (!studentToRemove) return;
+      try {
+          await api.post('/classes/unenroll', {
+              studentId: studentToRemove.id,
+              classId
+          });
+          const response = await api.get(`/classes/${classId}/students`);
+          setStudents(response.data);
+          setIsRemoveModalOpen(false);
+          setStudentToRemove(null);
+      } catch (error) {
+          console.error('Error unenrolling student', error);
+          alert("Erreur lors du retrait de l'élève de la classe");
       }
   };
 
@@ -558,6 +580,12 @@ export default function ClassDetailsPage() {
                                       }} className="p-2 text-brand-accent hover:text-white bg-brand-accent/10 hover:bg-brand-accent rounded-lg transition-colors" title="Transférer">
                                           <ArrowRightLeft className="w-4 h-4" />
                                       </button>
+                                      <button onClick={() => {
+                                          setStudentToRemove(student);
+                                          setIsRemoveModalOpen(true);
+                                      }} className="p-2 text-red-500 hover:text-white bg-red-500/10 hover:bg-red-500 rounded-lg transition-colors" title="Retirer de la classe">
+                                          <UserMinus className="w-4 h-4" />
+                                      </button>
                                   </div>
                               </div>
                           ))}
@@ -742,6 +770,29 @@ export default function ClassDetailsPage() {
                   <div className="flex justify-end gap-2">
                       <Button variant="ghost" onClick={() => setIsTransferModalOpen(false)}>Annuler</Button>
                       <Button variant="primary" onClick={confirmTransfer} disabled={!targetClassId}>Transférer</Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* REMOVE STUDENT MODAL */}
+      {isRemoveModalOpen && studentToRemove && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-brand-card w-full max-w-md rounded-2xl border border-brand-border p-6 shadow-2xl">
+                  <h3 className="text-xl font-bold text-brand-text mb-4">Retirer de la classe</h3>
+                  <p className="text-sm text-brand-text-muted mb-6">
+                      Êtes-vous sûr de vouloir retirer <strong>{studentToRemove.firstName} {studentToRemove.lastName}</strong> de cette classe ?
+                      <br /><br />
+                      Cela annulera son inscription à cette classe uniquement, son compte utilisateur restera actif sur la plateforme.
+                  </p>
+                  
+                  <div className="flex justify-end gap-3">
+                      <Button variant="ghost" onClick={() => { setIsRemoveModalOpen(false); setStudentToRemove(null); }}>
+                          Annuler
+                      </Button>
+                      <Button variant="primary" onClick={confirmRemoveStudent} className="!bg-red-500 hover:!bg-red-600 !text-white !border-red-500">
+                          Oui, retirer de la classe
+                      </Button>
                   </div>
               </div>
           </div>
