@@ -26,6 +26,7 @@ import Library from '@/app/academic/library/page';
 import AdminLibrary from '@/app/admin/library/page';
 import NewLibraryDocumentPage from '@/app/admin/library/new/page';
 import SharedResources from '@/app/academic/shared-resources/page';
+import SharedCourseDetails from '@/app/academic/shared-resources/SharedCourseDetails';
 import Agenda from '@/app/academic/agenda/page';
 import EvaluationHub from '@/app/evaluation/page';
 import Chat from '@/app/communication/chat/page';
@@ -121,6 +122,7 @@ function App() {
                     <Route path="/admin/library" element={<AdminLibrary />} />
                     <Route path="/admin/library/new" element={<NewLibraryDocumentPage />} />
                     <Route path="/admin/shared-resources" element={<SharedResources />} />
+                    <Route path="/admin/shared-resources/:id" element={<SharedCourseDetails />} />
                     <Route path="/admin/classes" element={<Classes />} />
                     <Route path="/admin/classes/new" element={<NewClassPage />} />
                     <Route path="/admin/classes/:id" element={<ClassDetailsPage />} />
@@ -152,6 +154,7 @@ function App() {
                   <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'DIRECTEUR']} />}>
                     <Route path="/directeur/dashboard" element={<Dashboard />} />
                     <Route path="/directeur/classes" element={<Classes />} />
+                    <Route path="/directeur/classes/new" element={<NewClassPage />} />
                     <Route path="/directeur/classes/:id" element={<ClassDetailsPage />} />
                     <Route path="/directeur/classes/:id/edit" element={<EditClassPage />} />
                     <Route path="/directeur/users" element={<Users />} />
@@ -169,6 +172,7 @@ function App() {
                     <Route path="/directeur/chat" element={<Chat />} />
                     <Route path="/directeur/forum" element={<Forum />} />
                     <Route path="/directeur/shared-resources" element={<SharedResources />} />
+                    <Route path="/directeur/shared-resources/:id" element={<SharedCourseDetails />} />
                     <Route path="/directeur/agenda" element={<Agenda />} />
                     <Route path="/directeur/evaluations" element={<EvaluationHub />} />
                     <Route path="/directeur/settings" element={<Settings />} />
@@ -196,6 +200,7 @@ function App() {
                     <Route path="/enseignant/chat" element={<Chat />} />
                     <Route path="/enseignant/forum" element={<Forum />} />
                     <Route path="/enseignant/shared-resources" element={<SharedResources />} />
+                    <Route path="/enseignant/shared-resources/:id" element={<SharedCourseDetails />} />
                     <Route path="/enseignant/settings" element={<Settings />} />
                   </Route>
 
@@ -249,6 +254,7 @@ function App() {
                     <Route path="quizzes/:id/attempts" element={<QuizAttemptsList />} />
                     <Route path="quizzes/attempts/:id" element={<QuizAttemptDetail />} />
                     <Route path="shared-resources" element={<SharedResources />} />
+                    <Route path="shared-resources/:id" element={<SharedCourseDetails />} />
                     <Route path="agenda" element={<Agenda />} />
                     <Route path="evaluations" element={<EvaluationHub />} />
                   </Route>

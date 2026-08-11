@@ -20,6 +20,7 @@ import {
   bulkAssignCourses,
   getSharedSchools,
   getSharedSchoolClasses,
+  getSharedCourses,
   getSharedMaterials,
   toggleChapterProgress,
   getCourseStats
@@ -30,8 +31,9 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/library", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getLibrary); // Specific route first
-router.get("/shared/schools", requireRole([ROLES.APPRENANT, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getSharedSchools);
-router.get("/shared/schools/:schoolId/classes", requireRole([ROLES.APPRENANT, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getSharedSchoolClasses);
+router.get("/shared/schools", requireRole([ROLES.APPRENANT, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.SUPER_ADMIN]), getSharedSchools);
+router.get("/shared/schools/:schoolId/classes", requireRole([ROLES.APPRENANT, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.SUPER_ADMIN]), getSharedSchoolClasses);
+router.get("/shared/courses", requireRole([ROLES.APPRENANT, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.SUPER_ADMIN]), getSharedCourses);
 router.get("/shared/materials", requireRole([ROLES.APPRENANT, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getSharedMaterials);
 router.post("/assign-multiple", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), bulkAssignCourses);
 router.post("/", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), createCourse);

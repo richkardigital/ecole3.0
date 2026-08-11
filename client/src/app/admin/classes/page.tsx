@@ -137,8 +137,8 @@ const Classes = () => {
                 Exporter Excel
               </Button>
               <div className="flex gap-3">
-              {user?.role === 'SUPER_ADMIN' && (
-                <Link to="/admin/classes/new">
+              {(user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR') && (
+                <Link to={`${basePath}/classes/new`}>
                     <Button variant="primary" leftIcon={<Plus className="w-5 h-5" />}>
                         Nouvelle classe
                     </Button>

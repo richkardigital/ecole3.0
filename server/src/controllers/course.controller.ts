@@ -149,30 +149,22 @@ export const getCourse = async (req: AuthRequest, res: Response) => {
 
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    // Access control: SUPER_ADMIN has full access
-    if ((role as string) === 'SUPER_ADMIN') {
-        // Full access granted
-    } else if ((role as string) === 'ENSEIGNANT') {
-        // Teacher can access if they teach it or if it belongs to their school
-        if (course.teacherId !== userId && schoolId && course.class?.schoolId !== schoolId) {
-            return res.status(403).json({ message: "Access denied" });
-        }
-    } else if ((role as string) === 'APPRENANT') {
-        // Check enrollment or school matching
-        const enrollment = await prisma.enrollment.findFirst({
-            where: {
-                studentId: userId,
-                classId: course.classId
-            }
+    // Access control for viewing a course
+    if ((role as string) === 'APPRENANT') {
+        const enrollments = await prisma.enrollment.findMany({
+            where: { studentId: userId },
+            include: { class: true }
         });
-        if (!enrollment && schoolId && course.class?.schoolId !== schoolId) {
-            return res.status(403).json({ message: "Not enrolled in this class" });
-        }
-    } else if ((role as string) === 'DIRECTEUR' || (role as string) === 'EDUCATEUR') {
-        if (schoolId && course.class?.schoolId && course.class.schoolId !== schoolId) {
-            return res.status(403).json({ message: "Ce cours n'appartient pas à votre école" });
+        
+        const isEnrolledDirectly = enrollments.some(e => e.classId === course.classId);
+        const hasMatchingNiveau = course.class?.niveauId && enrollments.some(e => e.class.niveauId === course.class?.niveauId);
+        
+        if (!isEnrolledDirectly && !hasMatchingNiveau) {
+            return res.status(403).json({ message: "Ce cours ne correspond pas à votre niveau et vous n'y êtes pas inscrit." });
         }
     }
+    // Teachers, Directors, Educators, and Super Admins can view ANY course details across the network
+    // Note: Edit endpoints (POST/PUT/DELETE) have their own strict ownership checks.
 
     res.json(course);
   } catch (error) {
@@ -890,14 +882,8 @@ export const getSharedSchools = async (req: AuthRequest, res: Response) => {
 
     const whereClause: any = { isActive: true };
     
-    // If APPRENANT, only show schools that have classes with their niveau
-    if (role === "APPRENANT" && niveauId) {
-        whereClause.classes = {
-            some: {
-                niveauId: niveauId
-            }
-        };
-    }
+    // We return all active schools for all roles, including APPRENANT.
+    // They will filter classes inside the school later based on their niveau.
 
     const schools = await prisma.school.findMany({
       where: whereClause,
@@ -915,7 +901,7 @@ export const getSharedSchoolClasses = async (req: AuthRequest, res: Response) =>
   try {
     const role = req.user?.role;
     if (!role) return res.status(401).json({ message: "Unauthorized" });
-    if (!["APPRENANT", "ENSEIGNANT", "DIRECTEUR", "EDUCATEUR"].includes(role)) {
+    if (!["APPRENANT", "ENSEIGNANT", "DIRECTEUR", "EDUCATEUR", "SUPER_ADMIN"].includes(role)) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -928,8 +914,23 @@ export const getSharedSchoolClasses = async (req: AuthRequest, res: Response) =>
     });
     if (!school || !school.isActive) return res.status(404).json({ message: "School not found" });
 
+    let allowedNiveauIds: string[] | null = null;
+    if (role === "APPRENANT") {
+      const enrollments = await prisma.enrollment.findMany({
+        where: { studentId: req.user?.id },
+        include: { class: true }
+      });
+      allowedNiveauIds = [...new Set(enrollments.map(e => e.class.niveauId).filter(Boolean))] as string[];
+    }
+
+    const where: any = { schoolId: String(schoolId) };
+    if (allowedNiveauIds) {
+      if (allowedNiveauIds.length === 0) return res.json([]);
+      where.niveauId = { in: allowedNiveauIds };
+    }
+
     const classes = await prisma.class.findMany({
-      where: { schoolId: String(schoolId) },
+      where,
       select: { id: true, name: true, niveauId: true },
       orderBy: [{ niveauId: "asc" }, { name: "asc" }],
     });
@@ -937,6 +938,88 @@ export const getSharedSchoolClasses = async (req: AuthRequest, res: Response) =>
     res.json(classes);
   } catch (error) {
     res.status(500).json({ message: "Error fetching shared classes", error });
+  }
+};
+
+export const getSharedCourses = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role) return res.status(401).json({ message: "Unauthorized" });
+
+    const schoolId = String(req.query.schoolId || "").trim();
+    const classId = String(req.query.classId || "").trim();
+    const niveauId = String(req.query.niveauId || "").trim();
+    const q = String(req.query.q || "").trim();
+
+    let allowedNiveauIds: string[] | null = null;
+    if (role === "APPRENANT") {
+      const enrollments = await prisma.enrollment.findMany({
+        where: { studentId: req.user?.id },
+        include: { class: true }
+      });
+      allowedNiveauIds = [...new Set(enrollments.map(e => e.class.niveauId).filter(Boolean))] as string[];
+      
+      if (allowedNiveauIds.length === 0) {
+        return res.json([]);
+      }
+    }
+
+    const where: any = {
+      class: {
+        academicYear: {
+          isCurrent: true
+        }
+      }
+    };
+
+    if (schoolId && schoolId !== "ALL") {
+      where.class.schoolId = schoolId;
+    }
+    
+    if (classId && classId !== "ALL") {
+      where.class.id = classId;
+    }
+
+    if (niveauId && niveauId !== "ALL") {
+       if (allowedNiveauIds && !allowedNiveauIds.includes(niveauId)) {
+           return res.json([]);
+       }
+       where.class.niveauId = niveauId;
+    } else if (allowedNiveauIds) {
+       where.class.niveauId = { in: allowedNiveauIds };
+    }
+
+    if (q) {
+      where.OR = [
+        { subject: { name: { contains: q } } },
+        { class: { name: { contains: q } } }
+      ];
+    }
+
+    const courses = await prisma.course.findMany({
+      where,
+      include: {
+        class: {
+          include: {
+            school: { select: { id: true, name: true, code: true, logoUrl: true } },
+            niveau: { select: { id: true, nom: true } }
+          }
+        },
+        subject: { select: { id: true, name: true } },
+        teacher: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+        _count: { select: { chapters: true, resources: true } }
+      },
+      orderBy: [
+        { subject: { name: "asc" } },
+        { class: { name: "asc" } }
+      ]
+    });
+
+    console.log(`[getSharedCourses] returning ${courses.length} courses for user ${req.user?.id} with role ${role}. Query params: schoolId=${schoolId}, niveauId=${niveauId}, classId=${classId}`);
+    res.json(courses);
+  } catch (error: any) {
+    console.error("[getSharedCourses] Error:", error.message);
+    res.status(500).json({ message: "Error fetching shared courses", error });
   }
 };
 

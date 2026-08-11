@@ -69,7 +69,7 @@ export default function AcademicYearSchoolsPage() {
   const handleSave = async () => {
     try {
       setSubmitting(true);
-      await api.put(`/academic/years/${id}`, { schoolIds: selectedSchoolIds });
+      await api.patch(`/academic/years/${id}/schools`, { schoolIds: selectedSchoolIds });
       showToast("Les établissements ont été mis à jour avec succès.");
       setTimeout(() => navigate('/admin/academic-years'), 1500);
     } catch (error) {

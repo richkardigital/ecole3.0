@@ -229,7 +229,7 @@ export default function LibraryPage() {
       )}
 
       <PageHeader
-        title="Bibliothèque de Cours"
+        title="Bibliothèque de l'école"
         description={isApprenant ? "Consultez les supports de cours de votre niveau." : "Gérez les supports de cours globaux accessibles par niveau d'étude."}
       >
         {canAdd && (

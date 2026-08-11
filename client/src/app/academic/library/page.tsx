@@ -183,7 +183,7 @@ export default function LibraryPage() {
 
       {/* Page Header */}
       <PageHeader 
-        title="Bibliothèque de Cours" 
+        title="Bibliothèque de l'école" 
         description="Accédez aux supports pédagogiques, fiches de révision et ressources numérisées de l'établissement."
       >
         {isTeacherOrAdmin && (

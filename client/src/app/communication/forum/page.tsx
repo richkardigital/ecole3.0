@@ -92,6 +92,11 @@ const Forum = () => {
     }
   };
 
+  const handleSelectPost = async (post: ForumPost) => {
+    setSelectedPost(post);
+    await refreshPost(post.id);
+  };
+
   const onSubmitPost = async (data: any) => {
     setIsSubmitting(true);
     try {
@@ -209,11 +214,22 @@ const Forum = () => {
                 </p>
               </div>
             </div>
-            {CATEGORIES.find(c => c.id === selectedPost.category) && (
-              <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${CATEGORIES.find(c => c.id === selectedPost.category)?.color}`}>
-                {CATEGORIES.find(c => c.id === selectedPost.category)?.label}
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              {CATEGORIES.find(c => c.id === selectedPost.category) && (
+                <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${CATEGORIES.find(c => c.id === selectedPost.category)?.color}`}>
+                  {CATEGORIES.find(c => c.id === selectedPost.category)?.label}
+                </span>
+              )}
+              {(user?.role === 'SUPER_ADMIN' || user?.id === selectedPost.author.id) && (
+                <button 
+                  onClick={(e) => deletePost(selectedPost.id, e)}
+                  className="text-slate-400 hover:text-red-500 transition-colors p-2 hover:bg-red-50 rounded-lg"
+                  title="Supprimer la discussion"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              )}
+            </div>
           </div>
           <div className="mt-6 text-slate-700 whitespace-pre-wrap leading-relaxed">
             {selectedPost.content}
@@ -247,7 +263,7 @@ const Forum = () => {
                   {(user?.role === 'SUPER_ADMIN' || user?.id === comment.author.id) && (
                     <button 
                       onClick={() => deleteComment(comment.id)}
-                      className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                      className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-all p-1.5 hover:bg-red-50 rounded-lg"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -343,7 +359,7 @@ const Forum = () => {
           filteredPosts.map(post => (
             <div 
               key={post.id} 
-              onClick={() => setSelectedPost(post)}
+              onClick={() => handleSelectPost(post)}
               className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-accent/30 transition-all cursor-pointer group flex items-start gap-4 relative"
             >
               <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-lg shrink-0 overflow-hidden">
@@ -375,7 +391,7 @@ const Forum = () => {
               {(user?.role === 'SUPER_ADMIN' || user?.id === post.author.id) && (
                 <button 
                   onClick={(e) => deletePost(post.id, e)}
-                  className="absolute top-5 right-5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1.5 hover:bg-red-50 rounded-lg"
+                  className="absolute top-5 right-5 text-slate-400 hover:text-red-500 transition-all p-2 hover:bg-red-50 rounded-lg"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

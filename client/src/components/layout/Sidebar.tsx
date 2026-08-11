@@ -204,7 +204,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/directeur/broadcast" icon={Megaphone} isActive={p === '/directeur/broadcast'}>Annonces Flash</NavItem>
                 <NavItem to="/directeur/chat" icon={MessageCircle} isActive={p === '/directeur/chat'}>Messagerie</NavItem>
                 <NavItem to="/directeur/forum" icon={MessageCircle} isActive={p === '/directeur/forum'}>Forum Écoles</NavItem>
-                <NavItem to="/directeur/shared-resources" icon={Network} isActive={p === '/directeur/shared-resources'}>Réseau SEEEC</NavItem>
+                <NavItem to="/directeur/shared-resources" icon={Network} isActive={p.startsWith('/directeur/shared-resources')}>Réseau SEEEC</NavItem>
               </NavSection>
               <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
                 <NavItem to="/directeur/settings" icon={Settings} isActive={p === '/directeur/settings'}>Paramètres École</NavItem>
@@ -257,7 +257,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               <NavSection title="Communication">
                 <NavItem to="/enseignant/chat" icon={MessageCircle} isActive={p === '/enseignant/chat'}>Messagerie</NavItem>
                 <NavItem to="/enseignant/forum" icon={MessageCircle} isActive={p === '/enseignant/forum'}>Forum Enseignants</NavItem>
-                <NavItem to="/enseignant/shared-resources" icon={Network} isActive={p === '/enseignant/shared-resources'}>Réseau SEEEC</NavItem>
+                <NavItem to="/enseignant/shared-resources" icon={Network} isActive={p.startsWith('/enseignant/shared-resources')}>Réseau SEEEC</NavItem>
               </NavSection>
               <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
                 <NavItem to="/enseignant/settings" icon={Settings} isActive={p === '/enseignant/settings'}>Mon Profil</NavItem>
@@ -283,7 +283,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               <NavSection title="Entraide">
                 <NavItem to="/chat" icon={MessageCircle} isActive={p === '/chat'}>Messagerie</NavItem>
                 <NavItem to="/forum" icon={MessageCircle} isActive={p === '/forum'}>Forum d'entraide</NavItem>
-                <NavItem to="/shared-resources" icon={Network} isActive={p === '/shared-resources'}>Ressources SEEEC</NavItem>
+                <NavItem to="/shared-resources" icon={Network} isActive={p.startsWith('/shared-resources')}>Réseau SEEEC</NavItem>
               </NavSection>
               <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
                 <NavItem to="/settings" icon={Settings} isActive={p === '/settings'}>Mon Profil</NavItem>

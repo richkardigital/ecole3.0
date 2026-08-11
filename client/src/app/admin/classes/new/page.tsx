@@ -3,35 +3,44 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { ArrowLeft, Save } from 'lucide-react';
 
 export default function NewClassPage() {
+  const { user } = useAuth();
+  const basePath = user?.role === 'SUPER_ADMIN' ? '/admin' : '/directeur';
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [schools, setSchools] = useState<any[]>([]);
+  const [niveaux, setNiveaux] = useState<any[]>([]);
   
   const { register, handleSubmit, formState: { errors } } = useForm();
 
   useEffect(() => {
-    const fetchSchools = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get('/schools');
-        setSchools(res.data);
+        const niveauxRes = await api.get('/niveaux');
+        setNiveaux(niveauxRes.data);
+
+        if (user?.role === 'SUPER_ADMIN') {
+          const schoolsRes = await api.get('/schools');
+          setSchools(schoolsRes.data);
+        }
       } catch (error) {
-        console.error('Error fetching schools:', error);
+        console.error('Error fetching data:', error);
       }
     };
-    fetchSchools();
+    fetchData();
   }, []);
 
   const onSubmit = async (data: any) => {
     setIsLoading(true);
     try {
       await api.post('/classes', data);
-      navigate('/admin/classes');
+      navigate(`${basePath}/classes`);
     } catch (error: any) {
       console.error('Error creating class:', error);
       alert(error.response?.data?.message || 'Une erreur est survenue');
@@ -43,7 +52,7 @@ export default function NewClassPage() {
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="flex items-center gap-4">
-        <Link to="/admin/classes" className="p-2 hover:bg-brand-sidebar rounded-lg transition-colors text-brand-text-muted hover:text-brand-text">
+        <Link to={`${basePath}/classes`} className="p-2 hover:bg-brand-sidebar rounded-lg transition-colors text-brand-text-muted hover:text-brand-text">
             <ArrowLeft className="w-5 h-5" />
         </Link>
         <PageHeader 
@@ -81,40 +90,38 @@ export default function NewClassPage() {
                             <div>
                                 <label className="block text-sm font-medium text-brand-text-muted mb-1.5">Niveau</label>
                                 <select 
-                                    {...register('level')}
+                                    {...register('niveauId')}
                                     className="w-full px-4 py-2.5 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent outline-none text-brand-text appearance-none"
                                  >
                                     <option value="">Sélectionner un niveau</option>
-                                    <option value="6eme">6ème</option>
-                                    <option value="5eme">5ème</option>
-                                    <option value="4eme">4ème</option>
-                                    <option value="3eme">3ème</option>
-                                    <option value="2nde">2nde</option>
-                                    <option value="1ere">1ère</option>
-                                    <option value="Terminale">Terminale</option>
+                                    {niveaux.map(n => (
+                                        <option key={n.id} value={n.id}>{n.nom || n.name}</option>
+                                    ))}
                                  </select>
                             </div>
                             
-                            <div>
-                                <label className="block text-sm font-medium text-brand-text-muted mb-1.5">École rattachée *</label>
-                                <select
-                                    {...register('schoolId', { required: true })}
-                                    className="w-full px-4 py-2.5 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent outline-none text-brand-text appearance-none"
-                                >
-                                    <option value="">Sélectionner une école</option>
-                                    {schools.map(school => (
-                                        <option key={school.id} value={school.id}>{school.name}</option>
-                                    ))}
-                                </select>
-                                {errors.schoolId && <span className="text-red-400 text-xs mt-1">Veuillez sélectionner une école</span>}
-                            </div>
+                            {user?.role === 'SUPER_ADMIN' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-brand-text-muted mb-1.5">École rattachée *</label>
+                                    <select
+                                        {...register('schoolId', { required: user?.role === 'SUPER_ADMIN' })}
+                                        className="w-full px-4 py-2.5 bg-brand-bg border border-brand-border rounded-lg focus:ring-2 focus:ring-brand-accent outline-none text-brand-text appearance-none"
+                                    >
+                                        <option value="">Sélectionner une école</option>
+                                        {schools.map(school => (
+                                            <option key={school.id} value={school.id}>{school.name}</option>
+                                        ))}
+                                    </select>
+                                    {errors.schoolId && <span className="text-red-400 text-xs mt-1">Veuillez sélectionner une école</span>}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
 
             <div className="mt-10 pt-6 border-t border-brand-border flex justify-end gap-4">
-                <Link to="/admin/classes">
+                <Link to={`${basePath}/classes`}>
                     <Button type="button" variant="ghost">Annuler</Button>
                 </Link>
                 <Button type="submit" variant="primary" isLoading={isLoading} leftIcon={<Save className="w-4 h-4" />}>

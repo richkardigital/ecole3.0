@@ -124,10 +124,15 @@ const Courses = () => {
           new Map(
             data
               .filter(c => c.class?.academicYear)
-              .map(c => [c.class!.academicYear!.id, { id: c.class!.academicYear!.id, name: c.class!.academicYear!.name }])
+              .map(c => [c.class!.academicYear!.id, { id: c.class!.academicYear!.id, name: c.class!.academicYear!.name, isCurrent: c.class!.academicYear!.isCurrent }])
           ).values()
         );
         setYearsList(uniqueYears);
+
+        const currentYear = uniqueYears.find((y: any) => y.isCurrent);
+        if (currentYear) {
+          setSelectedYearFilter(currentYear.id);
+        }
 
         setNiveauxList(niveauxRes.data);
       }
@@ -290,6 +295,26 @@ const Courses = () => {
     return key ? SUBJECT_IMAGES[key] : DEFAULT_IMAGE;
   };
 
+  // Dynamic filter options based on selections
+  const dynamicSchools = Array.from(new Map(
+    courses
+      .filter(c => selectedYearFilter === 'ALL' || c.class?.academicYear?.id === selectedYearFilter)
+      .filter(c => c.class?.school)
+      .map(c => [c.class!.school!.id, { id: c.class!.school!.id, name: c.class!.school!.name }])
+  ).values());
+
+  const dynamicNiveaux = Array.from(new Map(
+    courses
+      .filter(c => selectedYearFilter === 'ALL' || c.class?.academicYear?.id === selectedYearFilter)
+      .filter(c => selectedSchoolFilter === 'ALL' || c.class?.school?.id === selectedSchoolFilter)
+      .filter(c => c.class?.niveau || c.class?.level)
+      .map(c => {
+        const nId = c.class?.niveau?.id || c.class?.level || 'unknown';
+        const nName = c.class?.niveau?.nom || c.class?.level || 'Inconnu';
+        return [nName, { id: nId, name: nName }];
+      })
+  ).values());
+
   // Multi-criteria Filtering
   const filteredCourses = courses.filter(c => {
     const subjectName = c.subject?.name || '';
@@ -334,8 +359,8 @@ const Courses = () => {
         }
         icon={<BookOpen className="w-6 h-6 text-brand-accent" />}
         action={
-          // Only Admin & Directeur can create courses and assign them
-          (!isSuperAdmin && !isDirecteur) ? null : (
+          // Only Directeur can create courses and assign them here
+          (!isDirecteur) ? null : (
             <div className="flex gap-3">
               <Button
                 variant="secondary"
@@ -360,26 +385,26 @@ const Courses = () => {
       <div className="bg-brand-card p-4 rounded-xl border border-brand-border/50 space-y-3 shadow-md">
         <div className="flex flex-col lg:flex-row gap-3 items-center justify-between">
           {/* Search bar */}
-          <div className="relative w-full lg:w-[400px]">
+          <div className={`relative w-full transition-all duration-300 ${user?.role === 'APPRENANT' ? 'lg:w-1/2 lg:max-w-2xl mx-auto' : 'lg:w-[400px]'}`}>
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
             <input 
               type="text"
               placeholder="Rechercher par cours, enseignant, classe..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-brand-surface border border-brand-border/50 rounded-lg pl-9 pr-4 py-2 text-xs text-brand-text placeholder-brand-muted focus:outline-none focus:border-brand-accent"
+              className={`w-full bg-brand-surface border border-brand-border/50 rounded-lg pl-9 pr-4 py-2 text-brand-text placeholder-brand-muted focus:outline-none focus:border-brand-accent ${user?.role === 'APPRENANT' ? 'text-sm' : 'text-xs'}`}
             />
           </div>
 
           {/* Filters & View Toggle */}
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
+          <div className={`flex flex-wrap items-center gap-3 w-full lg:w-auto ${user?.role === 'APPRENANT' ? 'justify-center' : 'justify-end'}`}>
             {/* Filter by Academic Year */}
             {yearsList.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-brand-muted" />
                 <select
                   value={selectedYearFilter}
-                  onChange={(e) => setSelectedYearFilter(e.target.value)}
+                  onChange={(e) => { setSelectedYearFilter(e.target.value); setSelectedSchoolFilter('ALL'); setSelectedNiveauFilter('ALL'); setCurrentPage(1); }}
                   className="bg-brand-surface border border-brand-border/50 rounded-lg px-2.5 py-1.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent"
                 >
                   <option value="ALL">Toutes les années</option>
@@ -391,16 +416,16 @@ const Courses = () => {
             )}
 
             {/* Filter by School (Super Admin) */}
-            {isSuperAdmin && schoolsList.length > 0 && (
+            {isSuperAdmin && dynamicSchools.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <School className="w-3.5 h-3.5 text-brand-muted" />
                 <select
                   value={selectedSchoolFilter}
-                  onChange={(e) => setSelectedSchoolFilter(e.target.value)}
+                  onChange={(e) => { setSelectedSchoolFilter(e.target.value); setSelectedNiveauFilter('ALL'); setCurrentPage(1); }}
                   className="bg-brand-surface border border-brand-border/50 rounded-lg px-2.5 py-1.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent max-w-[160px] truncate"
                 >
                   <option value="ALL">Toutes les écoles</option>
-                  {schoolsList.map(s => (
+                  {dynamicSchools.map((s: any) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
@@ -408,7 +433,7 @@ const Courses = () => {
             )}
 
             {/* Filter by Niveau */}
-            {niveauxList.length > 0 && (
+            {user?.role !== 'APPRENANT' && dynamicNiveaux.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <GraduationCap className="w-3.5 h-3.5 text-brand-muted" />
                 <select
@@ -417,8 +442,8 @@ const Courses = () => {
                   className="bg-brand-surface border border-brand-border/50 rounded-lg px-2.5 py-1.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent max-w-[150px] truncate"
                 >
                   <option value="ALL">Tous les niveaux</option>
-                  {niveauxList.map(n => (
-                    <option key={n.id} value={n.nom || n.name}>{n.nom || n.name}</option>
+                  {dynamicNiveaux.map((n: any) => (
+                    <option key={n.id} value={n.name}>{n.name}</option>
                   ))}
                 </select>
               </div>
