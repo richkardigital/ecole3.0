@@ -3,7 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api, { getFileUrl } from '@/lib/api';
 import { ArrowLeft, BookOpen, Clock, FileText, Video, ExternalLink, Download, User, School } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { CourseModel } from '@/types/course.types';
+
+interface CourseModel {
+  id: string;
+  subject: { name: string };
+  class?: { name: string; school?: { name: string } };
+  teacher?: { firstName: string; lastName: string; avatarUrl?: string };
+}
 
 const SharedCourseDetails = () => {
   const { id } = useParams<{ id: string }>();

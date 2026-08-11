@@ -173,17 +173,9 @@ const SharedResources = () => {
 
   const filteredCourses = useMemo(() => {
     return courses.filter(course => {
-      const matchesSearch = course.subject.name.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesSearch;
+      return course.subject.name.toLowerCase().includes(searchTerm.toLowerCase());
     });
-    // Sort keys alphabetically
-    const sortedKeys = Object.keys(groups).sort();
-    const sortedGroups: { [key: string]: CourseModel[] } = {};
-    for (const key of sortedKeys) {
-      sortedGroups[key] = groups[key];
-    }
-    return sortedGroups;
-  }, [courses]);
+  }, [courses, searchTerm]);
 
   return (
     <div className="space-y-6">
