@@ -13,6 +13,7 @@ import {
   submitQuizAttempt,
   getMyAttempts,
   getQuizStats,
+  publishQuiz
 } from "../controllers/quiz.controller.js";
 
 const router = Router();
@@ -36,5 +37,8 @@ router.delete("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DI
 
 // Soumission par l'apprenant
 router.post("/:id/submit", requireRole([ROLES.APPRENANT]), submitQuizAttempt);
+
+// Publication avec propagation CNED
+router.patch("/:id/publish", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), publishQuiz);
 
 export default router;

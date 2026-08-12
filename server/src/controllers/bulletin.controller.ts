@@ -7,29 +7,14 @@ import type { AuthRequest } from "../middleware/auth.js";
 // Helpers
 // =============================================
 
+import { calcWeightedAverage } from "../services/averages.js";
+
 /**
  * Calcule la moyenne pondérée d'un élève pour un cours sur un trimestre.
- * Prend en compte: Devoirs, Évaluations, Quiz, Examens, Interros, Participation.
+ * Utilise la règle CNED : 60% source ADMIN (évaluations) / 40% source ENSEIGNANT (devoirs)
  */
 const calculateCourseAverage = (grades: any[]): number | null => {
-  if (grades.length === 0) return null;
-  const validGrades = grades.filter(
-    (g) => g.value !== null && g.value !== undefined
-  );
-  if (validGrades.length === 0) return null;
-
-  let totalWeighted = 0;
-  let totalCoeff = 0;
-
-  validGrades.forEach((g) => {
-    const coeff = g.coefficient || 1;
-    totalWeighted += g.value * coeff;
-    totalCoeff += coeff;
-  });
-
-  return totalCoeff > 0
-    ? parseFloat((totalWeighted / totalCoeff).toFixed(2))
-    : null;
+  return calcWeightedAverage(grades);
 };
 
 /**

@@ -677,3 +677,69 @@ export const getQuizStats = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: "Erreur statistiques quiz", error });
   }
 };
+
+// =============================================
+// PUBLISH QUIZ — Publication avec propagation CNED
+// =============================================
+
+import { propagateQuiz } from "../services/propagation.js";
+
+export const publishQuiz = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { isPublished, scope, niveauId, schoolId: bodySchoolId } = req.body;
+    const role = req.user?.role as string;
+
+    const quiz = await prisma.quiz.findUnique({ where: { id: String(id) } });
+    if (!quiz) return res.status(404).json({ message: "Quiz non trouvé" });
+
+    // Seul SUPER_ADMIN peut publier un quiz de niveau NIVEAU
+    const effectiveScope = scope || quiz.scope || "CLASSE";
+    if (effectiveScope === "NIVEAU" && role !== "SUPER_ADMIN") {
+      return res.status(403).json({
+        message: "Seul le Super Administrateur peut publier des quiz au niveau."
+      });
+    }
+
+    const updated = await prisma.quiz.update({
+      where: { id: String(id) },
+      data: {
+        published: Boolean(isPublished),
+        scope: effectiveScope as any,
+        niveauId: niveauId || quiz.niveauId || null,
+        schoolId: bodySchoolId || req.user?.schoolId || null
+      }
+    });
+
+    // Propagation automatique si publication déclenchée
+    let propagatedCount = 0;
+    if (isPublished) {
+      try {
+        propagatedCount = await propagateQuiz(String(id));
+
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user?.id,
+            action: "PUBLIE_QUIZ",
+            entity: "Quiz",
+            entityId: String(id),
+            metadata: JSON.stringify({
+              scope: effectiveScope,
+              propagatedTo: propagatedCount,
+              publishedAt: new Date().toISOString()
+            })
+          }
+        });
+      } catch (propagationError) {
+        console.error("Quiz propagation error:", propagationError);
+        // Ne pas bloquer la publication
+      }
+    }
+
+    res.json({ ...updated, propagatedTo: propagatedCount });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erreur lors de la publication du quiz", error });
+  }
+};
+
