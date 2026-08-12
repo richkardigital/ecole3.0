@@ -1195,3 +1195,68 @@ export const getCourseStats = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: "Erreur lors de la récupération des stats", error });
   }
 };
+
+// =============================================
+// PUBLISH COURSE — Publication avec propagation CNED
+// =============================================
+
+import { propagateCourse } from "../services/propagation.js";
+
+export const publishCourse = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { isPublished, scope, niveauId, schoolId: bodySchoolId } = req.body;
+    const role = req.user?.role as string;
+
+    const course = await prisma.course.findUnique({ where: { id: String(id) } });
+    if (!course) return res.status(404).json({ message: "Cours non trouvé" });
+
+    // Seul SUPER_ADMIN peut publier un cours de niveau NIVEAU
+    const effectiveScope = scope || course.scope || "CLASSE";
+    if (effectiveScope === "NIVEAU" && role !== "SUPER_ADMIN") {
+      return res.status(403).json({
+        message: "Seul le Super Administrateur peut publier des cours au niveau."
+      });
+    }
+
+    const updated = await prisma.course.update({
+      where: { id: String(id) },
+      data: {
+        isPublished: Boolean(isPublished),
+        scope: effectiveScope as any,
+        niveauId: niveauId || course.niveauId || null,
+        schoolId: bodySchoolId || course.schoolId || req.user?.schoolId || null
+      }
+    });
+
+    // Propagation automatique si publication déclenchée
+    let propagatedCount = 0;
+    if (isPublished) {
+      try {
+        propagatedCount = await propagateCourse(String(id));
+
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user?.id,
+            action: "PUBLIE_COURS",
+            entity: "Course",
+            entityId: String(id),
+            metadata: JSON.stringify({
+              scope: effectiveScope,
+              propagatedTo: propagatedCount,
+              publishedAt: new Date().toISOString()
+            })
+          }
+        });
+      } catch (propagationError) {
+        console.error("Course propagation error:", propagationError);
+        // Ne pas bloquer la publication
+      }
+    }
+
+    res.json({ ...updated, propagatedTo: propagatedCount });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erreur lors de la publication du cours", error });
+  }
+};

@@ -23,7 +23,8 @@ import {
   getSharedCourses,
   getSharedMaterials,
   toggleChapterProgress,
-  getCourseStats
+  getCourseStats,
+  publishCourse
 } from "../controllers/course.controller.js";
 
 const router = Router();
@@ -48,6 +49,9 @@ router.delete("/chapters/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT,
 router.get("/:id/content", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getCourseChapters);
 router.post("/chapters/:id/progress", requireRole([ROLES.APPRENANT]), toggleChapterProgress);
 router.get("/:id/stats", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getCourseStats);
+
+// Publication d'un cours avec propagation CNED
+router.patch("/:id/publish", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), publishCourse);
 
 // Material routes nested under course
 router.post("/:id/materials", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.single('file'), addMaterial);

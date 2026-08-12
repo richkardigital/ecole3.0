@@ -294,7 +294,10 @@ export const saveTeacherGrid = async (req: AuthRequest, res: Response) => {
                             assignmentId: g.assignmentId,
                             courseId: courseId,
                             termId: termId,
-                            value: g.value
+                            value: g.value,
+                            // Modèle CNED : source de la note (60%/40%)
+                            source: ((req.user?.role as string) === "ENSEIGNANT") ? "ENSEIGNANT" : "ADMIN",
+                            isGraded: true
                         }
                     });
                 }
@@ -373,7 +376,10 @@ export const saveGrade = async (req: AuthRequest, res: Response) => {
                 value,
                 comment: comment || null,
                 termId: activeTerm?.id || null,
-                submissionId: submission?.id || null
+                submissionId: submission?.id || null,
+                // Modèle CNED : source de la note (60%/40%)
+                source: ((req.user?.role as string) === "ENSEIGNANT") ? "ENSEIGNANT" : "ADMIN",
+                isGraded: true
             }
         });
     }

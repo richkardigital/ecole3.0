@@ -3,6 +3,7 @@ import prisma from "../utils/prisma.js";
 import { z } from "zod";
 import type { AuthRequest } from "../middleware/auth.js";
 import { uploadToSupabase } from "../utils/supabase.js";
+import { propagateAssignment } from "../services/propagation.js";
 
 const createAssignmentSchema = z.object({
   title: z.string(),
@@ -72,16 +73,25 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
     const parsedDate = new Date(dueDate);
     const parsedCoefficient = coefficient ? parseInt(coefficient) : 1;
 
-    if ((req.user?.role as string) === "ENSEIGNANT" && courseId) {
-      const course = await prisma.course.findUnique({ where: { id: courseId } });
-      if (!course || course.teacherId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    } else if (niveauId && (req.user?.role as string) !== "SUPER_ADMIN") {
-        return res.status(403).json({ message: "Only Super Admin can create level-wide assignments" });
+    const role = req.user?.role as string;
+
+    // ENSEIGNANT : ne peut pas créer de contenu au niveau NIVEAU
+    if (role === "ENSEIGNANT" && (niveauId || type === 'DEVOIR_NIVEAU')) {
+      return res.status(403).json({
+        message: "Les enseignants ne peuvent pas créer de devoirs de niveau. Contactez le Super Administrateur."
+      });
     }
 
-    if (type === 'DEVOIR_NIVEAU' && req.user?.role !== 'SUPER_ADMIN') {
+    if (role === "ENSEIGNANT" && courseId) {
+      const course = await prisma.course.findUnique({ where: { id: courseId } });
+      if (!course || course.teacherId !== req.user!.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    } else if (niveauId && role !== "SUPER_ADMIN") {
+      return res.status(403).json({ message: "Seul le Super Administrateur peut créer des devoirs de niveau." });
+    }
+
+    if (type === 'DEVOIR_NIVEAU' && role !== 'SUPER_ADMIN') {
       return res.status(403).json({ message: "Seul un Super Admin peut créer un devoir de niveau." });
     }
 
@@ -104,6 +114,10 @@ export const createAssignment = async (req: AuthRequest, res: Response) => {
         createdById: req.user?.id,
         voiceNoteUrl: voiceNoteUrl || null,
         correctionUrl: correctionUrl || null,
+        // Modèle CNED : scope et workflow
+        scope: niveauId ? 'NIVEAU' : (req.body.scope || 'CLASSE'),
+        schoolId: req.body.schoolId || req.user?.schoolId || null,
+        workflowStatus: 'BROUILLON',
         attachments: req.body.attachments ? (Array.isArray(req.body.attachments) ? req.body.attachments : JSON.parse(req.body.attachments)) : [],
         questions: req.body.questions ? {
           create: (typeof req.body.questions === 'string' ? JSON.parse(req.body.questions) : req.body.questions).map((q: any) => ({
@@ -180,22 +194,58 @@ export const publishAssignment = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { published } = req.body;
+    const role = req.user?.role as string;
     
-    // Check if assignment exists
-    const assignment = await prisma.assignment.findUnique({
-        where: { id }
-    });
+    // Vérifier si le devoir existe
+    const assignment = await prisma.assignment.findUnique({ where: { id } });
 
     if (!assignment) {
-        return res.status(404).json({ message: "Assignment not found" });
+      return res.status(404).json({ message: "Assignment not found" });
+    }
+
+    // Seul SUPER_ADMIN peut publier des devoirs de niveau NIVEAU
+    if (assignment.scope === 'NIVEAU' && role !== 'SUPER_ADMIN') {
+      return res.status(403).json({
+        message: "Seul le Super Administrateur peut publier des devoirs de niveau."
+      });
     }
 
     const updated = await prisma.assignment.update({
-        where: { id },
-        data: { published }
+      where: { id },
+      data: {
+        published,
+        workflowStatus: published ? 'PUBLIE' : 'BROUILLON',
+        isNiveauWide: assignment.scope === 'NIVEAU' // Sync rétro-compat
+      }
     });
 
-    res.json(updated);
+    // Propager automatiquement si publication déclenchée
+    let propagatedCount = 0;
+    if (published) {
+      try {
+        propagatedCount = await propagateAssignment(id);
+        
+        // Audit log
+        await prisma.auditLog.create({
+          data: {
+            userId: req.user?.id,
+            action: 'PUBLIE_DEVOIR',
+            entity: 'Assignment',
+            entityId: id,
+            metadata: JSON.stringify({
+              scope: assignment.scope,
+              propagatedTo: propagatedCount,
+              publishedAt: new Date().toISOString()
+            })
+          }
+        });
+      } catch (propagationError) {
+        console.error('Propagation error:', propagationError);
+        // Ne pas bloquer la publication si la propagation échoue
+      }
+    }
+
+    res.json({ ...updated, propagatedTo: propagatedCount });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error updating publish status", error });
@@ -533,7 +583,7 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
 
         const parsedAnswers = answers;
 
-        for (const question of assignment.questions) {
+        for (const question of (assignment as any).questions) {
             totalPoints += question.points;
             if (question.type === "MULTIPLE_CHOICE" || question.type === "SINGLE_CHOICE") {
                 const userSelectedOptions = parsedAnswers[question.id] || [];
@@ -618,13 +668,27 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
                 assignmentId: assignment.id,
                 submissionId: submission.id,
                 type: (gradeTypeMap[assignment.type] ?? "DEVOIR") as any,
-                validated: true
+                validated: true,
+                source: "ADMIN", // Notes auto-corrigées = source ADMIN (60%)
+                isGraded: true
             },
             update: {
                 value: parseFloat(autoScore.toFixed(2)),
-                comment: "Auto-corrigé"
+                comment: "Auto-corrigé",
+                source: "ADMIN"
             }
         });
+    }
+
+    // Marquer la propagation comme soumise
+    try {
+      await prisma.assignmentPropagation.upsert({
+        where: { assignmentId_studentId: { assignmentId: id as string, studentId } },
+        create: { assignmentId: id as string, studentId, submitted: true, submittedAt: new Date(), notified: true, viewed: true },
+        update: { submitted: true, submittedAt: new Date() }
+      });
+    } catch (_) {
+      // La propagation peut ne pas exister (devoir de classe sans propagation formelle)
     }
 
     res.status(existingSubmission ? 200 : 201).json(submission);

@@ -19,6 +19,7 @@ enum UserRole {
   EDUCATEUR
   ENSEIGNANT
   APPRENANT
+  PARENT // Accès lecture seule aux données de ses enfants
 }
 
 enum BulletinStatus {
@@ -102,6 +103,28 @@ enum EnrollmentStatus {
   TRANSFERRED
   GRADUATED
   SUSPENDED
+}
+
+// Portée du contenu pédagogique (modèle CNED)
+enum ContentScope {
+  NIVEAU // Publié par SUPER_ADMIN → diffusé à TOUS les élèves du niveau
+  ECOLE  // Publié par l'école → diffusé à tous les élèves de l'école
+  CLASSE // Publié par un enseignant → diffusé aux élèves de la classe
+}
+
+// Workflow de statut des devoirs
+enum AssignmentWorkflowStatus {
+  BROUILLON
+  PUBLIE
+  EN_CORRECTION
+  CORRIGE
+  CLOTURE // Date limite passée : plus de rendu possible
+}
+
+// Source d'une note (pour pondération 60%/40%)
+enum GradeSource {
+  ADMIN      // Note créée par SUPER_ADMIN (poids 60% dans la moyenne)
+  ENSEIGNANT // Note créée par l'enseignant pour éval de classe (poids 40%)
 }
 
 // =============================================
@@ -225,6 +248,8 @@ model Niveau {
   resources   Resource[]
   assignments Assignment[]
   quizzes     Quiz[]
+  courses     Course[] @relation("NiveauCourses")
+  annualAverages AnnualAverage[]
 
   @@unique([nom, schoolId])
   @@index([rang])
@@ -310,6 +335,19 @@ model User {
   // Progression chapitres
   chapterProgress ChapterProgress[]
 
+  // Modèle CNED — Propagation des devoirs
+  assignmentPropagations AssignmentPropagation[] @relation("StudentPropagations")
+
+  // Modèle CNED — Correcteur d'un devoir
+  assignmentsToCorrect Assignment[] @relation("AssignmentCorrector")
+
+  // Modèle CNED — Moyennes annuelles
+  annualAverages AnnualAverage[] @relation("StudentAnnualAverages")
+
+  // Lien parent-enfant
+  children ParentChild[] @relation("ParentUser")
+  parents  ParentChild[] @relation("StudentUser")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -338,6 +376,7 @@ model AcademicYear {
   classes     Class[]
   assignments Assignment[]
   enrollments Enrollment[]
+  annualAverages AnnualAverage[]
 
   @@index([isCurrent])
   @@index([status])
@@ -481,15 +520,27 @@ model Enrollment {
 model Course {
   id String @id @default(uuid())
 
-  classId   String
+  // Pour les cours de CLASSE (scope=CLASSE)
+  classId   String?
   subjectId String
   teacherId String
 
-  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class   Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   teacher User    @relation("CourseTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
 
   coefficient Int @default(1)
+
+  // Modèle CNED : portée + niveau + publication
+  scope       ContentScope @default(CLASSE)
+  isPublished Boolean      @default(false)
+
+  // Pour les cours de NIVEAU (scope=NIVEAU) créés par SUPER_ADMIN
+  niveauId String?
+  niveau   Niveau? @relation("NiveauCourses", fields: [niveauId], references: [id], onDelete: SetNull)
+
+  // Pour les cours d'école (scope=ECOLE)
+  schoolId String?
 
   // Contenu du cours
   chapters    Chapter[]
@@ -497,10 +548,13 @@ model Course {
   assignments Assignment[]
   quizzes     Quiz[]
   grades      Grade[]
+  annualAverages AnnualAverage[] @relation("CourseAnnualAverages")
 
   @@unique([classId, subjectId, teacherId])
   @@index([teacherId])
   @@index([classId])
+  @@index([niveauId])
+  @@index([scope])
 }
 
 // =============================================
@@ -533,9 +587,11 @@ model Resource {
   source String?
 
   // Portée de la ressource
-  isGlobal       Boolean @default(false) // Visible par toutes les écoles du même niveau
-  isDownloadable Boolean @default(true)
-  isPublished    Boolean @default(false) // Validation par l'administrateur
+  isGlobal       Boolean      @default(false) // Rétro-compat. frontend; syncé avec scope
+  isDownloadable Boolean      @default(true)
+  isPublished    Boolean      @default(false) // Validation par l'administrateur
+  scope          ContentScope @default(CLASSE) // Portée unifiée
+  schoolId       String?      // Pour scope=ECOLE
 
   // Relations
   courseId  String?
@@ -555,6 +611,7 @@ model Resource {
   @@index([courseId])
   @@index([niveauId])
   @@index([isGlobal])
+  @@index([scope])
 }
 
 // =============================================
@@ -573,9 +630,18 @@ model Assignment {
   voiceNoteUrl  String?
   imageUrl      String?    // Image d'illustration
   autoGrade     Boolean    @default(false) // Si QCM → correction auto
-  isNiveauWide  Boolean    @default(false) // Si devoir de niveau
+  isNiveauWide  Boolean    @default(false) // Rétro-compat; syncé avec scope
 
   type          AssignmentType @default(DEVOIR_MAISON)
+
+  // Modèle CNED : portée unifiée
+  scope          ContentScope             @default(CLASSE)
+  workflowStatus AssignmentWorkflowStatus @default(BROUILLON)
+  schoolId       String? // Pour scope=ECOLE
+
+  // Correcteur assigné (enseignant)
+  correctorId String?
+  corrector   User?   @relation("AssignmentCorrector", fields: [correctorId], references: [id], onDelete: SetNull)
 
   courseId String?
   course  Course? @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -595,16 +661,16 @@ model Assignment {
   createdById String?
   createdBy   User?   @relation("AssignmentCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  submissions Submission[]
-  grades      Grade[]
-  questions   AssignmentQuestion[]
+  submissions  Submission[]
+  grades       Grade[]
+  questions    AssignmentQuestion[]
+  propagations AssignmentPropagation[]
 
   attachments String[] @default([])
   published   Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
-
 
   @@index([courseId])
   @@index([niveauId])
@@ -614,6 +680,8 @@ model Assignment {
   @@index([startDate])
   @@index([dueDate])
   @@index([type])
+  @@index([scope])
+  @@index([workflowStatus])
 }
 
 model AssignmentQuestion {
@@ -670,12 +738,14 @@ model Submission {
 // =============================================
 
 model Grade {
-  id          String    @id @default(uuid())
+  id          String      @id @default(uuid())
   value       Float
-  coefficient Float     @default(1)
+  coefficient Float       @default(1)
   comment     String?
-  validated   Boolean   @default(false)
-  type        GradeType @default(DEVOIR)
+  validated   Boolean     @default(false)
+  type        GradeType   @default(DEVOIR)
+  source      GradeSource @default(ADMIN) // ADMIN=60% ou ENSEIGNANT=40% dans les moyennes
+  isGraded    Boolean     @default(true)  // false = exercice non noté (enseignant)
 
   studentId String
   student   User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -697,6 +767,7 @@ model Grade {
   @@index([termId])
   @@index([courseId])
   @@index([type])
+  @@index([source])
 }
 
 // =============================================
@@ -773,9 +844,15 @@ model Quiz {
   imageUrl    String?   // Image d'illustration globale
   autoGrade   Boolean   @default(true)  // Notation automatique
   maxAttempts Int       @default(1)     // Nombre de tentatives max
-  isNiveauWide Boolean  @default(false) // Si true = devoir de niveau
+  isNiveauWide Boolean  @default(false) // Rétro-compat; syncé avec scope
 
   type        QuizType  @default(DEVOIR_MAISON)
+
+  // Modèle CNED
+  scope          ContentScope @default(CLASSE)
+  isPublished    Boolean      @default(false)
+  workflowStatus String       @default("BROUILLON") // BROUILLON|PUBLIE|CLOTURE
+  schoolId       String?      // Pour scope=ECOLE
 
   courseId  String?
   course    Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -801,6 +878,7 @@ model Quiz {
   @@index([niveauId])
   @@index([termId])
   @@index([type])
+  @@index([scope])
 }
 
 model QuizQuestion {
@@ -1132,4 +1210,87 @@ model ChapterProgress {
   @@unique([studentId, chapterId])
   @@index([studentId])
   @@index([chapterId])
+}
+
+// =============================================
+// ASSIGNMENT PROPAGATION — Trace de diffusion automatique (modèle CNED)
+// Créée automatiquement lors de la publication d'un devoir de niveau/école/classe
+// =============================================
+
+model AssignmentPropagation {
+  id           String @id @default(uuid())
+
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   User   @relation("StudentPropagations", fields: [studentId], references: [id], onDelete: Cascade)
+
+  notified    Boolean  @default(false)
+  viewed      Boolean  @default(false)
+  submitted   Boolean  @default(false)
+  submittedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+  @@index([studentId])
+}
+
+// =============================================
+// PARENT CHILD — Lien parent ↔ enfant
+// =============================================
+
+model ParentChild {
+  id        String @id @default(uuid())
+
+  parentId  String
+  parent    User @relation("ParentUser", fields: [parentId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   User @relation("StudentUser", fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([parentId, studentId])
+  @@index([parentId])
+  @@index([studentId])
+}
+
+// =============================================
+// ANNUAL AVERAGE — Moyenne annuelle par élève et par matière
+// =============================================
+
+model AnnualAverage {
+  id             String @id @default(uuid())
+
+  studentId      String
+  student        User   @relation("StudentAnnualAverages", fields: [studentId], references: [id], onDelete: Cascade)
+
+  courseId       String
+  course         Course @relation("CourseAnnualAverages", fields: [courseId], references: [id], onDelete: Cascade)
+
+  niveauId       String?
+  niveau         Niveau? @relation(fields: [niveauId], references: [id], onDelete: SetNull)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  subjectCoefficient Int @default(1)
+
+  trim1Avg       Float? // Moyenne trimestre 1 (pondérée 60%/40%)
+  trim2Avg       Float? // Moyenne trimestre 2
+  trim3Avg       Float? // Moyenne trimestre 3
+  annualAvg      Float? // Moyenne annuelle = (trim1 + trim2 + trim3) / 3
+
+  calculatedAt   DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([studentId, courseId, academicYearId])
+  @@index([studentId])
+  @@index([courseId])
+  @@index([academicYearId])
+  @@index([niveauId])
 }

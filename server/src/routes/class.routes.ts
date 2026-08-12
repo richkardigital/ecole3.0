@@ -3,8 +3,6 @@ import { Router } from "express";
 import { authenticate } from "../middleware/auth.js";
 import { requireRole } from "../middleware/rbac.js";
 import { upload } from "../middleware/upload.js";
-import { requireRole } from "../middleware/rbac.js";
-import { upload } from "../middleware/upload.js";
 import {
   createClass,
   getClasses,

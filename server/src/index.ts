@@ -8,6 +8,7 @@ import { Server } from 'socket.io';
 import app from "./app.js";
 import { setupSocket } from "./socket/index.js";
 import { startSubscriptionCron } from "./cron/subscription.cron.js";
+import { startAssignmentCron, startTermAverageCron } from "./cron/assignments.cron.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -26,6 +27,8 @@ app.set("io", io);
 
 // Lancer les tâches en arrière-plan (ex: vérifier les expirations d'abonnement)
 startSubscriptionCron();
+startAssignmentCron();    // Clôture auto des devoirs + calcul moyennes
+startTermAverageCron();   // Calcul moyennes de fin de trimestre
 
 // Only listen if not running in Vercel/Serverless environment
 if (process.env.NODE_ENV !== 'production') {
