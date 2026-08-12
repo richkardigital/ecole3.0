@@ -10,7 +10,7 @@ import axios from 'axios';
 interface User {
   id: string;
   email: string;
-  role: 'SUPER_ADMIN' | 'DIRECTEUR' | 'EDUCATEUR' | 'ENSEIGNANT' | 'APPRENANT';
+  role: 'SUPER_ADMIN' | 'DIRECTEUR' | 'EDUCATEUR' | 'ENSEIGNANT' | 'APPRENANT' | 'PARENT';
   firstName: string;
   lastName: string;
   schoolId?: string;

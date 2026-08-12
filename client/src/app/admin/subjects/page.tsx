@@ -178,11 +178,13 @@ export default function SubjectsPage() {
       {/* Page Header */}
       <PageHeader
         title="Gestion des Matières"
-        description="Catalogue et configuration des disciplines enseignées dans l'établissement."
+        description={isSuperAdmin ? "Catalogue et configuration des disciplines enseignées dans l'établissement." : "Consultez les matières disponibles. Seul l'administrateur peut les créer ou les modifier."}
       >
-        <Button variant="glow" onClick={openCreateModal} leftIcon={<Plus className="w-4 h-4" />}>
-          Nouvelle Matière
-        </Button>
+        {isSuperAdmin && (
+          <Button variant="glow" onClick={openCreateModal} leftIcon={<Plus className="w-4 h-4" />}>
+            Nouvelle Matière
+          </Button>
+        )}
       </PageHeader>
 
       {/* Controls Bar */}
@@ -276,20 +278,24 @@ export default function SubjectsPage() {
                   >
                     <Eye className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => openEditModal(subject)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                    title="Éditer"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => { setDeletingSubject(subject); setIsDeleteModalOpen(true); }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                    title="Supprimer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {isSuperAdmin && (
+                    <>
+                      <button
+                        onClick={() => openEditModal(subject)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        title="Éditer"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => { setDeletingSubject(subject); setIsDeleteModalOpen(true); }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

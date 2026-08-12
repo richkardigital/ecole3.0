@@ -67,6 +67,7 @@ import EditGlobalAssignmentPage from '@/app/admin/assignments/[id]/edit/page';
 import NewCourseAssignmentPage from '@/app/academic/assignments/new/course-assignment';
 import ReportCards from '@/app/academic/report-cards/page';
 import AcademicYearStatsPage from '@/app/admin/academic-years/[id]/stats/page';
+import ParentDashboard from '@/app/parent/dashboard/page';
 
 function App() {
   return (
@@ -227,9 +228,17 @@ function App() {
                   </Route>
 
                   {/* ═══════════════════════════════════════════ */}
+                  {/* PARENT — Préfixe /parent/*                  */}
+                  {/* ═══════════════════════════════════════════ */}
+                  <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PARENT']} />}>
+                    <Route path="/parent/dashboard" element={<ParentDashboard />} />
+                    <Route path="/parent/settings" element={<Settings />} />
+                  </Route>
+
+                  {/* ═══════════════════════════════════════════ */}
                   {/* APPRENANT / UNPREFIXED ROUTES (Accès direct)  */}
                   {/* ═══════════════════════════════════════════ */}
-                  <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'DIRECTEUR', 'EDUCATEUR', 'ENSEIGNANT', 'APPRENANT']} />}>
+                  <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'DIRECTEUR', 'EDUCATEUR', 'ENSEIGNANT', 'APPRENANT', 'PARENT']} />}>
                     <Route path="classes" element={<Classes />} />
                     <Route path="users" element={<Users />} />
                     <Route path="settings" element={<Settings />} />

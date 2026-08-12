@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, CheckCircle, Clock, PlayCircle, Edit2, Trash2, AlertTriangle, Eye } from 'lucide-react';
+import { Plus, CheckCircle, Clock, PlayCircle, Edit2, Trash2, AlertTriangle, Eye, Megaphone } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -15,6 +15,7 @@ interface Quiz {
     startDate?: string;
     endDate?: string;
     timeLimit?: number;
+    isPublished?: boolean;
 }
 
 interface QuizListProps {
@@ -32,6 +33,11 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
     const { user } = useAuth();
     const rolePrefix = user?.role === 'SUPER_ADMIN' ? '/admin' : user?.role === 'DIRECTEUR' ? '/directeur' : '/enseignant';
 
+    const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+    const [quizToPublish, setQuizToPublish] = useState<string | null>(null);
+    const [publishScope, setPublishScope] = useState('CLASSE');
+    const [isPublishing, setIsPublishing] = useState(false);
+
     const handleDelete = async () => {
         if (!deletingQuizId) return;
         try {
@@ -44,6 +50,22 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
             alert("Erreur lors de la suppression du QCM.");
         } finally {
             setIsDeleting(false);
+        }
+    };
+
+    const handlePublish = async () => {
+        if (!quizToPublish) return;
+        try {
+            setIsPublishing(true);
+            await api.patch(`/quizzes/${quizToPublish}/publish`, { scope: publishScope });
+            onUpdate();
+            setIsPublishModalOpen(false);
+            setQuizToPublish(null);
+        } catch (error: any) {
+            console.error("Error publishing quiz", error);
+            alert(error.response?.data?.message || "Erreur lors de la publication du QCM.");
+        } finally {
+            setIsPublishing(false);
         }
     };
 
@@ -116,6 +138,18 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
                                 <div className="flex items-center gap-2">
                                     {isTeacher ? (
                                         <>
+                                            {user?.role === 'SUPER_ADMIN' && !quiz.isPublished && (
+                                                <button
+                                                    onClick={() => {
+                                                        setQuizToPublish(quiz.id);
+                                                        setIsPublishModalOpen(true);
+                                                    }}
+                                                    className="p-2 text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition"
+                                                    title="Publier (CNED)"
+                                                >
+                                                    <Megaphone className="w-4 h-4" />
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={() => navigate(`/quizzes/${quiz.id}/attempts`)}
                                                 className="p-2 text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition"
@@ -199,6 +233,52 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
                                 disabled={isDeleting}
                             >
                                 {isDeleting ? 'Suppression...' : 'Supprimer'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Publish Confirmation Modal */}
+            {isPublishModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl">
+                        <div className="flex items-center gap-3 text-brand-text mb-4">
+                            <Megaphone className="w-6 h-6 text-brand-accent" />
+                            <h3 className="text-lg font-bold">Publier l'évaluation (CNED)</h3>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
+                            La publication de cette évaluation va la propager automatiquement aux élèves selon la portée choisie. Cette action est irréversible.
+                        </p>
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-brand-text mb-2">Portée de la publication</label>
+                            <select
+                                value={publishScope}
+                                onChange={(e) => setPublishScope(e.target.value)}
+                                className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-accent/50"
+                            >
+                                <option value="CLASSE">Classe Actuelle Uniquement</option>
+                                <option value="ECOLE">Toute l'École</option>
+                                <option value="NIVEAU">Tout le Niveau (National)</option>
+                            </select>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setIsPublishModalOpen(false);
+                                    setQuizToPublish(null);
+                                }}
+                                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                                disabled={isPublishing}
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handlePublish}
+                                className="px-4 py-2 bg-brand-accent text-white rounded-lg hover:bg-brand-accent/90 transition disabled:opacity-50"
+                                disabled={isPublishing}
+                            >
+                                {isPublishing ? 'Publication...' : 'Confirmer la publication'}
                             </button>
                         </div>
                     </div>

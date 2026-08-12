@@ -127,6 +127,13 @@ enum GradeSource {
   ENSEIGNANT // Note créée par l'enseignant pour éval de classe (poids 40%)
 }
 
+// Type d'exercice dans un chapitre
+enum ExerciseType {
+  QCM          // Questionnaire à Choix Multiples
+  VRAI_FAUX    // Vrai ou Faux
+  TEXTE_LIBRE  // Réponse ouverte, correction manuelle
+}
+
 // =============================================
 // TEACHING TYPE — Type d'enseignement
 // =============================================
@@ -334,6 +341,10 @@ model User {
 
   // Progression chapitres
   chapterProgress ChapterProgress[]
+
+  // Exercices créés et soumissions
+  createdExercises    ChapterExercise[]    @relation("ExerciseCreator")
+  exerciseSubmissions ExerciseSubmission[] @relation("ExerciseSubmitter")
 
   // Modèle CNED — Propagation des devoirs
   assignmentPropagations AssignmentPropagation[] @relation("StudentPropagations")
@@ -570,6 +581,7 @@ model Chapter {
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   resources Resource[]
   progress  ChapterProgress[]
+  exercises ChapterExercise[]
   createdAt DateTime @default(now())
 
   @@index([courseId])
@@ -1293,4 +1305,119 @@ model AnnualAverage {
   @@index([courseId])
   @@index([academicYearId])
   @@index([niveauId])
+}
+
+// =============================================
+// CHAPTER EXERCISE — Exercice dans un chapitre
+// =============================================
+
+model ChapterExercise {
+  id          String       @id @default(uuid())
+  title       String
+  description String?      @db.Text
+  type        ExerciseType @default(QCM)
+  isGraded    Boolean      @default(false)
+  coefficient Float        @default(1)
+  timeLimit   Int?         // minutes (null = pas de limite)
+
+  chapterId String
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User   @relation("ExerciseCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  questions   ExerciseQuestion[]
+  submissions ExerciseSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([chapterId])
+  @@index([createdById])
+}
+
+// =============================================
+// EXERCISE QUESTION — Question d'un exercice
+// =============================================
+
+model ExerciseQuestion {
+  id         String       @id @default(uuid())
+  text       String       @db.Text
+  type       ExerciseType @default(QCM)
+  position   Int          @default(0)
+  points     Float        @default(1)
+  correctAnswer String?   @db.Text // Pour TEXTE_LIBRE : réponse attendue (optionnel)
+
+  exerciseId String
+  exercise   ChapterExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  options ExerciseOption[]
+  answers ExerciseAnswer[]
+
+  @@index([exerciseId])
+}
+
+// =============================================
+// EXERCISE OPTION — Option de réponse QCM/Vrai-Faux
+// =============================================
+
+model ExerciseOption {
+  id        String @id @default(uuid())
+  text      String
+  isCorrect Boolean @default(false)
+
+  questionId String
+  question   ExerciseQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  answers ExerciseAnswer[]
+
+  @@index([questionId])
+}
+
+// =============================================
+// EXERCISE SUBMISSION — Soumission d'un apprenant
+// =============================================
+
+model ExerciseSubmission {
+  id       String @id @default(uuid())
+  score    Float?
+  maxScore Float?
+  feedback String? @db.Text
+
+  studentId  String
+  student    User   @relation("ExerciseSubmitter", fields: [studentId], references: [id], onDelete: Cascade)
+
+  exerciseId String
+  exercise   ChapterExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  answers ExerciseAnswer[]
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([studentId, exerciseId])
+  @@index([exerciseId])
+  @@index([studentId])
+}
+
+// =============================================
+// EXERCISE ANSWER — Réponse à une question
+// =============================================
+
+model ExerciseAnswer {
+  id        String @id @default(uuid())
+  textValue String? @db.Text // Pour TEXTE_LIBRE
+  isCorrect Boolean?
+
+  submissionId String
+  submission   ExerciseSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   ExerciseQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  optionId String?
+  option   ExerciseOption? @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@index([submissionId])
+  @@index([questionId])
 }

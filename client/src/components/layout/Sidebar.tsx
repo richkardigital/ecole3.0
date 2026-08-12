@@ -76,6 +76,7 @@ const ROLE_CONFIG = {
   EDUCATEUR:   { label: 'Éducateur', from: '#f59e0b', to: '#d97706', textColor: 'text-amber-700', prefix: '/educateur' },
   ENSEIGNANT:  { label: 'Enseignant', from: '#06b6d4', to: '#0891b2', textColor: 'text-cyan-700', prefix: '/enseignant' },
   APPRENANT:   { label: 'Apprenant', from: '#8b5cf6', to: '#7c3aed', textColor: 'text-violet-700', prefix: '' },
+  PARENT:      { label: 'Parent', from: '#ec4899', to: '#be185d', textColor: 'text-pink-700', prefix: '/parent' },
 } as const;
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
@@ -287,6 +288,18 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               </NavSection>
               <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
                 <NavItem to="/settings" icon={Settings} isActive={p === '/settings'}>Mon Profil</NavItem>
+              </div>
+            </>
+          )}
+
+          {/* PARENT (/parent/...) */}
+          {user.role === 'PARENT' && (
+            <>
+              <NavSection title="Espace Parent">
+                <NavItem to="/parent/dashboard" icon={LayoutDashboard} isActive={p === '/parent/dashboard' || p === '/dashboard'}>Tableau de Bord</NavItem>
+              </NavSection>
+              <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
+                <NavItem to="/parent/settings" icon={Settings} isActive={p === '/parent/settings'}>Mon Profil</NavItem>
               </div>
             </>
           )}

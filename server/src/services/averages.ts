@@ -13,7 +13,7 @@ import prisma from "../utils/prisma.js";
 // HELPER : Calcul pondéré 60%/40%
 // =============================================
 
-function calcWeightedAverage(grades: {
+export function calcWeightedAverage(grades: {
   value: number;
   coefficient: number;
   source: string;

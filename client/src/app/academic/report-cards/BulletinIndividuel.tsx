@@ -206,7 +206,7 @@ export default function BulletinIndividuel({ data, onClose }: Props) {
                 <th className="p-2.5 text-center font-semibold">Éval.</th>
                 <th className="p-2.5 text-center font-semibold">Quiz</th>
                 <th className="p-2.5 text-center font-semibold">Particip.</th>
-                <th className="p-2.5 text-center font-semibold bg-gray-700">Moyenne</th>
+                <th className="p-2.5 text-center font-semibold bg-gray-700">Moyenne*</th>
                 <th className="p-2.5 text-left font-semibold rounded-tr-lg">Appréciation</th>
               </tr>
             </thead>
@@ -267,6 +267,9 @@ export default function BulletinIndividuel({ data, onClose }: Props) {
               </tr>
             </tfoot>
           </table>
+          <div className="mt-2 text-[10px] text-gray-500 italic flex items-center gap-1">
+            <span className="font-bold">* Note de calcul :</span> La moyenne par matière est calculée avec une pondération stricte : 60% pour les évaluations spéciales et 40% pour les évaluations de classe (contrôle continu).
+          </div>
         </div>
 
         {/* Section Conduite & Absences */}

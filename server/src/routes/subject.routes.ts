@@ -8,9 +8,11 @@ const router = Router();
 
 router.use(authenticate);
 
-router.post("/", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), createSubject);
-router.put("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), updateSubject);
-router.delete("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), deleteSubject);
+// Seul le SUPER_ADMIN peut créer/modifier/supprimer des matières
+router.post("/", requireRole([ROLES.SUPER_ADMIN]), createSubject);
+router.put("/:id", requireRole([ROLES.SUPER_ADMIN]), updateSubject);
+router.delete("/:id", requireRole([ROLES.SUPER_ADMIN]), deleteSubject);
+// Lecture pour tous les rôles authentifiés
 router.get("/", getSubjects);
 
 export default router;

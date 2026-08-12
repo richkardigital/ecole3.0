@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import api, { getFileUrl } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useForm } from 'react-hook-form';
-import { Upload, CheckCircle, Clock, User, Award, FileText } from 'lucide-react';
+import { Upload, CheckCircle, Clock, User, Award, FileText, Megaphone } from 'lucide-react';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -22,6 +22,7 @@ interface AssignmentModel {
   };
   subject?: { name: string };
   niveau?: { name: string };
+  isPublished?: boolean;
   submissions?: {
     id: string;
     content?: string;
@@ -60,6 +61,10 @@ const AssignmentDetails = () => {
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [voiceNote, setVoiceNote] = useState<File | null>(null);
   const { toast, success, error: toastError } = useToast();
+
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [publishScope, setPublishScope] = useState('CLASSE');
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const { register: registerSubmit, handleSubmit: handleSubmitSubmit, reset: resetSubmit } = useForm();
   const { register: registerGrade, handleSubmit: handleSubmitGrade, reset: resetGrade } = useForm();
@@ -147,6 +152,20 @@ const AssignmentDetails = () => {
       setIsGradeModalOpen(true);
   }
 
+  const handlePublishAssignment = async () => {
+      try {
+          setIsPublishing(true);
+          await api.patch(`/assignments/${id}/publish`, { scope: publishScope });
+          setIsPublishModalOpen(false);
+          fetchAssignment();
+          success("Devoir publié avec succès");
+      } catch (err: any) {
+          toastError(err.response?.data?.message || "Erreur lors de la publication.");
+      } finally {
+          setIsPublishing(false);
+      }
+  };
+
   if (!assignment) return <div className="p-6">Chargement...</div>;
 
   const mySubmission = assignment.submissions?.[0];
@@ -167,6 +186,18 @@ const AssignmentDetails = () => {
           </div>
         }
         icon={<FileText className="w-6 h-6 text-brand-accent" />}
+        action={
+          user?.role === 'SUPER_ADMIN' && !assignment.isPublished && (
+            <Button
+              variant="primary"
+              onClick={() => setIsPublishModalOpen(true)}
+              leftIcon={<Megaphone className="w-4 h-4" />}
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 border-none text-white shadow-lg shadow-emerald-500/20"
+            >
+              Publier (CNED)
+            </Button>
+          )
+        }
       />
 
       <div className="bg-brand-card p-6 rounded-xl shadow-sm border border-brand-border/50 mb-6">
@@ -428,6 +459,35 @@ const AssignmentDetails = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Publish Assignment Modal */}
+      <Modal
+        isOpen={isPublishModalOpen}
+        onClose={() => setIsPublishModalOpen(false)}
+        title="Publier le devoir (CNED)"
+      >
+        <div className="space-y-4">
+            <p className="text-sm text-brand-text-muted">
+                La publication d'un devoir va le propager automatiquement aux élèves selon la portée choisie. Cette action est irréversible.
+            </p>
+            <div>
+                <label className="block text-sm font-medium text-brand-text mb-2">Portée de la publication</label>
+                <select
+                    value={publishScope}
+                    onChange={(e) => setPublishScope(e.target.value)}
+                    className="w-full p-3 bg-brand-sidebar border border-brand-border/50 rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-accent/50"
+                >
+                    <option value="CLASSE">Classe Actuelle Uniquement</option>
+                    <option value="ECOLE">Toute l'École</option>
+                    <option value="NIVEAU">Tout le Niveau (National)</option>
+                </select>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+                <Button variant="secondary" onClick={() => setIsPublishModalOpen(false)} disabled={isPublishing}>Annuler</Button>
+                <Button variant="primary" onClick={handlePublishAssignment} isLoading={isPublishing}>Confirmer la publication</Button>
+            </div>
+        </div>
       </Modal>
     </div>
   );

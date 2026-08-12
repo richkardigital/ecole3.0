@@ -497,6 +497,15 @@ export const createChapter = async (req: AuthRequest, res: Response) => {
             where: { courseId: String(id) },
             include: {
                 resources: true,
+                exercises: {
+                    include: {
+                        _count: { select: { questions: true } },
+                        ...(role === 'APPRENANT' && userId ? {
+                            submissions: { where: { studentId: userId }, select: { id: true, score: true, maxScore: true } }
+                        } : {})
+                    },
+                    orderBy: { createdAt: 'asc' }
+                },
                 ...(role === 'APPRENANT' && userId ? {
                     progress: { where: { studentId: userId } }
                 } : {})

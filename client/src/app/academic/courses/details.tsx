@@ -3,20 +3,34 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import api, { getFileUrl } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useForm } from 'react-hook-form';
-import { Book, FileText, Video, File, Link as LinkIcon, Plus, Trash2, FolderPlus, Award, Pencil, ArrowLeft } from 'lucide-react';
+import { Book, FileText, Video, File, Link as LinkIcon, Plus, Trash2, FolderPlus, Award, Pencil, ArrowLeft, Megaphone, PlayCircle, CheckCircle } from 'lucide-react';
 import Gradebook from '@/components/Gradebook';
 import QuizList from '@/components/QuizList';
+import ExerciseEditor from '@/components/ExerciseEditor';
+import ExerciseTake from '@/components/ExerciseTake';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/Toast';
 
+interface ExerciseModel {
+  id: string;
+  title: string;
+  type: string;
+  isGraded: boolean;
+  coefficient: number;
+  timeLimit?: number;
+  _count: { questions: number };
+  submissions?: { id: string; score?: number; maxScore?: number }[];
+}
+
 interface CourseModel {
     id: string;
     class: { name: string; school?: { name: string } };
     subject: { name: string };
     teacher: { firstName: string; lastName: string };
+    isPublished?: boolean;
   }
 
 interface AssignmentModel {
@@ -52,6 +66,7 @@ interface ChapterModel {
     materials: MaterialModel[];
     createdAt?: string;
     progress?: { completed: boolean }[];
+    exercises?: ExerciseModel[];
 }
 
 interface CourseStats {
@@ -95,6 +110,15 @@ const CourseDetails = () => {
   const [chapterToDelete, setChapterToDelete] = useState<string | null>(null);
   const [isDeleteChapterModalOpen, setIsDeleteChapterModalOpen] = useState(false);
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [publishScope, setPublishScope] = useState('CLASSE');
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  // Exercises Modals State
+  const [isExerciseEditorOpen, setIsExerciseEditorOpen] = useState(false);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const [takingExerciseId, setTakingExerciseId] = useState<string | null>(null);
 
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [conductStudents, setConductStudents] = useState<any[]>([]);
@@ -153,6 +177,11 @@ const CourseDetails = () => {
   });
 
   const isTeacher = user?.role === 'ENSEIGNANT' || user?.role === 'DIRECTEUR' || user?.role === 'SUPER_ADMIN';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  // Seul le SUPER_ADMIN peut créer/modifier les cours, chapitres et supports
+  const canCreateContent = isSuperAdmin;
+  // Le SUPER_ADMIN et l'ENSEIGNANT peuvent créer des exercices
+  const canCreateExercise = isSuperAdmin || user?.role === 'ENSEIGNANT';
 
   const selectedMatType = watchMat('type', 'PDF');
 
@@ -399,6 +428,19 @@ const CourseDetails = () => {
       }
   }
 
+  const handlePublishCourse = async () => {
+      try {
+          setIsPublishing(true);
+          await api.patch(`/courses/${id}/publish`, { scope: publishScope });
+          setIsPublishModalOpen(false);
+          fetchCourseDetails();
+      } catch (err: any) {
+          alert(err.response?.data?.message || "Erreur lors de la publication.");
+      } finally {
+          setIsPublishing(false);
+      }
+  };
+
   const getMaterialIcon = (type: string) => {
       switch (type) {
           case 'VIDEO': return <Video className="w-5 h-5 text-red-500" />;
@@ -446,22 +488,36 @@ const CourseDetails = () => {
                 </h1>
                 <p className="text-brand-text-muted mt-1">École: <span className="font-semibold">{course.class?.school?.name || 'Non spécifié'}</span> • Classe: <span className="font-semibold">{course.class?.name}</span> • Professeur: <span className="font-semibold">{course.teacher?.firstName} {course.teacher?.lastName}</span></p>
             </div>
-            {isTeacher && activeTab === 'CONTENT' && (
+            {activeTab === 'CONTENT' && (
                     <div className="flex flex-wrap gap-2">
-                        <Button
-                            variant="secondary"
-                            onClick={() => setIsChapterModalOpen(true)}
-                            leftIcon={<FolderPlus className="w-4 h-4" />}
-                        >
-                            Nouveau Chapitre
-                        </Button>
-                        <Button
-                            variant="primary"
-                            onClick={() => setIsMaterialModalOpen(true)}
-                            leftIcon={<Plus className="w-4 h-4" />}
-                        >
-                            Ajouter Contenu
-                        </Button>
+                        {isSuperAdmin && !course.isPublished && (
+                            <Button
+                                variant="primary"
+                                onClick={() => setIsPublishModalOpen(true)}
+                                leftIcon={<Megaphone className="w-4 h-4" />}
+                                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 border-none text-white shadow-lg shadow-emerald-500/20"
+                            >
+                                Publier (CNED)
+                            </Button>
+                        )}
+                        {canCreateContent && (
+                            <>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setIsChapterModalOpen(true)}
+                                    leftIcon={<FolderPlus className="w-4 h-4" />}
+                                >
+                                    Nouveau Chapitre
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    onClick={() => setIsMaterialModalOpen(true)}
+                                    leftIcon={<Plus className="w-4 h-4" />}
+                                >
+                                    Ajouter Contenu
+                                </Button>
+                            </>
+                        )}
                     </div>
                 )}
         </div>
@@ -538,7 +594,7 @@ const CourseDetails = () => {
                                 <span className="text-xs text-brand-text-muted">
                                     {formatDate(chapter.createdAt)}
                                 </span>
-                                {isTeacher && (
+                                {canCreateContent && (
                                     <>
                                         <button
                                             onClick={(e) => openEditChapterModal(chapter, e)}
@@ -605,7 +661,7 @@ const CourseDetails = () => {
                                                 {material.type === 'PDF' && <span className="text-xs text-brand-text-muted ml-2">(Lecture seule)</span>}
                                             </div>
                                         </div>
-                                        {isTeacher && (
+                                        {canCreateContent && (
                                             <div className="flex gap-2">
                                                 <button onClick={(e) => {
                                                     e.stopPropagation();
@@ -628,6 +684,80 @@ const CourseDetails = () => {
                                         )}
                                     </div>
                                 ))}
+                            </div>
+
+                            {/* Exercises */}
+                            <div className="space-y-3 mt-6 pt-4 border-t border-brand-border/30">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h4 className="font-semibold text-brand-text">Exercices</h4>
+                                    {canCreateExercise && (
+                                        <button
+                                            onClick={() => { setSelectedChapterId(chapter.id); setIsExerciseEditorOpen(true); }}
+                                            className="text-xs font-bold text-brand-accent hover:underline flex items-center gap-1"
+                                        >
+                                            <Plus className="w-3.5 h-3.5" /> Créer un exercice
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                {(!chapter.exercises || chapter.exercises.length === 0) && (
+                                    <p className="text-sm text-brand-text-muted italic">Aucun exercice pour ce chapitre.</p>
+                                )}
+                                
+                                {chapter.exercises?.map(exercise => {
+                                    const submission = exercise.submissions?.[0];
+                                    return (
+                                        <div key={exercise.id} className="flex items-center justify-between p-3 bg-brand-card rounded-lg border border-brand-border/50 hover:border-brand-accent/50 transition">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-2 rounded-lg ${submission ? 'bg-emerald-500/10 text-emerald-500' : 'bg-brand-accent/10 text-brand-accent'}`}>
+                                                    {submission ? <CheckCircle className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                                                </div>
+                                                <div>
+                                                    <h5 className="font-semibold text-brand-text text-sm">{exercise.title}</h5>
+                                                    <div className="flex items-center gap-2 text-xs text-brand-text-muted mt-0.5">
+                                                        <span className="font-medium">{exercise.type}</span>
+                                                        <span>• {exercise._count.questions} question(s)</span>
+                                                        {exercise.isGraded && <span className="text-yellow-500 font-medium">• Noté</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-3">
+                                                {submission && submission.score !== undefined && submission.score !== null && (
+                                                    <div className="text-xs font-bold bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded">
+                                                        {submission.score.toFixed(1)} / {submission.maxScore}
+                                                    </div>
+                                                )}
+                                                
+                                                {user?.role === 'APPRENANT' ? (
+                                                    <Button
+                                                        variant="primary"
+                                                        size="sm"
+                                                        onClick={() => setTakingExerciseId(exercise.id)}
+                                                        leftIcon={<PlayCircle className="w-4 h-4" />}
+                                                    >
+                                                        {submission ? 'Voir Résultat' : 'Commencer'}
+                                                    </Button>
+                                                ) : canCreateExercise ? (
+                                                    <div className="flex gap-2">
+                                                        {/* L'enseignant peut supprimer l'exercice */}
+                                                        <button 
+                                                            onClick={async () => {
+                                                                if (window.confirm("Supprimer cet exercice ?")) {
+                                                                    await api.delete(`/exercises/${exercise.id}`);
+                                                                    fetchCourseDetails();
+                                                                }
+                                                            }}
+                                                            className="text-brand-text-muted hover:text-red-500 transition p-1"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -1124,6 +1254,62 @@ const CourseDetails = () => {
             </div>
         </form>
       </Modal>
+
+      {/* Publish Course Modal */}
+      <Modal
+        isOpen={isPublishModalOpen}
+        onClose={() => setIsPublishModalOpen(false)}
+        title="Publier le cours (CNED)"
+      >
+        <div className="space-y-4">
+            <p className="text-sm text-brand-text-muted">
+                La publication d'un cours va le propager automatiquement aux élèves selon la portée choisie. Cette action est irréversible.
+            </p>
+            <div>
+                <label className="block text-sm font-medium text-brand-text mb-2">Portée de la publication</label>
+                <select
+                    value={publishScope}
+                    onChange={(e) => setPublishScope(e.target.value)}
+                    className="w-full p-3 bg-brand-sidebar border border-brand-border/50 rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-accent/50"
+                >
+                    <option value="CLASSE">Classe Actuelle Uniquement</option>
+                    <option value="ECOLE">Toute l'École</option>
+                    <option value="NIVEAU">Tout le Niveau (National)</option>
+                </select>
+                 <label className="text-sm font-semibold text-brand-text-muted ml-1 cursor-pointer">S'applique à tout le niveau au lieu de cette seule classe</label>
+          </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-brand-border/30">
+                <Button variant="secondary" onClick={() => setIsPublishModalOpen(false)} disabled={isPublishing}>Annuler</Button>
+                <Button variant="primary" onClick={handlePublishCourse} isLoading={isPublishing}>Confirmer la publication</Button>
+            </div>
+        </div>
+      </Modal>
+
+      {/* Exercise Editor Modal */}
+      {isExerciseEditorOpen && selectedChapterId && (
+        <ExerciseEditor
+          chapterId={selectedChapterId}
+          isOpen={isExerciseEditorOpen}
+          onClose={() => { setIsExerciseEditorOpen(false); setSelectedChapterId(null); }}
+          onSuccess={fetchCourseDetails}
+        />
+      )}
+
+      {/* Exercise Take Modal */}
+      {takingExerciseId && (
+        <Modal
+          isOpen={!!takingExerciseId}
+          onClose={() => setTakingExerciseId(null)}
+          title="Faire l'exercice"
+          size="lg"
+        >
+          <ExerciseTake 
+            exerciseId={takingExerciseId} 
+            onClose={() => { setTakingExerciseId(null); fetchCourseDetails(); }}
+          />
+        </Modal>
+      )}
     </div>
   );
 };

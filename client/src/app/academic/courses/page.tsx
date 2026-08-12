@@ -351,23 +351,25 @@ const Courses = () => {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader 
-        title={isSuperAdmin ? 'Supervision Globale des Cours' : isDirecteur ? 'Gestion des Cours' : 'Mes Cours'}
+        title={isSuperAdmin ? 'Supervision Globale des Cours' : isDirecteur ? 'Cours de l\'École' : 'Mes Cours'}
         subtitle={
           isSuperAdmin 
-            ? 'Supervisez, filtrez et suivez tous les cours et chapitres publiés sur la plateforme.'
-            : 'Consultez et organisez les matières et chapitres enseignés dans vos classes.'
+            ? 'Créez et supervisez tous les cours. Les cours sont diffusés aux élèves selon leur niveau.'
+            : isDirecteur
+            ? 'Consultez les cours disponibles. Pour affecter un enseignant à un cours, utilisez la gestion des classes.'
+            : 'Consultez et suivez les cours de vos classes.'
         }
         icon={<BookOpen className="w-6 h-6 text-brand-accent" />}
         action={
-          // Only Directeur can create courses and assign them here
-          (!isDirecteur) ? null : (
+          isSuperAdmin ? (
+            // SUPER_ADMIN : Créer cours + Assignation multiple
             <div className="flex gap-3">
               <Button
                 variant="secondary"
                 onClick={openBulkModal}
                 leftIcon={<Users className="w-4 h-4" />}
               >
-                Assignation multiple
+                Affecter un enseignant
               </Button>
               <Button
                 variant="primary"
@@ -377,7 +379,16 @@ const Courses = () => {
                 Nouveau cours
               </Button>
             </div>
-          )
+          ) : isDirecteur ? (
+            // DIRECTEUR : Seulement l'affectation enseignant ↔ matière ↔ classe
+            <Button
+              variant="secondary"
+              onClick={openBulkModal}
+              leftIcon={<Users className="w-4 h-4" />}
+            >
+              Affecter un enseignant
+            </Button>
+          ) : null
         }
       />
 
