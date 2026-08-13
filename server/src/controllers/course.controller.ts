@@ -1,3 +1,4 @@
+
 import type { Request, Response } from "express";
 import prisma from "../utils/prisma.js";
 import { Prisma } from "@prisma/client";
@@ -6,9 +7,8 @@ import type { AuthRequest } from "../middleware/auth.js";
 import { uploadToSupabase } from "../utils/supabase.js";
 
 const createCourseSchema = z.object({
-  classId: z.string(),
+  niveauId: z.string(),
   subjectId: z.string(),
-  teacherId: z.string(),
   coefficient: z.number().optional().default(1),
 });
 
@@ -125,46 +125,12 @@ export const getCourse = async (req: AuthRequest, res: Response) => {
     const course = await prisma.course.findUnique({
       where: { id: String(id) },
       include: {
-        class: {
-          select: {
-            id: true,
-            name: true,
-            niveauId: true,
-            schoolId: true,
-            school: {
-              select: { name: true },
-            },
-          },
-        },
-        subject: true,
-        teacher: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true
-          }
-        }
+        niveau: true,
+        subject: true
       }
     });
 
     if (!course) return res.status(404).json({ message: "Course not found" });
-
-    // Access control for viewing a course
-    if ((role as string) === 'APPRENANT') {
-        const enrollments = await prisma.enrollment.findMany({
-            where: { studentId: userId },
-            include: { class: true }
-        });
-        
-        const isEnrolledDirectly = enrollments.some(e => e.classId === course.classId);
-        const hasMatchingNiveau = course.class?.niveauId && enrollments.some(e => e.class.niveauId === course.class?.niveauId);
-        
-        if (!isEnrolledDirectly && !hasMatchingNiveau) {
-            return res.status(403).json({ message: "Ce cours ne correspond pas à votre niveau et vous n'y êtes pas inscrit." });
-        }
-    }
-    // Teachers, Directors, Educators, and Super Admins can view ANY course details across the network
-    // Note: Edit endpoints (POST/PUT/DELETE) have their own strict ownership checks.
 
     res.json(course);
   } catch (error) {
@@ -174,156 +140,43 @@ export const getCourse = async (req: AuthRequest, res: Response) => {
 
 export const createCourse = async (req: AuthRequest, res: Response) => {
   try {
-    const { classId, subjectId, teacherId, coefficient } = createCourseSchema.parse(req.body);
-
-    let finalTeacherId = teacherId;
-    if ((req.user?.role as string) === 'ENSEIGNANT') {
-        finalTeacherId = req.user.id;
-    }
+    const { niveauId, subjectId, coefficient } = createCourseSchema.parse(req.body);
 
     const course = await prisma.course.create({
       data: {
-        classId,
+        niveauId,
         subjectId,
-        teacherId: finalTeacherId,
         coefficient,
+        scope: 'NIVEAU',
       },
     });
 
     res.status(201).json(course);
-  } catch (error) {
-    res.status(500).json({ message: "Error creating course", error });
+  } catch (error: any) {
+    console.error("CREATE COURSE ERROR:", error);
+    if (error.code === 'P2002') {
+        return res.status(400).json({ message: "Un cours existe déjà pour cette matière et ce niveau." });
+    }
+    if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Données invalides. Veuillez vérifier le formulaire.", error: error.errors });
+    }
+    res.status(500).json({ message: "Erreur lors de la création du cours", error });
   }
 };
 
-export const bulkAssignCourses = async (req: AuthRequest, res: Response) => {
-  try {
-    const { schoolId: bodySchoolId, teacherId, subjectId, classIds, coefficient } = req.body as {
-      schoolId?: string;
-      teacherId: string;
-      subjectId: string;
-      classIds: string[];
-      coefficient?: number;
-    };
-
-    if (!teacherId || !subjectId || !Array.isArray(classIds) || classIds.length === 0) {
-      return res.status(400).json({ message: "teacherId, subjectId et classIds sont requis" });
-    }
-
-    const role = req.user?.role;
-    const userSchoolId = req.user?.schoolId || null;
-
-    let effectiveSchoolId: string | null = null;
-
-    if ((role as string) === "SUPER_ADMIN") {
-      effectiveSchoolId = bodySchoolId || null;
-    } else if ((role as string) === "DIRECTEUR" || (role as string) === "EDUCATEUR" || (role as string) === "EDUCATEUR") {
-      effectiveSchoolId = userSchoolId;
-    } else {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
-    if (!effectiveSchoolId) {
-      return res.status(400).json({ message: "Aucune école associée" });
-    }
-
-    const teacher = await prisma.user.findFirst({
-      where: {
-        id: teacherId,
-        role: "ENSEIGNANT",
-        schoolId: effectiveSchoolId
-      }
-    });
-
-    if (!teacher) {
-      return res.status(400).json({ message: "Enseignant invalide pour cette école" });
-    }
-
-    const classes = await prisma.class.findMany({
-      where: {
-        id: { in: classIds },
-        schoolId: effectiveSchoolId
-      },
-      select: { id: true }
-    });
-
-    if (classes.length === 0) {
-      return res.status(400).json({ message: "Aucune classe valide trouvée pour cette école" });
-    }
-
-    const validClassIds = classes.map(c => c.id);
-    const coeff = typeof coefficient === "number" && coefficient > 0 ? coefficient : 1;
-
-    const existingCourses = await prisma.course.findMany({
-      where: {
-        classId: { in: validClassIds },
-        subjectId,
-        teacherId
-      },
-      select: { classId: true }
-    });
-
-    const existingClassIds = new Set(existingCourses.map(c => c.classId));
-    const classIdsToCreate = validClassIds.filter(id => !existingClassIds.has(id));
-
-    if (classIdsToCreate.length === 0) {
-      return res.status(200).json({ created: [], skipped: validClassIds });
-    }
-
-    const created = await prisma.$transaction(
-      classIdsToCreate.map(classId =>
-        prisma.course.create({
-          data: {
-            classId,
-            subjectId,
-            teacherId,
-            coefficient: coeff
-          }
-        })
-      )
-    );
-
-    res.status(201).json({ created, skipped: Array.from(existingClassIds) });
-  } catch (error) {
-    res.status(500).json({ message: "Error assigning courses", error });
-  }
-};
 
 export const getCourses = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const role = req.user?.role;
-    let schoolId = req.user?.schoolId;
 
     if (!userId || !role) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // Auto-lookup managed school for DIRECTEUR/EDUCATEUR if schoolId is missing
-    if (["DIRECTEUR", "EDUCATEUR"].includes(role as string) && !schoolId) {
-      const managedSchool = await prisma.school.findFirst({ where: { managerId: userId } });
-      if (managedSchool) {
-        schoolId = managedSchool.id;
-      }
-    }
-
     const courseInclude = {
-      class: {
-        include: {
-          school: { select: { id: true, name: true, code: true } },
-          academicYear: { select: { id: true, name: true, isCurrent: true } },
-          niveau: true
-        }
-      },
+      niveau: true,
       subject: true,
-      teacher: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true
-        }
-      },
       _count: {
         select: { chapters: true, assignments: true }
       }
@@ -331,59 +184,35 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
 
     let courses;
 
-    const classIdFilter = req.query.classId ? { classId: String(req.query.classId) } : {};
-
     if ((role as string) === "SUPER_ADMIN") {
       courses = await prisma.course.findMany({
-        where: classIdFilter,
         include: courseInclude
       });
     } else if (["DIRECTEUR", "EDUCATEUR"].includes(role as string)) {
-      courses = await prisma.course.findMany({
-        where: {
-            ...classIdFilter,
-            ...(schoolId ? { class: { schoolId } } : {})
-        },
-        include: courseInclude
-      });
+      // Pour simplifier l'accès au modèle CNED, on retourne tous les cours.
+      const schoolId = req.user?.schoolId;
+      if (schoolId) {
+         const classes = await prisma.class.findMany({ where: { schoolId }, select: { niveauId: true } });
+         const niveauxIds = classes.map(c => c.niveauId).filter(id => id !== null) as string[];
+         courses = await prisma.course.findMany({
+            where: { niveauId: { in: niveauxIds } },
+            include: courseInclude
+         });
+      } else {
+         courses = await prisma.course.findMany({ include: courseInclude });
+      }
     } else if ((role as string) === "ENSEIGNANT") {
-      courses = await prisma.course.findMany({
-        where: {
-          ...classIdFilter,
-          teacherId: userId,
-          ...(schoolId ? { class: { schoolId } } : {})
-        },
-        include: courseInclude
-      });
+      // L'enseignant accède aux cours globaux.
+       courses = await prisma.course.findMany({ include: courseInclude });
     } else if ((role as string) === "APPRENANT") {
+      // L'apprenant voit les cours de son niveau.
+      const enrollments = await prisma.enrollment.findMany({
+         where: { studentId: userId },
+         select: { class: { select: { niveauId: true } } }
+      });
+      const niveauxIds = enrollments.map(e => e.class.niveauId).filter(id => id !== null) as string[];
       courses = await prisma.course.findMany({
-        where: {
-          ...classIdFilter,
-          AND: [
-            {
-              class: {
-                academicYear: {
-                  OR: [
-                    { isCurrent: true },
-                    { status: 'EN_COURS' }
-                  ]
-                }
-              }
-            },
-            {
-              OR: [
-                {
-                  class: {
-                    enrollments: {
-                      some: { studentId: userId }
-                    }
-                  }
-                },
-                ...(schoolId ? [{ class: { schoolId } }] : [])
-              ]
-            }
-          ]
-        },
+        where: { niveauId: { in: niveauxIds } },
         include: courseInclude
       });
     } else {
@@ -392,10 +221,74 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    res.json(courses);
+    // Enrich courses with assigned teachers via TeacherClass
+    const courseSubjectIds = Array.from(new Set(courses.map(c => c.subjectId)));
+    const courseNiveauIds = Array.from(new Set(courses.map(c => c.niveauId)));
+
+    const teacherClasses = await prisma.teacherClass.findMany({
+      where: {
+        subjectId: { in: courseSubjectIds },
+        class: { niveauId: { in: courseNiveauIds } }
+      },
+      include: {
+        teacher: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        },
+        class: {
+          select: { niveauId: true }
+        }
+      }
+    });
+
+    const coursesWithTeachers = courses.map(course => {
+      const matchingTeachersMap = new Map<string, { id: string; firstName: string; lastName: string; email?: string }>();
+      teacherClasses.forEach(tc => {
+        if (tc.subjectId === course.subjectId && tc.class?.niveauId === course.niveauId && tc.teacher) {
+          matchingTeachersMap.set(tc.teacher.id, tc.teacher);
+        }
+      });
+      return {
+        ...course,
+        teachers: Array.from(matchingTeachersMap.values())
+      };
+    });
+
+    res.json(coursesWithTeachers);
   } catch (error) {
     console.error("Error in getCourses:", error);
     res.status(500).json({ message: "Error fetching courses", error });
+  }
+};
+
+export const updateCourse = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { subjectId, niveauId, coefficient, isPublished } = req.body;
+
+    const course = await prisma.course.findUnique({ where: { id: String(id) } });
+    if (!course) return res.status(404).json({ message: "Cours non trouvé" });
+
+    const updated = await prisma.course.update({
+      where: { id: String(id) },
+      data: {
+        ...(subjectId ? { subjectId } : {}),
+        ...(niveauId ? { niveauId } : {}),
+        ...(typeof coefficient === 'number' && coefficient > 0 ? { coefficient } : {}),
+        ...(typeof isPublished === 'boolean' ? { isPublished } : {})
+      },
+      include: {
+        niveau: true,
+        subject: true
+      }
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    console.error("Error updating course", error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ message: "Un cours existe déjà pour cette matière et ce niveau." });
+    }
+    res.status(500).json({ message: "Erreur lors de la modification du cours", error });
   }
 };
 
@@ -406,29 +299,10 @@ export const createChapter = async (req: AuthRequest, res: Response) => {
 
     if (!courseId || !title) return res.status(400).json({ message: "Course ID and Title required" });
 
-    if ((req.user?.role as string) === "EDUCATEUR" || (req.user?.role as string) === "EDUCATEUR") {
-      return res.status(403).json({ message: "Seuls les professeurs et les administrateurs d'école peuvent créer un chapitre" });
-    }
-
     const course = await prisma.course.findUnique({
-      where: { id: String(courseId) },
-      include: { class: { select: { schoolId: true } } },
+      where: { id: String(courseId) }
     });
     if (!course) return res.status(404).json({ message: "Course not found" });
-    if (!course.class) return res.status(500).json({ message: "Cours invalide (classe manquante)" });
-
-    if ((req.user?.role as string) === "ENSEIGNANT") {
-      if (course.teacherId !== req.user.id) {
-        return res.status(403).json({ message: "Vous ne pouvez créer un chapitre que pour vos propres cours" });
-      }
-    }
-
-    if ((req.user?.role as string) === "DIRECTEUR") {
-      if (!req.user.schoolId) return res.status(400).json({ message: "No school ID" });
-      if (course.class.schoolId !== req.user.schoolId) {
-        return res.status(403).json({ message: "Ce cours n'appartient pas à votre école" });
-      }
-    }
 
     const chapter = await prisma.chapter.create({
       data: {
@@ -1267,5 +1141,61 @@ export const publishCourse = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Erreur lors de la publication du cours", error });
+  }
+};
+
+export const getCourseStudents = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const course = await prisma.course.findUnique({ where: { id: String(id) } });
+    if (!course) return res.status(404).json({ message: "Course not found" });
+
+    // Fetch students enrolled in classes that have the course's niveau
+    const enrollments = await prisma.enrollment.findMany({
+      where: {
+        class: { niveauId: course.niveauId },
+        status: 'ACTIVE'
+      },
+      include: {
+        student: {
+          select: { id: true, firstName: true, lastName: true, matricule: true, email: true }
+        },
+        class: {
+          select: { id: true, name: true }
+        }
+      }
+    });
+
+    res.json(enrollments);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching course students", error });
+  }
+};
+
+export const getCourseTeachers = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const course = await prisma.course.findUnique({ where: { id: String(id) } });
+    if (!course) return res.status(404).json({ message: "Course not found" });
+
+    // Fetch teachers assigned to this niveau and subject
+    const teacherClasses = await prisma.teacherClass.findMany({
+      where: {
+        subjectId: course.subjectId,
+        class: { niveauId: course.niveauId }
+      },
+      include: {
+        teacher: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        },
+        class: {
+          select: { id: true, name: true }
+        }
+      }
+    });
+
+    res.json(teacherClasses);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching course teachers", error });
   }
 };

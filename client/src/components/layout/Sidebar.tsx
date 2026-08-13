@@ -156,10 +156,11 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/admin/school-types" icon={School} isActive={p === '/admin/school-types'}>Types d'établissement</NavItem>
                 <NavItem to="/admin/academic-years" icon={Calendar} isActive={p === '/admin/academic-years'}>Années Scolaires</NavItem>
                 <NavItem to="/admin/niveaux" icon={GraduationCap} isActive={p === '/admin/niveaux'}>Niveaux Scolaires</NavItem>
+                <NavItem to="/admin/subjects" icon={BookOpen} isActive={p === '/admin/subjects'}>Matières</NavItem>
                 <NavItem to="/admin/subscriptions" icon={CreditCard} isActive={p === '/admin/subscriptions'}>Abonnements</NavItem>
               </NavSection>
               <NavSection title="Académique">
-                <NavItem to="/admin/courses" icon={BookOpen} isActive={p.startsWith('/admin/courses')}>Cours & Chapitres</NavItem>
+                <NavItem to="/admin/courses" icon={BookOpen} isActive={p.startsWith('/admin/courses')}>Cours Académiques</NavItem>
                 <NavItem to="/admin/assignments" icon={PenTool} isActive={p === '/admin/assignments'}>Devoirs & Projets</NavItem>
                 <NavItem to="/admin/report-cards" icon={FileText} isActive={p === '/admin/report-cards'}>Bulletins Scolaires</NavItem>
                 <NavItem to="/admin/library" icon={FolderOpen} isActive={p === '/admin/library'}>Librairie 3.0</NavItem>
@@ -190,7 +191,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               <NavSection title="Mon Établissement">
                 <NavItem to="/directeur/classes" icon={School} isActive={p === '/directeur/classes'}>Classes & Effectifs</NavItem>
                 <NavItem to="/directeur/users" icon={Users} isActive={p === '/directeur/users'}>Mes utilisateurs</NavItem>
-                <NavItem to="/directeur/subjects" icon={BookOpen} isActive={p === '/directeur/subjects'}>Matières & Coefs</NavItem>
               </NavSection>
               <NavSection title="Pédagogie">
                 <NavItem to="/directeur/courses" icon={LibraryIcon} isActive={p.startsWith('/directeur/courses')}>Cours & Dossiers</NavItem>

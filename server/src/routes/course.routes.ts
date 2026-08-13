@@ -17,14 +17,16 @@ import {
   getCourseChapters,
   updateChapter,
   deleteChapter,
-  bulkAssignCourses,
   getSharedSchools,
   getSharedSchoolClasses,
   getSharedCourses,
   getSharedMaterials,
   toggleChapterProgress,
   getCourseStats,
-  publishCourse
+  publishCourse,
+  getCourseStudents,
+  getCourseTeachers,
+  updateCourse
 } from "../controllers/course.controller.js";
 
 const router = Router();
@@ -37,13 +39,13 @@ router.get("/shared/schools/:schoolId/classes", requireRole([ROLES.APPRENANT, RO
 router.get("/shared/courses", requireRole([ROLES.APPRENANT, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.SUPER_ADMIN]), getSharedCourses);
 router.get("/shared/materials", requireRole([ROLES.APPRENANT, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getSharedMaterials);
 
-// Seul le DIRECTEUR peut affecter un enseignant à une matière dans plusieurs classes
-router.post("/assign-multiple", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), bulkAssignCourses);
-
 // Seul le SUPER_ADMIN crée les cours (templates de niveau)
 router.post("/", requireRole([ROLES.SUPER_ADMIN]), createCourse);
 router.get("/", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getCourses);
 router.get("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getCourse);
+router.put("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), updateCourse);
+router.get("/:id/students", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), getCourseStudents);
+router.get("/:id/teachers", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), getCourseTeachers);
 router.delete("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), deleteCourse);
 
 // Chapitres — Seul le SUPER_ADMIN crée/modifie/supprime les chapitres (contenu pédagogique officiel)

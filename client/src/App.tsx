@@ -19,6 +19,8 @@ import AcademicYears from '@/app/admin/academic-years/page';
 import AcademicYearSchoolsPage from '@/app/admin/academic-years/[id]/schools/page';
 import AcademicYearDetailsPage from '@/app/admin/academic-years/[id]/page';
 import Courses from '@/app/academic/courses/page';
+import NewCoursePage from '@/app/academic/courses/new';
+import EditCoursePage from '@/app/academic/courses/edit';
 import CourseDetails from '@/app/academic/courses/details';
 import AssignmentDetails from '@/app/academic/assignments/details';
 import SubscriptionsPage from '@/app/admin/subscriptions/page';
@@ -130,7 +132,9 @@ function App() {
                     <Route path="/admin/classes/:id/edit" element={<EditClassPage />} />
                     <Route path="/admin/users" element={<Users />} />
                     <Route path="/admin/courses" element={<Courses />} />
+                    <Route path="/admin/courses/new" element={<NewCoursePage />} />
                     <Route path="/admin/courses/:id" element={<CourseDetails />} />
+                    <Route path="/admin/courses/:id/edit" element={<EditCoursePage />} />
                     <Route path="/admin/courses/:courseId/quizzes/new" element={<NewQuizPage />} />
                     <Route path="/admin/courses/:courseId/quizzes/:quizId/edit" element={<EditQuizPage />} />
                     <Route path="/admin/assignments" element={<GlobalAssignmentsPage />} />
@@ -165,6 +169,7 @@ function App() {
                     <Route path="/directeur/subjects" element={<Subjects />} />
                     <Route path="/directeur/courses" element={<Courses />} />
                     <Route path="/directeur/courses/:id" element={<CourseDetails />} />
+                    <Route path="/directeur/courses/:id/edit" element={<EditCoursePage />} />
                     <Route path="/directeur/courses/:courseId/quizzes/new" element={<NewQuizPage />} />
                     <Route path="/directeur/courses/:courseId/quizzes/:quizId/edit" element={<EditQuizPage />} />
                     <Route path="/directeur/report-cards" element={<ReportCards />} />

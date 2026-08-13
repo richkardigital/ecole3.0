@@ -89,9 +89,11 @@ export async function calculateOverallTermAverage(
   termId: string,
   classId: string
 ): Promise<number | null> {
-  // Récupérer tous les cours de la classe avec leur coefficient de matière
+  const classObj = await prisma.class.findUnique({ where: { id: classId } });
+  if (!classObj || !classObj.niveauId) return null;
+
   const courses = await prisma.course.findMany({
-    where: { classId },
+    where: { niveauId: classObj.niveauId },
     include: { subject: { select: { coefficient: true } } }
   });
 
@@ -139,9 +141,11 @@ export async function calculateAndSaveAnnualAverages(
     select: { studentId: true }
   });
 
-  // Récupérer les cours de la classe
+  const classObj = await prisma.class.findUnique({ where: { id: classId } });
+  if (!classObj || !classObj.niveauId) return;
+
   const courses = await prisma.course.findMany({
-    where: { classId },
+    where: { niveauId: classObj.niveauId },
     include: { subject: true }
   });
 

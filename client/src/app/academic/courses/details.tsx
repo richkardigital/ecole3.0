@@ -83,12 +83,14 @@ const CourseDetails = () => {
   const [course, setCourse] = useState<CourseModel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<AssignmentModel[]>([]);
-  const [activeTab, setActiveTab] = useState<'CONTENT' | 'RESOURCES' | 'ASSIGNMENTS' | 'QUIZZES' | 'GRADES'>('CONTENT');
+  const [activeTab, setActiveTab] = useState<'CONTENT' | 'STUDENTS' | 'TEACHERS' | 'RESOURCES' | 'ASSIGNMENTS' | 'QUIZZES' | 'GRADES'>('CONTENT');
   
   // Chapter & Material State
   const [chapters, setChapters] = useState<ChapterModel[]>([]);
   const [orphanMaterials, setOrphanMaterials] = useState<MaterialModel[]>([]);
   const [courseStats, setCourseStats] = useState<CourseStats | null>(null);
+  const [courseStudents, setCourseStudents] = useState<any[]>([]);
+  const [courseTeachers, setCourseTeachers] = useState<any[]>([]);
   
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
@@ -296,14 +298,24 @@ const CourseDetails = () => {
             .catch(err => console.error("Error fetching course stats", err));
       }
 
+      
+      const fetchStudents = api.get(`/courses/${id}/students`)
+        .then(res => setCourseStudents(res.data))
+        .catch(err => console.error("Error fetching students", err));
+
+      const fetchTeachers = api.get(`/courses/${id}/teachers`)
+        .then(res => setCourseTeachers(res.data))
+        .catch(err => console.error("Error fetching teachers", err));
+
       const fetchConduct = api.get(`/grades/${id}/conduct`)
+
         .then(res => {
             setConductStudents(res.data.students);
             setConductGrades(res.data.grades);
         })
         .catch(err => console.error("Error fetching conduct grades", err));
 
-      await Promise.allSettled([fetchAssignments, fetchChapters, fetchQuizzes, fetchConduct]);
+      await Promise.allSettled([fetchAssignments, fetchChapters, fetchQuizzes, fetchConduct, fetchStudents, fetchTeachers]);
 
     } catch (error) {
       console.error('Error fetching course details', error);
@@ -528,23 +540,29 @@ const CourseDetails = () => {
                 className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'CONTENT' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
                 onClick={() => setActiveTab('CONTENT')}
             >
-                Chapitres & Contenu
+                Contenu
                 {activeTab === 'CONTENT' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
             </button>
-
+            <button
+                className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'STUDENTS' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
+                onClick={() => setActiveTab('STUDENTS')}
+            >
+                Élèves
+                {activeTab === 'STUDENTS' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
+            </button>
+            <button
+                className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'TEACHERS' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
+                onClick={() => setActiveTab('TEACHERS')}
+            >
+                Enseignants
+                {activeTab === 'TEACHERS' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
+            </button>
             <button
                 className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'ASSIGNMENTS' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
                 onClick={() => setActiveTab('ASSIGNMENTS')}
             >
                 Devoirs
                 {activeTab === 'ASSIGNMENTS' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
-            </button>
-            <button
-                className={`px-6 py-3 font-medium text-sm transition-colors relative whitespace-nowrap ${activeTab === 'QUIZZES' ? 'text-brand-accent' : 'text-brand-text-muted hover:text-brand-text'}`}
-                onClick={() => setActiveTab('QUIZZES')}
-            >
-                Évaluations
-                {activeTab === 'QUIZZES' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-accent"></div>}
             </button>
             {isTeacher && (
                 <button

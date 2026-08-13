@@ -29,20 +29,25 @@ export const getConductGrades = async (req: AuthRequest, res: Response) => {
         const { courseId } = req.params;
         if (!courseId || typeof courseId !== 'string') return res.status(400).json({ message: "Course ID required" });
 
-        // Get course to verify teacher
         const course = await prisma.course.findUnique({ 
             where: { id: courseId },
-            include: { class: true }
+            include: { niveau: true }
         });
         
         if (!course) return res.status(404).json({ message: "Course not found" });
-        if ((req.user?.role as string) === 'ENSEIGNANT' && course.teacherId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
+
+        let classWhereClause: any = { niveauId: course.niveauId };
+
+        if ((req.user?.role as string) === 'ENSEIGNANT') {
+            const teaches = await prisma.teacherClass.findMany({
+                where: { teacherId: req.user.id, subjectId: course.subjectId, class: { niveauId: course.niveauId } }
+            });
+            if (teaches.length === 0) return res.status(403).json({ message: "Access denied" });
+            classWhereClause.id = { in: teaches.map(t => t.classId) };
         }
 
-        // Get students
         const enrollments = await prisma.enrollment.findMany({
-            where: { classId: course.classId },
+            where: { class: classWhereClause, status: 'ACTIVE' },
             include: {
                 student: {
                     select: { id: true, firstName: true, lastName: true, email: true }
@@ -53,7 +58,6 @@ export const getConductGrades = async (req: AuthRequest, res: Response) => {
 
         const students = enrollments.map(e => e.student);
 
-        // Get Conduct Grades (linked to courseId directly)
         const grades = await prisma.grade.findMany({
             where: {
                 courseId: courseId,
@@ -68,6 +72,7 @@ export const getConductGrades = async (req: AuthRequest, res: Response) => {
     }
 };
 
+
 export const getGradebook = async (req: AuthRequest, res: Response) => {
   try {
     const { courseId } = req.params;
@@ -76,26 +81,27 @@ export const getGradebook = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: "Course ID required" });
     }
 
-    // Verify access
     const course = await prisma.course.findUnique({
       where: { id: courseId },
-      include: { class: true }
+      include: { niveau: true }
     });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    if ((req.user?.role as string) === "ENSEIGNANT" && course.teacherId !== req.user.id) {
-      return res.status(403).json({ message: "Access denied" });
+    let classWhereClause: any = { niveauId: course.niveauId };
+
+    if ((req.user?.role as string) === "ENSEIGNANT") {
+      const teaches = await prisma.teacherClass.findMany({
+        where: { teacherId: req.user.id, subjectId: course.subjectId, class: { niveauId: course.niveauId } }
+      });
+      if (teaches.length === 0) return res.status(403).json({ message: "Access denied" });
+      classWhereClause.id = { in: teaches.map(t => t.classId) };
     }
 
-    // For School Admins, Educators, IT Admins, verify school access if implemented
-    // Assuming they have access to all courses in their school/scope
-
-    // Get Students
     const enrollments = await prisma.enrollment.findMany({
-      where: { classId: course.classId },
+      where: { class: classWhereClause, status: 'ACTIVE' },
       include: {
         student: {
           select: { id: true, firstName: true, lastName: true, email: true }
@@ -106,32 +112,32 @@ export const getGradebook = async (req: AuthRequest, res: Response) => {
 
     const students = enrollments.map(e => e.student);
 
-    // Get Assignments
     const assignments = await prisma.assignment.findMany({
-      where: { courseId },
+      where: { courseId: courseId },
       orderBy: { dueDate: 'asc' }
     });
 
-    // Get Grades
+    const quizzes = await prisma.quiz.findMany({
+      where: { courseId: courseId },
+      orderBy: { endDate: 'asc' }
+    });
+
     const grades = await prisma.grade.findMany({
-      where: {
-        assignment: {
-          courseId
-        }
+      where: { courseId: courseId },
+      include: {
+        assignment: { select: { id: true, title: true, type: true, coefficient: true } },
+        quiz: { select: { id: true, title: true, coefficient: true } },
+        term: { select: { id: true, name: true } }
       }
     });
 
-    res.json({
-      students,
-      assignments,
-      grades
-    });
-
+    res.json({ students, assignments, quizzes, grades });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error fetching gradebook", error });
   }
 };
+
 
 export const getTeacherGrid = async (req: AuthRequest, res: Response) => {
     try {

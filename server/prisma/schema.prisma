@@ -295,7 +295,7 @@ model User {
   managedSchool School? @relation("SchoolManager")
 
   // Relations académiques
-  courses        Course[]       @relation("CourseTeacher")
+  // Cours dispensés
   teacherClasses TeacherClass[]
   enrollments    Enrollment[]
   grades         Grade[]
@@ -438,7 +438,6 @@ model Class {
 
   // Relations
   enrollments     Enrollment[]
-  courses         Course[]
   teacherClasses  TeacherClass[]
   messages        Message[]
   bulletins       Bulletin[]
@@ -525,33 +524,22 @@ model Enrollment {
 }
 
 // =============================================
-// COURSE — Cours (matière enseignée dans une classe)
+// COURSE — Cours (Contenu pédagogique global par Matière et Niveau)
 // =============================================
 
 model Course {
   id String @id @default(uuid())
 
-  // Pour les cours de CLASSE (scope=CLASSE)
-  classId   String?
   subjectId String
-  teacherId String
-
-  class   Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacher User    @relation("CourseTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
 
-  coefficient Int @default(1)
+  niveauId String
+  niveau   Niveau @relation("NiveauCourses", fields: [niveauId], references: [id], onDelete: Cascade)
 
   // Modèle CNED : portée + niveau + publication
-  scope       ContentScope @default(CLASSE)
+  scope       ContentScope @default(NIVEAU)
   isPublished Boolean      @default(false)
-
-  // Pour les cours de NIVEAU (scope=NIVEAU) créés par SUPER_ADMIN
-  niveauId String?
-  niveau   Niveau? @relation("NiveauCourses", fields: [niveauId], references: [id], onDelete: SetNull)
-
-  // Pour les cours d'école (scope=ECOLE)
-  schoolId String?
+  coefficient Int          @default(1)
 
   // Contenu du cours
   chapters    Chapter[]
@@ -561,12 +549,12 @@ model Course {
   grades      Grade[]
   annualAverages AnnualAverage[] @relation("CourseAnnualAverages")
 
-  @@unique([classId, subjectId, teacherId])
-  @@index([teacherId])
-  @@index([classId])
+  @@unique([subjectId, niveauId])
   @@index([niveauId])
   @@index([scope])
 }
+
+
 
 // =============================================
 // CHAPTER — Chapitre d'un cours

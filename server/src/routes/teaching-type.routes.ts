@@ -17,9 +17,9 @@ router.get('/', getTeachingTypes);
 router.get('/:id', getTeachingType);
 
 // Actions d'administration
-router.post('/', authenticate, requireRole('SUPER_ADMIN'), createTeachingType);
-router.put('/:id', authenticate, requireRole('SUPER_ADMIN'), updateTeachingType);
-router.patch('/:id/toggle', authenticate, requireRole('SUPER_ADMIN'), toggleTeachingType);
-router.delete('/:id', authenticate, requireRole('SUPER_ADMIN'), deleteTeachingType);
+router.post('/', authenticate, requireRole(['SUPER_ADMIN']), createTeachingType);
+router.put('/:id', authenticate, requireRole(['SUPER_ADMIN']), updateTeachingType);
+router.patch('/:id/toggle', authenticate, requireRole(['SUPER_ADMIN']), toggleTeachingType);
+router.delete('/:id', authenticate, requireRole(['SUPER_ADMIN']), deleteTeachingType);
 
 export default router;

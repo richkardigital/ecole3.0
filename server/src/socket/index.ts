@@ -44,12 +44,12 @@ export const setupSocket = (io: Server) => {
     // Automatically join all class rooms the user belongs to
     try {
         if (role === 'ENSEIGNANT' || role === 'TEACHER') {
-            const courses = await prisma.course.findMany({
+            const classes = await prisma.teacherClass.findMany({
                 where: { teacherId: userId },
                 select: { classId: true }
             });
-            console.log(`[Socket] Teacher ${userId} found in ${courses.length} courses`);
-            for (const c of courses) {
+            console.log(`[Socket] Teacher ${userId} found in ${classes.length} classes`);
+            for (const c of classes) {
                 const classRoom = `class:${c.classId}`;
                 await socket.join(classRoom);
                 console.log(`[Socket] Teacher ${userId} joined class room ${classRoom}`);
