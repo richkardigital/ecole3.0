@@ -6,17 +6,18 @@ import { AuthRequest } from "../middleware/auth.js";
 const createConductSchema = z.object({
   studentId: z.string().uuid(),
   termId: z.string().uuid(),
-  appreciation: z.string().optional(),
-  comment: z.string().optional(),
+  grade: z.number().min(0).max(20).optional().nullable(),
+  appreciation: z.string().optional().nullable(),
+  comment: z.string().optional().nullable(),
 });
 
 export const createConduct = async (req: AuthRequest, res: Response) => {
   try {
-    const { studentId, termId, appreciation, comment } = createConductSchema.parse(req.body);
+    const { studentId, termId, grade, appreciation, comment } = createConductSchema.parse(req.body);
     const user = req.user;
 
-    // RBAC: Ensure admin can only create for their school
-    if ((user?.role as string) === 'DIRECTEUR' || (user?.role as string) === 'EDUCATEUR' || (user?.role as string) === 'EDUCATEUR') {
+    // RBAC: Ensure staff can only create for their school
+    if ((user?.role as string) === 'DIRECTEUR' || (user?.role as string) === 'EDUCATEUR') {
         const student = await prisma.user.findFirst({
             where: { id: studentId, schoolId: user.schoolId }
         });
@@ -33,15 +34,25 @@ export const createConduct = async (req: AuthRequest, res: Response) => {
         }
       },
       update: {
+        grade: grade !== undefined ? grade : undefined,
         appreciation,
         comment,
       },
       create: {
         studentId,
         termId,
+        grade: grade !== undefined ? grade : null,
         appreciation,
         comment,
       },
+    });
+
+    // Synchroniser avec le bulletin de l'élève s'il existe
+    await prisma.bulletinEleve.updateMany({
+      where: { studentId, termId },
+      data: {
+        noteConduite: grade !== undefined ? grade : null
+      }
     });
 
     res.status(201).json(conduct);
@@ -61,7 +72,7 @@ export const getConducts = async (req: AuthRequest, res: Response) => {
     // If student, can only see own conducts
     if ((user?.role as string) === 'APPRENANT') {
         where.studentId = user.id;
-    } else if ((user?.role as string) === 'DIRECTEUR' || (user?.role as string) === 'EDUCATEUR' || (user?.role as string) === 'EDUCATEUR') {
+    } else if ((user?.role as string) === 'DIRECTEUR' || (user?.role as string) === 'EDUCATEUR') {
         // Only see students in their school
         where.student = {
             schoolId: user.schoolId
@@ -120,12 +131,26 @@ export const getConducts = async (req: AuthRequest, res: Response) => {
 export const updateConduct = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const { appreciation, comment } = req.body;
+        const { grade, appreciation, comment } = req.body;
 
         const conduct = await prisma.conduct.update({
             where: { id: id as string },
-            data: { appreciation, comment }
+            data: { 
+              grade: grade !== undefined ? (grade !== null ? Number(grade) : null) : undefined,
+              appreciation, 
+              comment 
+            }
         });
+
+        // Synchroniser avec le bulletin de l'élève
+        if (conduct.studentId && conduct.termId) {
+          await prisma.bulletinEleve.updateMany({
+            where: { studentId: conduct.studentId, termId: conduct.termId },
+            data: {
+              noteConduite: conduct.grade
+            }
+          });
+        }
 
         res.json(conduct);
     } catch (error) {

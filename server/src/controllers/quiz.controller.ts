@@ -78,11 +78,11 @@ const createAutoGrade = async (
     });
 
     if (enrollment) {
-      // Trouver le cours de cette matière dans cette classe
+      // Trouver le cours de cette matière dans ce niveau
       const course = await prisma.course.findFirst({
         where: {
-          classId: enrollment.classId,
-          subjectId: quiz.subjectId,
+          niveauId: enrollment.class.niveauId ?? undefined,
+          subjectId: quiz.subjectId ?? undefined,
         },
       });
       finalCourseId = course?.id ?? null;
@@ -131,12 +131,9 @@ export const createQuiz = async (req: AuthRequest, res: Response) => {
     if (validatedData.courseId) {
       const course = await prisma.course.findUnique({ where: { id: validatedData.courseId } });
       if (!course) return res.status(404).json({ message: "Cours introuvable" });
-      if (userRole === "ENSEIGNANT" && course.teacherId !== userId) {
-        return res.status(403).json({ message: "Vous n'êtes pas l'enseignant de ce cours" });
-      }
     }
 
-    if (validatedData.type === "NIVEAU" && userRole !== "SUPER_ADMIN") {
+    if (validatedData.type === "DEVOIR_NIVEAU" && userRole !== "SUPER_ADMIN") {
       return res.status(403).json({ message: "Seul le super admin peut créer des devoirs de niveau" });
     }
 
@@ -187,7 +184,7 @@ export const createQuiz = async (req: AuthRequest, res: Response) => {
     res.status(201).json(quiz);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: "Validation error", errors: error.errors });
+      return res.status(400).json({ message: "Validation error", errors: (error as any).issues || (error as any).errors });
     }
     console.error("Create quiz error:", error);
     res.status(500).json({ message: "Erreur lors de la création du quiz", error: error.message });
@@ -205,7 +202,7 @@ export const updateQuiz = async (req: AuthRequest, res: Response) => {
       include: { course: true },
     });
     if (!quiz) return res.status(404).json({ message: "Quiz introuvable" });
-    if (userRole === "ENSEIGNANT" && quiz.course?.teacherId !== userId) {
+    if (userRole === "ENSEIGNANT" && quiz.createdById !== userId) {
       return res.status(403).json({ message: "Non autorisé" });
     }
 
@@ -249,7 +246,7 @@ export const updateQuiz = async (req: AuthRequest, res: Response) => {
     res.json(updatedQuiz);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: "Validation error", errors: error.errors });
+      return res.status(400).json({ message: "Validation error", errors: (error as any).issues || (error as any).errors });
     }
     res.status(500).json({ message: "Erreur mise à jour quiz", error: error.message });
   }
@@ -265,7 +262,7 @@ export const deleteQuiz = async (req: AuthRequest, res: Response) => {
       include: { course: true },
     });
     if (!quiz) return res.status(404).json({ message: "Quiz introuvable" });
-    if ((req.user?.role as string) === "ENSEIGNANT" && quiz.course?.teacherId !== userId) {
+    if ((req.user?.role as string) === "ENSEIGNANT" && quiz.createdById !== userId) {
       return res.status(403).json({ message: "Non autorisé" });
     }
 
@@ -538,7 +535,7 @@ export const getQuizAttempts = async (req: AuthRequest, res: Response) => {
     });
     if (!quiz) return res.status(404).json({ message: "Quiz introuvable" });
 
-    if (userRole === "ENSEIGNANT" && quiz.course?.teacherId !== userId) {
+    if (userRole === "ENSEIGNANT" && quiz.createdById !== userId) {
       return res.status(403).json({ message: "Non autorisé" });
     }
 
@@ -581,7 +578,7 @@ export const getAttemptDetail = async (req: AuthRequest, res: Response) => {
     if (userRole === "APPRENANT" && attempt.studentId !== userId) {
       return res.status(403).json({ message: "Non autorisé" });
     }
-    if (userRole === "ENSEIGNANT" && attempt.quiz.course?.teacherId !== userId) {
+    if (userRole === "ENSEIGNANT" && attempt.quiz.createdById !== userId) {
       return res.status(403).json({ message: "Non autorisé" });
     }
 
@@ -641,7 +638,7 @@ export const getQuizStats = async (req: AuthRequest, res: Response) => {
       where: { id: String(id) },
       include: {
         _count: { select: { questions: true, attempts: true } },
-        course: { include: { class: { include: { enrollments: true } } } },
+        course: true,
       },
     });
     if (!quiz) return res.status(404).json({ message: "Quiz introuvable" });
@@ -657,7 +654,7 @@ export const getQuizStats = async (req: AuthRequest, res: Response) => {
     const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
     const nbReussi = scores.filter(s => s >= 10).length;
 
-    const totalStudents = quiz.course?.class?.enrollments?.length ?? attempts.length;
+    const totalStudents = attempts.length;
 
     res.json({
       quiz: { id: quiz.id, title: quiz.title, type: quiz.type, coefficient: quiz.coefficient },

@@ -69,7 +69,7 @@ export const createUser = async (req: AuthRequest, res: Response) => {
         firstName,
         lastName,
         matricule,
-        gender,
+        gender: gender ? (gender as any) : null,
         birthDate: birthDate ? new Date(birthDate) : null,
         avatarUrl,
         role,
@@ -138,11 +138,6 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
         }
         whereClause.schoolId = currentUser.schoolId;
         
-        // Teachers can see their own students (or other users if we want to be permissive, but strictly they see their students)
-        // For simplicity and avoiding complex nested queries that might fail if no students exist,
-        // let's just let them see APPRENANT in their school, or only themselves.
-        // The prompt says "les notes de ses élèves". It doesn't strictly say they can't see the directory of the school.
-        // Let's restrict to APPRENANTs in their classes, and maybe themselves.
         whereClause.OR = [
             { id: currentUser.id },
             {
@@ -150,7 +145,7 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
                 enrollments: {
                     some: {
                         class: {
-                            courses: {
+                            teacherClasses: {
                                 some: { teacherId: currentUser.id }
                             }
                         }
@@ -173,6 +168,10 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
         lastName: true,
         role: true,
         phone: true,
+        matricule: true,
+        avatarUrl: true,
+        gender: true,
+        birthDate: true,
         schoolId: true,
         school: {
           select: {
@@ -191,14 +190,6 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
                 }
             }
         },
-        courses: {
-            include: {
-                class: {
-                    include: { niveau: true }
-                },
-                subject: true
-            }
-        },
         teacherClasses: {
             include: {
                 class: {
@@ -211,6 +202,7 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
     });
     res.json(users);
   } catch (error) {
+    console.error("Error fetching users:", error);
     res.status(500).json({ message: "Error fetching users", error });
   }
 };
@@ -479,7 +471,7 @@ export const uploadUserDocument = async (req: AuthRequest, res: Response) => {
 export const deleteUserDocument = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const { docId } = req.params;
+    const docId = String(req.params.docId);
 
     if (!userId || !docId) return res.status(400).json({ message: "Invalid parameters" });
 

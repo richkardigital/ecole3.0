@@ -178,7 +178,7 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
         }
         // If Teacher, get students in their classes AND other teachers
         else if ((role as string) === 'ENSEIGNANT' || (role as string) === 'TEACHER') {
-             const courses = await prisma.course.findMany({
+             const teacherClasses = await prisma.teacherClass.findMany({
                  where: { teacherId: userId },
                  include: {
                      class: {
@@ -196,9 +196,9 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
              });
              
              const studentMap = new Map();
-             courses.forEach(c => {
-                 if (c.class && c.class.enrollments) {
-                    c.class.enrollments.forEach(e => {
+             teacherClasses.forEach(tc => {
+                 if (tc.class && tc.class.enrollments) {
+                    tc.class.enrollments.forEach(e => {
                         if (e.student && !studentMap.has(e.student.id)) {
                             studentMap.set(e.student.id, e.student);
                         }
@@ -226,7 +226,7 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
                  include: {
                      class: {
                          include: {
-                             courses: {
+                             teacherClasses: {
                                  include: { 
                                      teacher: {
                                          select: { id: true, firstName: true, lastName: true, role: true, isOnline: true }
@@ -240,10 +240,10 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
              
              const teacherMap = new Map();
              enrollments.forEach(e => {
-                 if (e.class && e.class.courses) {
-                    e.class.courses.forEach(c => {
-                        if (c.teacher && !teacherMap.has(c.teacher.id)) {
-                            teacherMap.set(c.teacher.id, c.teacher);
+                 if (e.class && e.class.teacherClasses) {
+                    e.class.teacherClasses.forEach(tc => {
+                        if (tc.teacher && !teacherMap.has(tc.teacher.id)) {
+                            teacherMap.set(tc.teacher.id, tc.teacher);
                         }
                     });
                  }

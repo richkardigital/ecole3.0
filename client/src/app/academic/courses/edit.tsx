@@ -9,14 +9,16 @@ import { useAuth } from '@/context/AuthContext';
 
 interface Option {
   id: string;
-  name: string;
+  name?: string;
   nom?: string;
+  isCurrent?: boolean;
 }
 
 const EditCoursePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [academicYears, setAcademicYears] = useState<Option[]>([]);
   const [niveaux, setNiveaux] = useState<Option[]>([]);
   const [subjects, setSubjects] = useState<Option[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,16 +38,19 @@ const EditCoursePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [courseRes, niveauxRes, subjectsRes] = await Promise.all([
+        const [courseRes, yearsRes, niveauxRes, subjectsRes] = await Promise.all([
           api.get(`/courses/${id}`),
+          api.get('/academic/years').catch(() => ({ data: [] })),
           api.get('/niveaux'),
           api.get('/subjects')
         ]);
 
         const course = courseRes.data;
-        setNiveaux(niveauxRes.data);
-        setSubjects(subjectsRes.data);
+        setAcademicYears(yearsRes.data || []);
+        setNiveaux(niveauxRes.data || []);
+        setSubjects(subjectsRes.data || []);
 
+        setValue('academicYearId', course.academicYearId || '');
         setValue('niveauId', course.niveauId);
         setValue('subjectId', course.subjectId);
         setValue('coefficient', course.coefficient || 1);
@@ -80,7 +85,7 @@ const EditCoursePage = () => {
     <div className="space-y-6">
       <PageHeader
         title="Modifier le Cours Académique"
-        subtitle="Modifiez le niveau, la matière ou le coefficient du cours académique."
+        subtitle="Modifiez l'année académique, le niveau, la matière ou le coefficient du cours."
         icon={<Pencil className="w-6 h-6 text-brand-accent" />}
         action={
           <Button
@@ -106,9 +111,28 @@ const EditCoursePage = () => {
               </div>
             )}
 
+            {/* 1. Année Académique */}
             <div>
               <label className="block text-sm font-bold text-brand-text mb-2">
-                Niveau Scolaire <span className="text-red-500">*</span>
+                1. Année Académique / Scolaire <span className="text-red-500">*</span>
+              </label>
+              <select
+                {...register("academicYearId")}
+                className="w-full bg-brand-surface border border-brand-border/50 rounded-xl px-4 py-3 text-brand-text focus:outline-none focus:border-brand-accent focus:ring-2 focus:ring-brand-accent/20 transition-all text-sm"
+              >
+                <option value="">Sélectionnez l'année académique...</option>
+                {academicYears.map((year) => (
+                  <option key={year.id} value={year.id}>
+                    {year.name || year.nom} {year.isCurrent ? '(En cours)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 2. Niveau Scolaire */}
+            <div>
+              <label className="block text-sm font-bold text-brand-text mb-2">
+                2. Niveau Scolaire <span className="text-red-500">*</span>
               </label>
               <select
                 {...register("niveauId", { required: true })}
@@ -117,15 +141,16 @@ const EditCoursePage = () => {
                 <option value="">Sélectionnez un niveau...</option>
                 {niveaux.map((n) => (
                   <option key={n.id} value={n.id}>
-                    {n.nom}
+                    {n.nom || n.name}
                   </option>
                 ))}
               </select>
             </div>
 
+            {/* 3. Matière */}
             <div>
               <label className="block text-sm font-bold text-brand-text mb-2">
-                Matière <span className="text-red-500">*</span>
+                3. Matière <span className="text-red-500">*</span>
               </label>
               <select
                 {...register("subjectId", { required: true })}
@@ -134,15 +159,16 @@ const EditCoursePage = () => {
                 <option value="">Sélectionnez une matière...</option>
                 {subjects.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {s.name || s.nom}
                   </option>
                 ))}
               </select>
             </div>
 
+            {/* 4. Coefficient */}
             <div>
               <label className="block text-sm font-bold text-brand-text mb-2">
-                Coefficient <span className="text-red-500">*</span>
+                4. Coefficient <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"

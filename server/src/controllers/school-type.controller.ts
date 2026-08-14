@@ -20,7 +20,7 @@ export const getSchoolTypes = async (req: AuthRequest, res: Response) => {
 
 export const getSchoolTypeById = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const schoolType = await prisma.schoolType.findUnique({
       where: { id },
       include: {
@@ -76,7 +76,7 @@ export const createSchoolType = async (req: AuthRequest, res: Response) => {
 
 export const updateSchoolType = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const data = updateSchoolTypeSchema.parse(req.body);
 
     if (data.name || data.code) {
@@ -108,7 +108,7 @@ export const updateSchoolType = async (req: AuthRequest, res: Response) => {
 
 export const toggleActiveSchoolType = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const current = await prisma.schoolType.findUnique({ where: { id } });
 
     if (!current) {
@@ -128,7 +128,7 @@ export const toggleActiveSchoolType = async (req: AuthRequest, res: Response) =>
 
 export const deleteSchoolType = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     // Check if schools are associated
     const schoolCount = await prisma.school.count({ where: { schoolTypeId: id } });
@@ -144,3 +144,4 @@ export const deleteSchoolType = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: "Erreur serveur", error });
   }
 };
+

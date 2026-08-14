@@ -6,12 +6,12 @@ import { StatCard } from '@/components/ui/StatCard';
 import {
   Users, School, BookOpen, GraduationCap, ClipboardList, MessageSquare,
   Library, Calendar, TrendingUp, Sparkles, ArrowRight, Zap, 
-  FileText, BarChart3, Network
+  FileText, BarChart3, Network, Layers
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from 'recharts';
 
 interface DashboardStats {
-  schools?: number; users?: number; classes?: number; teachers?: number;
+  schools?: number; users?: number; classes?: number; teachers?: number; educators?: number;
   students?: number; courses?: number; ungradedSubmissions?: number;
   enrolledCourses?: number; pendingAssignments?: number;
   effectifsData?: { name: string; v: number }[];
@@ -178,26 +178,31 @@ const Dashboard = () => {
 
             {user.role === 'SUPER_ADMIN' && (<>
               <StatCard title="Écoles" count={stats?.schools ?? '—'} label="Établissements actifs" icon={<School className="w-5 h-5" />} iconColor="text-blue-600" badgeColor="bg-blue-50 border-blue-200" onClick={() => navigate('/admin/schools')} trend={{ value: 12, isPositive: true }} />
-              <StatCard title="Utilisateurs" count={stats?.users ?? '—'} label="Réseau global" icon={<Users className="w-5 h-5" />} iconColor="text-emerald-600" badgeColor="bg-emerald-50 border-emerald-200" onClick={() => navigate('/admin/users')} trend={{ value: 5, isPositive: true }} />
-              <StatCard title="Élèves" count={stats?.students ?? '—'} label={selectedYear ? "Inscrits cette année" : "Total inscrits"} icon={<GraduationCap className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/admin/users')} />
+              <StatCard title="Enseignants" count={stats?.teachers ?? '—'} label="Professeurs actifs" icon={<Users className="w-5 h-5" />} iconColor="text-amber-600" badgeColor="bg-amber-50 border-amber-200" onClick={() => navigate('/admin/users?group=enseignant')} />
+              <StatCard title="Éducateurs" count={stats?.educators ?? '—'} label="Vie scolaire" icon={<Users className="w-5 h-5" />} iconColor="text-indigo-600" badgeColor="bg-indigo-50 border-indigo-200" onClick={() => navigate('/admin/users?group=educateur')} />
+              <StatCard title="Élèves" count={stats?.students ?? '—'} label={selectedYear ? "Inscrits cette année" : "Total inscrits"} icon={<GraduationCap className="w-5 h-5" />} iconColor="text-emerald-600" badgeColor="bg-emerald-50 border-emerald-200" onClick={() => navigate('/admin/users?group=eleve')} />
+              <StatCard title="Classes" count={stats?.classes ?? '—'} label="Classes créées" icon={<School className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/admin/classes')} />
             </>)}
 
             {(user.role === 'DIRECTEUR') && (<>
-              <StatCard title="Classes" count={stats?.classes ?? '—'} label="Classes actives" icon={<School className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/directeur/classes')} />
-              <StatCard title="Enseignants" count={stats?.teachers ?? '—'} label="Personnel enseignant" icon={<Users className="w-5 h-5" />} iconColor="text-amber-600" badgeColor="bg-amber-50 border-amber-200" onClick={() => navigate('/directeur/users')} />
-              <StatCard title="Élèves" count={stats?.students ?? '—'} label="Inscrits" icon={<GraduationCap className="w-5 h-5" />} iconColor="text-emerald-600" badgeColor="bg-emerald-50 border-emerald-200" onClick={() => navigate('/directeur/users')} trend={{ value: 3, isPositive: true }} />
-              <StatCard title="Bulletin T." count="Trimestre 1" label="En cours" icon={<FileText className="w-5 h-5" />} iconColor="text-sky-600" badgeColor="bg-sky-50 border-sky-200" onClick={() => navigate('/directeur/report-cards')} />
+              <StatCard title="Classes" count={stats?.classes ?? '—'} label="Classes de l'école" icon={<School className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/directeur/classes')} />
+              <StatCard title="Enseignants" count={stats?.teachers ?? '—'} label="Corps enseignant" icon={<Users className="w-5 h-5" />} iconColor="text-amber-600" badgeColor="bg-amber-50 border-amber-200" onClick={() => navigate('/directeur/users?group=enseignant')} />
+              <StatCard title="Éducateurs" count={stats?.educators ?? '—'} label="Vie scolaire" icon={<Users className="w-5 h-5" />} iconColor="text-indigo-600" badgeColor="bg-indigo-50 border-indigo-200" onClick={() => navigate('/directeur/users?group=educateur')} />
+              <StatCard title="Élèves" count={stats?.students ?? '—'} label="Élèves inscrits" icon={<GraduationCap className="w-5 h-5" />} iconColor="text-emerald-600" badgeColor="bg-emerald-50 border-emerald-200" onClick={() => navigate('/directeur/users?group=eleve')} trend={{ value: 3, isPositive: true }} />
+              <StatCard title="Bulletins" count="Trimestre 1" label="Bulletins officiels" icon={<FileText className="w-5 h-5" />} iconColor="text-sky-600" badgeColor="bg-sky-50 border-sky-200" onClick={() => navigate('/directeur/report-cards')} />
             </>)}
 
             {user.role === 'EDUCATEUR' && (<>
-              <StatCard title="Classes" count={stats?.classes ?? '—'} label="Classes actives" icon={<School className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/educateur/classes')} />
-              <StatCard title="Élèves" count={stats?.students ?? '—'} label="Inscrits" icon={<GraduationCap className="w-5 h-5" />} iconColor="text-emerald-600" badgeColor="bg-emerald-50 border-emerald-200" onClick={() => navigate('/educateur/users')} />
+              <StatCard title="Classes" count={stats?.classes ?? '—'} label="Classes surveillées" icon={<School className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/educateur/classes')} />
+              <StatCard title="Enseignants" count={stats?.teachers ?? '—'} label="Corps professoral" icon={<Users className="w-5 h-5" />} iconColor="text-amber-600" badgeColor="bg-amber-50 border-amber-200" onClick={() => navigate('/educateur/users?group=enseignant')} />
+              <StatCard title="Élèves" count={stats?.students ?? '—'} label="Élèves inscrits" icon={<GraduationCap className="w-5 h-5" />} iconColor="text-emerald-600" badgeColor="bg-emerald-50 border-emerald-200" onClick={() => navigate('/educateur/users?group=eleve')} />
+              <StatCard title="Bulletins" count="Suivi" label="Validation bulletins" icon={<FileText className="w-5 h-5" />} iconColor="text-sky-600" badgeColor="bg-sky-50 border-sky-200" onClick={() => navigate('/educateur/report-cards')} />
             </>)}
 
             {user.role === 'ENSEIGNANT' && (<>
               <StatCard title="Cours assignés" count={stats?.courses ?? '—'} label="Total de mes cours" icon={<BookOpen className="w-5 h-5" />} iconColor="text-indigo-600" badgeColor="bg-indigo-50 border-indigo-200" onClick={() => navigate('/enseignant/courses')} />
-              <StatCard title="Devoirs en attente" count={stats?.ungradedSubmissions ?? '—'} label="À corriger" icon={<ClipboardList className="w-5 h-5" />} iconColor="text-rose-600" badgeColor="bg-rose-50 border-rose-200" onClick={() => navigate('/enseignant/agenda')} />
               <StatCard title="Classes affectées" count={stats?.classes ?? '—'} label="Total de mes classes" icon={<School className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/enseignant/courses')} />
+              <StatCard title="Devoirs en attente" count={stats?.ungradedSubmissions ?? '—'} label="À corriger" icon={<ClipboardList className="w-5 h-5" />} iconColor="text-rose-600" badgeColor="bg-rose-50 border-rose-200" onClick={() => navigate('/enseignant/agenda')} />
             </>)}
 
             {user.role === 'APPRENANT' && (<>
@@ -218,10 +223,10 @@ const Dashboard = () => {
               {user.role === 'SUPER_ADMIN' && (<>
                 <QuickAction icon={School} label="Écoles" to="/admin/schools" color="bg-blue-50 border border-blue-200 text-blue-600" />
                 <QuickAction icon={Users} label="Utilisateurs" to="/admin/users" color="bg-emerald-50 border border-emerald-200 text-emerald-600" />
+                <QuickAction icon={BookOpen} label="Cours" to="/admin/courses" color="bg-indigo-50 border border-indigo-200 text-indigo-600" />
+                <QuickAction icon={Layers} label="Évaluations" to="/admin/assignments" color="bg-purple-50 border border-purple-200 text-purple-600" />
                 <QuickAction icon={Calendar} label="Années" to="/admin/academic-years" color="bg-amber-50 border border-amber-200 text-amber-600" />
-                <QuickAction icon={BarChart3} label="Audit" to="/admin/audit-logs" color="bg-violet-50 border border-violet-200 text-violet-600" />
                 <QuickAction icon={Calendar} label="Agenda" to="/admin/agenda" color="bg-sky-50 border border-sky-200 text-sky-600" />
-                <QuickAction icon={MessageSquare} label="Forum" to="/admin/forum" color="bg-indigo-50 border border-indigo-200 text-indigo-600" />
               </>)}
               {user.role === 'DIRECTEUR' && (<>
                 <QuickAction icon={School} label="Classes" to="/directeur/classes" color="bg-purple-50 border border-purple-200 text-purple-600" />
@@ -326,20 +331,47 @@ const Dashboard = () => {
                   )}
                 </div>
 
-                {/* Summary stats */}
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'Bulletins T1 validés', value: '98.4%', color: '#047857' },
-                    { label: 'Taux de présence', value: '94.2%', color: '#0369a1' },
-                    { label: 'Devoirs notés', value: '1 248', color: '#6d28d9' },
-                    { label: 'Annonces envoyées', value: '34', color: '#b45309' },
-                  ].map((s, i) => (
-                    <div key={i} className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                      <p className="text-xl font-black" style={{ color: s.color }}>{s.value}</p>
-                      <p className="text-xs text-slate-500 font-semibold mt-1 leading-snug">{s.label}</p>
+                {/* Verified Gender Metrics */}
+                {(() => {
+                  const boys = stats?.boys || 0;
+                  const girls = stats?.girls || 0;
+                  const total = boys + girls;
+                  const boysPct = total > 0 ? Math.round((boys / total) * 100) : 0;
+                  const girlsPct = total > 0 ? Math.round((girls / total) * 100) : 0;
+
+                  return (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-4 rounded-xl bg-sky-50/70 border border-sky-100 flex flex-col justify-between">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-sky-700 uppercase tracking-wider">Garçons</span>
+                            <span className="text-xs font-black px-2 py-0.5 rounded-full bg-sky-200 text-sky-800">{boysPct}%</span>
+                          </div>
+                          <p className="text-2xl font-black text-sky-900 mt-2">{boys.toLocaleString('fr-FR')}</p>
+                          <div className="w-full bg-sky-200/60 rounded-full h-1.5 mt-2 overflow-hidden">
+                            <div className="bg-sky-500 h-1.5 rounded-full" style={{ width: `${boysPct}%` }}></div>
+                          </div>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-pink-50/70 border border-pink-100 flex flex-col justify-between">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-pink-700 uppercase tracking-wider">Filles</span>
+                            <span className="text-xs font-black px-2 py-0.5 rounded-full bg-pink-200 text-pink-800">{girlsPct}%</span>
+                          </div>
+                          <p className="text-2xl font-black text-pink-900 mt-2">{girls.toLocaleString('fr-FR')}</p>
+                          <div className="w-full bg-pink-200/60 rounded-full h-1.5 mt-2 overflow-hidden">
+                            <div className="bg-pink-500 h-1.5 rounded-full" style={{ width: `${girlsPct}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                        <span className="text-xs text-slate-500 font-medium">Total élèves comptabilisés : </span>
+                        <span className="text-xs font-bold text-slate-800">{total.toLocaleString('fr-FR')} apprenants</span>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
               </div>
             </div>
           )}

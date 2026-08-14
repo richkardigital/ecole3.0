@@ -177,9 +177,9 @@ export const updateAcademicYear = async (req: AuthRequest, res: Response) => {
  * FIX BUG: Route dédiée pour l'affectation / désaffectation des écoles à une année académique.
  * Remplace le patch via PUT qui échouait à cause du schema de validation.
  */
-export const updateAcademicYearSchools = async (req: AuthRequest, res: Response) => {
+export const updateAcademicYearSchools = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { schoolIds } = req.body as { schoolIds: string[] };
 
     if (!id) return res.status(400).json({ message: "ID manquant" });
@@ -225,7 +225,7 @@ export const updateAcademicYearSchools = async (req: AuthRequest, res: Response)
 
 export const toggleAcademicYearActive = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const current = await prisma.academicYear.findUnique({ where: { id } });
     if (!current) {
@@ -254,7 +254,7 @@ export const toggleAcademicYearActive = async (req: AuthRequest, res: Response) 
 
 export const toggleAcademicYearComplete = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const current = await prisma.academicYear.findUnique({ where: { id } });
     if (!current) {
@@ -285,7 +285,7 @@ export const toggleAcademicYearComplete = async (req: AuthRequest, res: Response
 
 export const setCurrentAcademicYear = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const current = await prisma.academicYear.findUnique({ where: { id } });
     if (!current) {
@@ -317,7 +317,7 @@ export const setCurrentAcademicYear = async (req: AuthRequest, res: Response) =>
 
 export const deleteAcademicYear = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     if (!id) return res.status(400).json({ message: "ID manquant" });
 
     // Check if classes are attached
@@ -329,7 +329,7 @@ export const deleteAcademicYear = async (req: Request, res: Response) => {
     }
 
     await prisma.academicYear.delete({
-      where: { id: String(id) },
+      where: { id },
     });
     res.status(200).json({ message: "Année scolaire supprimée avec succès" });
   } catch (error) {
@@ -418,7 +418,7 @@ export const deleteTerm = async (req: Request, res: Response) => {
  */
 export const getAcademicYearStats = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const year = await prisma.academicYear.findUnique({
       where: { id },
@@ -454,7 +454,7 @@ export const getAcademicYearStats = async (req: AuthRequest, res: Response) => {
 
     // Cours
     const courseCount = await prisma.course.count({
-      where: { classId: { in: classIds } },
+      where: { academicYearId: id },
     });
 
     // Devoirs

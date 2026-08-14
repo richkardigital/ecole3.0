@@ -65,6 +65,7 @@ type FormData = {
 export default function GlobalAssignmentsPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const canAccess = isSuperAdmin || user?.role === 'DIRECTEUR' || user?.role === 'ENSEIGNANT' || user?.role === 'EDUCATEUR';
 
   const [assignments, setAssignments] = useState<GlobalAssignment[]>([]);
   const [niveaux, setNiveaux] = useState<NiveauModel[]>([]);
@@ -89,6 +90,13 @@ export default function GlobalAssignmentsPage() {
 
   // Toast
   const toast = useToast();
+
+  const getNewAssignmentPath = () => {
+    if (user?.role === 'SUPER_ADMIN') return '/admin/assignments/new';
+    if (user?.role === 'DIRECTEUR') return '/directeur/assignments/new';
+    if (user?.role === 'ENSEIGNANT') return '/enseignant/assignments/new';
+    return '/assignments/new';
+  };
 
   const fetchData = async () => {
     try {
@@ -120,10 +128,10 @@ export default function GlobalAssignmentsPage() {
   };
 
   useEffect(() => {
-    if (isSuperAdmin) {
+    if (canAccess) {
       fetchData();
     }
-  }, [isSuperAdmin, selectedYear, selectedTerm, selectedNiveau, isCorrectedFilter]);
+  }, [canAccess, selectedYear, selectedTerm, selectedNiveau, isCorrectedFilter]);
 
   // Derived state for terms
   const currentTerms = years.find(y => y.id === selectedYear)?.terms || [];
@@ -135,7 +143,7 @@ export default function GlobalAssignmentsPage() {
   };
 
   const openCreateModal = () => {
-    navigate('/admin/assignments/new');
+    navigate(getNewAssignmentPath());
   };
 
   const confirmDelete = async () => {
@@ -165,7 +173,7 @@ export default function GlobalAssignmentsPage() {
     }
   };
 
-  if (!isSuperAdmin) {
+  if (!canAccess) {
     return <div className="p-8 text-center text-red-500">Accès non autorisé.</div>;
   }
 

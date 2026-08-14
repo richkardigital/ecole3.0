@@ -8,7 +8,7 @@ import type { AuthRequest } from "../middleware/auth.js";
 // ============================================================
 export const getChapterExercises = async (req: AuthRequest, res: Response) => {
   try {
-    const { chapterId } = req.params;
+    const chapterId = String(req.params.chapterId);
     const userId = req.user?.id;
     const role = req.user?.role;
 
@@ -17,11 +17,10 @@ export const getChapterExercises = async (req: AuthRequest, res: Response) => {
       include: {
         createdBy: { select: { firstName: true, lastName: true, role: true } },
         _count: { select: { questions: true, submissions: true } },
-        // Pour les apprenants, inclure leur soumission
         submissions: role === "APPRENANT" ? {
           where: { studentId: userId },
           select: { id: true, score: true, maxScore: true, submittedAt: true }
-        } : false,
+        } : undefined,
       },
       orderBy: { createdAt: "asc" },
     });
@@ -38,7 +37,7 @@ export const getChapterExercises = async (req: AuthRequest, res: Response) => {
 // ============================================================
 export const getExercise = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const userId = req.user?.id;
     const role = req.user?.role;
 
@@ -49,7 +48,6 @@ export const getExercise = async (req: AuthRequest, res: Response) => {
           orderBy: { position: "asc" },
           include: {
             options: true,
-            // On masque les bonnes réponses pour les apprenants
           }
         },
         createdBy: { select: { firstName: true, lastName: true } },
@@ -97,7 +95,7 @@ export const getExercise = async (req: AuthRequest, res: Response) => {
 // ============================================================
 export const createExercise = async (req: AuthRequest, res: Response) => {
   try {
-    const { chapterId } = req.params;
+    const chapterId = String(req.params.chapterId);
     const { title, description, type, isGraded, coefficient, timeLimit, questions } = req.body;
     const userId = req.user?.id!;
 
@@ -110,11 +108,9 @@ export const createExercise = async (req: AuthRequest, res: Response) => {
     });
     if (!chapter) return res.status(404).json({ message: "Chapitre introuvable" });
 
-    // Si ENSEIGNANT, vérifier qu'il est bien le prof de ce cours
-    if (req.user?.role === "ENSEIGNANT") {
-      if (chapter.course.teacherId !== userId) {
-        return res.status(403).json({ message: "Vous n'êtes pas l'enseignant de ce cours" });
-      }
+    // Vérifier les permissions
+    if (req.user?.role !== "SUPER_ADMIN" && req.user?.role !== "DIRECTEUR" && req.user?.role !== "ENSEIGNANT") {
+      return res.status(403).json({ message: "Accès refusé" });
     }
 
     const exercise = await prisma.chapterExercise.create({
@@ -162,33 +158,67 @@ export const createExercise = async (req: AuthRequest, res: Response) => {
 // ============================================================
 export const updateExercise = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const { title, description, type, isGraded, coefficient, timeLimit } = req.body;
+    const id = String(req.params.id);
+    const { title, description, type, isGraded, coefficient, timeLimit, questions, chapterId } = req.body;
     const userId = req.user?.id;
     const role = req.user?.role;
 
     const existing = await prisma.chapterExercise.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ message: "Exercice introuvable" });
 
-    // Seul le créateur ou un SUPER_ADMIN peut modifier
-    if (role !== "SUPER_ADMIN" && existing.createdById !== userId) {
-      return res.status(403).json({ message: "Accès refusé : vous n'êtes pas le créateur de cet exercice" });
+    // Seul le créateur, un DIRECTEUR ou un SUPER_ADMIN peut modifier
+    if (role !== "SUPER_ADMIN" && role !== "DIRECTEUR" && existing.createdById !== userId) {
+      return res.status(403).json({ message: "Accès refusé : vous n'avez pas la permission de modifier cet exercice" });
     }
 
-    const exercise = await prisma.chapterExercise.update({
-      where: { id },
-      data: {
-        ...(title && { title }),
-        ...(description !== undefined && { description }),
-        ...(type && { type }),
-        ...(isGraded !== undefined && { isGraded }),
-        ...(coefficient !== undefined && { coefficient }),
-        ...(timeLimit !== undefined && { timeLimit }),
-      },
-      include: { _count: { select: { questions: true } } }
+    const updated = await prisma.$transaction(async (tx) => {
+      if (questions && Array.isArray(questions)) {
+        // Supprimer les questions existantes (cascade supprime options)
+        await tx.exerciseQuestion.deleteMany({
+          where: { exerciseId: id }
+        });
+
+        // Recréer les questions avec options
+        for (let idx = 0; idx < questions.length; idx++) {
+          const q = questions[idx];
+          await tx.exerciseQuestion.create({
+            data: {
+              exerciseId: id,
+              text: q.text,
+              type: q.type || type || "QCM",
+              position: idx,
+              points: q.points ?? 1,
+              correctAnswer: q.correctAnswer || null,
+              options: q.options ? {
+                create: q.options.map((o: any) => ({
+                  text: o.text,
+                  isCorrect: o.isCorrect ?? false,
+                }))
+              } : undefined,
+            }
+          });
+        }
+      }
+
+      return await tx.chapterExercise.update({
+        where: { id },
+        data: {
+          ...(title && { title }),
+          ...(description !== undefined && { description }),
+          ...(type && { type }),
+          ...(isGraded !== undefined && { isGraded }),
+          ...(coefficient !== undefined && { coefficient }),
+          ...(timeLimit !== undefined && { timeLimit }),
+          ...(chapterId && { chapterId }),
+        },
+        include: {
+          questions: { include: { options: true } },
+          _count: { select: { questions: true } }
+        }
+      });
     });
 
-    res.json(exercise);
+    res.json(updated);
   } catch (error) {
     console.error("updateExercise error:", error);
     res.status(500).json({ message: "Erreur lors de la modification de l'exercice" });
@@ -200,14 +230,14 @@ export const updateExercise = async (req: AuthRequest, res: Response) => {
 // ============================================================
 export const deleteExercise = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const userId = req.user?.id;
     const role = req.user?.role;
 
     const existing = await prisma.chapterExercise.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ message: "Exercice introuvable" });
 
-    if (role !== "SUPER_ADMIN" && existing.createdById !== userId) {
+    if (role !== "SUPER_ADMIN" && role !== "DIRECTEUR" && existing.createdById !== userId) {
       return res.status(403).json({ message: "Accès refusé" });
     }
 
@@ -224,11 +254,16 @@ export const deleteExercise = async (req: AuthRequest, res: Response) => {
 // ============================================================
 export const submitExercise = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const studentId = req.user?.id!;
+    const id = String(req.params.id);
+    const studentId = req.user?.id;
     const { answers } = req.body as {
       answers: Array<{ questionId: string; optionId?: string; textValue?: string }>
     };
+
+    if (!studentId) return res.status(401).json({ message: "Non authentifié" });
+    if (!answers || !Array.isArray(answers)) {
+      return res.status(400).json({ message: "Réponses invalides" });
+    }
 
     // Vérifier si déjà soumis
     const existing = await prisma.exerciseSubmission.findUnique({
@@ -309,7 +344,7 @@ export const submitExercise = async (req: AuthRequest, res: Response) => {
 // ============================================================
 export const getExerciseSubmissions = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const submissions = await prisma.exerciseSubmission.findMany({
       where: { exerciseId: id },
@@ -332,7 +367,7 @@ export const getExerciseSubmissions = async (req: AuthRequest, res: Response) =>
 // ============================================================
 export const gradeExerciseSubmission = async (req: AuthRequest, res: Response) => {
   try {
-    const { submissionId } = req.params;
+    const submissionId = String(req.params.submissionId);
     const { score, feedback } = req.body;
     const role = req.user?.role;
 

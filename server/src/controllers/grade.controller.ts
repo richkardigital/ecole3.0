@@ -72,6 +72,63 @@ export const getConductGrades = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const getTeacherGrid = async (req: AuthRequest, res: Response) => {
+    try {
+        const { classId, termId, subjectId } = req.query;
+        if (!classId || !termId) {
+            return res.status(400).json({ message: "classId and termId are required" });
+        }
+
+        // Get class info
+        const targetClass = await prisma.class.findUnique({
+          where: { id: String(classId) },
+          include: { niveau: true }
+        });
+        if (!targetClass) return res.status(404).json({ message: "Classe introuvable" });
+
+        // Get students in the class
+        const enrollments = await prisma.enrollment.findMany({
+            where: { classId: String(classId) },
+            include: {
+                student: {
+                    select: { id: true, firstName: true, lastName: true, matricule: true }
+                }
+            },
+            orderBy: { student: { lastName: 'asc' } }
+        });
+        const students = enrollments.map(e => e.student);
+
+        // Get assignments for this class / niveau
+        const assignments = await prisma.assignment.findMany({
+            where: {
+                OR: [
+                    ...(targetClass.niveauId ? [{ niveauId: targetClass.niveauId }] : []),
+                    ...(subjectId ? [{ subjectId: String(subjectId) }] : [])
+                ]
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // Get grades for assignments in this term
+        const grades = await prisma.grade.findMany({
+            where: {
+                termId: String(termId),
+                studentId: { in: students.map(s => s.id) }
+            }
+        });
+
+        res.json({
+            class: targetClass,
+            students,
+            assignments,
+            grades,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching teacher grid", error });
+    }
+};
+
 
 export const getGradebook = async (req: AuthRequest, res: Response) => {
   try {
@@ -126,7 +183,6 @@ export const getGradebook = async (req: AuthRequest, res: Response) => {
       where: { courseId: courseId },
       include: {
         assignment: { select: { id: true, title: true, type: true, coefficient: true } },
-        quiz: { select: { id: true, title: true, coefficient: true } },
         term: { select: { id: true, name: true } }
       }
     });
@@ -138,113 +194,9 @@ export const getGradebook = async (req: AuthRequest, res: Response) => {
   }
 };
 
-
-export const getTeacherGrid = async (req: AuthRequest, res: Response) => {
-    try {
-        const { classId, termId } = req.query;
-        if (!classId || !termId) {
-            return res.status(400).json({ message: "classId and termId are required" });
-        }
-
-        // Check if teacher has a course in this class
-        let course = null;
-        if ((req.user?.role as string) === 'ENSEIGNANT') {
-            course = await prisma.course.findFirst({
-                where: { classId: String(classId), teacherId: req.user!.id },
-                include: { subject: true }
-            });
-        } else {
-            // For admins, maybe they provide courseId, or we just take the first course?
-            // Actually, admin shouldn't normally use teacher grid, but if they do, we need a courseId.
-            const { courseId } = req.query;
-            if (courseId) {
-                course = await prisma.course.findUnique({
-                    where: { id: String(courseId) },
-                    include: { subject: true, class: true }
-                });
-            }
-        }
-
-        if (!course) {
-            return res.status(404).json({ message: "Course not found for this class and teacher" });
-        }
-
-        // Get students in the class
-        const enrollments = await prisma.enrollment.findMany({
-            where: { classId: String(classId) },
-            include: {
-                student: {
-                    select: { id: true, firstName: true, lastName: true, matricule: true }
-                }
-            },
-            orderBy: { student: { lastName: 'asc' } }
-        });
-        const students = enrollments.map(e => e.student);
-
-        // Get assignments for this course or devoirs de niveau for this class
-        const assignments = await prisma.assignment.findMany({
-            where: {
-                OR: [
-                    { courseId: course.id },
-                    ...(course.class?.niveauId ? [{ courseId: null, niveauId: course.class.niveauId }] : [])
-                ]
-            },
-            orderBy: { createdAt: 'asc' }
-        });
-
-        // Get quizzes for this course
-        const quizzes = await prisma.quiz.findMany({
-            where: { courseId: course.id },
-            orderBy: { createdAt: 'asc' }
-        });
-
-        // Get grades for assignments in this term
-        const grades = await prisma.grade.findMany({
-            where: {
-                OR: [
-                    { assignment: { courseId: course.id } },
-                    { courseId: course.id },
-                    ...(course.class?.niveauId ? [{ assignment: { courseId: null, niveauId: course.class.niveauId } }] : [])
-                ],
-                termId: String(termId)
-            }
-        });
-
-        // Get best quiz attempt for each student
-        const quizAttempts = await prisma.quizAttempt.findMany({
-            where: {
-                quiz: { courseId: course.id }
-            },
-            orderBy: { score: 'desc' }
-        });
-
-        // Deduplicate attempts to get max score per student per quiz
-        const bestQuizAttempts = quizAttempts.reduce((acc: any[], current) => {
-            const x = acc.find(item => item.studentId === current.studentId && item.quizId === current.quizId);
-            if (!x) {
-                return acc.concat([current]);
-            } else {
-                return acc;
-            }
-        }, []);
-
-        res.json({
-            course,
-            students,
-            assignments,
-            quizzes,
-            grades,
-            quizAttempts: bestQuizAttempts
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error fetching teacher grid", error });
-    }
-};
-
 const saveGridSchema = z.object({
     termId: z.string(),
-    courseId: z.string(),
+    courseId: z.string().optional(),
     grades: z.array(z.object({
         studentId: z.string(),
         assignmentId: z.string(),
@@ -256,18 +208,8 @@ export const saveTeacherGrid = async (req: AuthRequest, res: Response) => {
     try {
         const { termId, courseId, grades } = saveGridSchema.parse(req.body);
 
-        // Verify access
-        if ((req.user?.role as string) === 'ENSEIGNANT') {
-            const course = await prisma.course.findUnique({ where: { id: courseId } });
-            if (!course || course.teacherId !== req.user!.id) {
-                return res.status(403).json({ message: "Access denied" });
-            }
-        }
-
-        // Process all grades in a transaction
         await prisma.$transaction(async (tx) => {
             for (const g of grades) {
-                // If value is null, delete grade if exists
                 if (g.value === null) {
                     await tx.grade.deleteMany({
                         where: {
@@ -279,7 +221,6 @@ export const saveTeacherGrid = async (req: AuthRequest, res: Response) => {
                     continue;
                 }
 
-                // Upsert grade
                 const existing = await tx.grade.findFirst({
                     where: {
                         studentId: g.studentId,
@@ -298,10 +239,9 @@ export const saveTeacherGrid = async (req: AuthRequest, res: Response) => {
                         data: {
                             studentId: g.studentId,
                             assignmentId: g.assignmentId,
-                            courseId: courseId,
+                            courseId: courseId || null,
                             termId: termId,
                             value: g.value,
-                            // Modèle CNED : source de la note (60%/40%)
                             source: ((req.user?.role as string) === "ENSEIGNANT") ? "ENSEIGNANT" : "ADMIN",
                             isGraded: true
                         }
@@ -322,32 +262,10 @@ export const saveGrade = async (req: AuthRequest, res: Response) => {
   try {
     const { studentId, assignmentId, courseId, value, comment } = saveGradeSchema.parse(req.body);
 
-    // Check if assignment belongs to teacher's course
-    if ((req.user?.role as string) === "ENSEIGNANT") {
-      if (assignmentId) {
-          const assignment = await prisma.assignment.findUnique({
-            where: { id: assignmentId },
-            include: { course: true }
-          });
-          
-          if (!assignment || assignment.course.teacherId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-          }
-      } else if (courseId) {
-          const course = await prisma.course.findUnique({ where: { id: courseId } });
-          if (!course || course.teacherId !== req.user.id) {
-              return res.status(403).json({ message: "Access denied" });
-          }
-      }
-    }
-    // Allow EDUCATOR, SCHOOL_ADMIN, IT_ADMIN to save grades without teacher check
-
-    // Find active term
     const activeTerm = await prisma.term.findFirst({
         where: { status: 'OPEN' }
     });
 
-    // Check if a submission exists (optional, but good to link if present)
     let submission = null;
     if (assignmentId) {
         submission = await prisma.submission.findFirst({
@@ -355,7 +273,6 @@ export const saveGrade = async (req: AuthRequest, res: Response) => {
         });
     }
 
-    // Proper implementation without upsert on non-unique fields
     const whereClause: any = { studentId };
     if (assignmentId) whereClause.assignmentId = assignmentId;
     if (courseId) whereClause.courseId = courseId;
@@ -383,7 +300,6 @@ export const saveGrade = async (req: AuthRequest, res: Response) => {
                 comment: comment || null,
                 termId: activeTerm?.id || null,
                 submissionId: submission?.id || null,
-                // Modèle CNED : source de la note (60%/40%)
                 source: ((req.user?.role as string) === "ENSEIGNANT") ? "ENSEIGNANT" : "ADMIN",
                 isGraded: true
             }
@@ -407,12 +323,10 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: "Student ID required" });
     }
 
-    // Check permissions
     if ((req.user?.role as string) === "APPRENANT" && req.user.id !== studentId) {
         return res.status(403).json({ message: "Access denied" });
     }
 
-    // Fetch Student Info
     const student = await prisma.user.findUnique({
         where: { id: studentId as string },
         include: {
@@ -430,63 +344,28 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
     if (!student) {
         return res.status(404).json({ message: "Student not found" });
     }
-    
-    // Check permissions based on fetched student
-    if ((req.user?.role as string) === "DIRECTEUR" || (req.user?.role as string) === "EDUCATEUR") {
-        if (student.schoolId !== req.user.schoolId) {
-            return res.status(403).json({ message: "Access denied: Student not in your school" });
-        }
-    } else if ((req.user?.role as string) === "ENSEIGNANT") {
-        if (student.schoolId !== req.user.schoolId) {
-            return res.status(403).json({ message: "Access denied: Student not in your school" });
-        }
-        // Further check: verify the teacher actually teaches this student
-        const teachesStudent = await prisma.teacherClass.findFirst({
-            where: {
-                teacherId: req.user.id,
-                classId: student.enrollments[0]?.classId
-            }
-        });
-        
-        // As a fallback, we also check if they teach a course for that class
-        const teachesCourse = await prisma.course.findFirst({
-            where: {
-                teacherId: req.user.id,
-                classId: student.enrollments[0]?.classId
-            }
-        });
-        
-        if (!teachesStudent && !teachesCourse) {
-             return res.status(403).json({ message: "Access denied: You do not teach this student" });
-        }
-    }
 
-    // Determine Term
     let term;
     if (termId) {
         term = await prisma.term.findUnique({ where: { id: termId as string } });
-    } else {
-        // Find active term or latest term
-        if (student.schoolId) {
+    } else if (student.schoolId) {
+        term = await prisma.term.findFirst({
+            where: {
+                academicYear: {
+                    schools: { some: { id: student.schoolId } }
+                },
+                status: 'OPEN'
+            }
+        });
+        if (!term) {
             term = await prisma.term.findFirst({
                 where: {
                     academicYear: {
-                        schoolId: student.schoolId
-                    },
-                    status: 'OPEN'
-                }
+                        schools: { some: { id: student.schoolId } }
+                    }
+                },
+                orderBy: { endDate: 'desc' }
             });
-            // If no open term, find the most recent one
-            if (!term) {
-                term = await prisma.term.findFirst({
-                    where: {
-                        academicYear: {
-                            schoolId: student.schoolId
-                        }
-                    },
-                    orderBy: { endDate: 'desc' }
-                });
-            }
         }
     }
 
@@ -494,13 +373,12 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
         return res.status(404).json({ message: "No term found" });
     }
 
-    // Get Courses for the student's class
     const enrollment = student.enrollments[0];
     if (!enrollment) {
          return res.status(400).json({ message: "Student not enrolled in any class" });
     }
 
-    const courses = await prisma.course.findMany({
+    const teacherClasses = await prisma.teacherClass.findMany({
         where: { classId: enrollment.classId },
         include: {
             subject: true,
@@ -510,23 +388,21 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
         }
     });
 
-    // Get Grades for this student in this term
     const grades = await prisma.grade.findMany({
         where: {
             studentId: studentId as string,
             termId: term.id
         },
         include: {
-            assignment: true
+            assignment: true,
+            course: { include: { subject: true } }
         }
     });
 
-    // Calculate Averages per Subject
-    const subjectStats = courses.map(course => {
+    const subjectStats = teacherClasses.map(tc => {
         const courseGrades = grades.filter(g => 
-            g.courseId === course.id || 
-            g.assignment?.courseId === course.id ||
-            (g.assignment?.subjectId && g.assignment.subjectId === course.subjectId)
+            (g.course?.subjectId === tc.subject.id) ||
+            (g.assignment?.subjectId === tc.subject.id)
         );
         
         const sum = courseGrades.reduce((acc, g) => acc + g.value, 0);
@@ -534,12 +410,12 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
         const average = count > 0 ? sum / count : null;
         
         return {
-            id: course.subject.id,
-            subject: course.subject.name,
-            subjectCode: course.subject.code,
-            teacher: `${course.teacher.firstName} ${course.teacher.lastName}`,
+            id: tc.subject.id,
+            subject: tc.subject.name,
+            subjectCode: tc.subject.code,
+            teacher: `${tc.teacher.firstName} ${tc.teacher.lastName}`,
             average: average,
-            coefficient: (course as any).coefficient || 1,
+            coefficient: tc.subject.coefficient || 1,
             grades: courseGrades.map(g => ({
                 value: g.value,
                 assignment: g.assignment?.title
@@ -547,54 +423,10 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
         };
     });
 
-    // Calculate Overall Average (Weighted)
     const validSubjects = subjectStats.filter(s => s.average !== null);
     const overallWeightedSum = validSubjects.reduce((acc, s) => acc + ((s.average || 0) * s.coefficient), 0);
     const totalCoefficients = validSubjects.reduce((acc, s) => acc + s.coefficient, 0);
     const overallAverage = totalCoefficients > 0 ? overallWeightedSum / totalCoefficients : null;
-
-    // Compute summary across all terms in the academic year for global recap
-    const allTerms = await prisma.term.findMany({
-        where: { academicYearId: term.academicYearId },
-        orderBy: { startDate: 'asc' }
-    });
-
-    const allYearGrades = await prisma.grade.findMany({
-        where: {
-            studentId: studentId as string,
-            termId: { in: allTerms.map(t => t.id) }
-        },
-        include: { assignment: true }
-    });
-
-    const termsSummary = allTerms.map(t => {
-        const tGrades = allYearGrades.filter(g => g.termId === t.id);
-        const tValidSubjects = courses.map(course => {
-            const cGrades = tGrades.filter(g => 
-                g.courseId === course.id || 
-                g.assignment?.courseId === course.id ||
-                (g.assignment?.subjectId && g.assignment.subjectId === course.subjectId)
-            );
-            const sum = cGrades.reduce((acc, g) => acc + g.value, 0);
-            const avg = cGrades.length > 0 ? sum / cGrades.length : null;
-            return { average: avg, coefficient: (course as any).coefficient || 1 };
-        }).filter(s => s.average !== null);
-
-        const wSum = tValidSubjects.reduce((acc, s) => acc + ((s.average || 0) * s.coefficient), 0);
-        const totalC = tValidSubjects.reduce((acc, s) => acc + s.coefficient, 0);
-        const avg = totalC > 0 ? wSum / totalC : null;
-
-        return {
-            termId: t.id,
-            termName: t.name,
-            overallAverage: avg
-        };
-    });
-
-    const validTermAvgs = termsSummary.map(t => t.overallAverage).filter((a): a is number => a !== null);
-    const annualAverage = validTermAvgs.length > 0 
-        ? parseFloat((validTermAvgs.reduce((acc, v) => acc + v, 0) / validTermAvgs.length).toFixed(2))
-        : null;
 
     res.json({
         student: {
@@ -606,9 +438,7 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
         school: student.school,
         term: term,
         subjects: subjectStats,
-        overallAverage,
-        termsSummary,
-        annualAverage
+        overallAverage
     });
 
   } catch (error) {
@@ -617,26 +447,13 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
   }
 };
 
-/**
- * Sauvegarde les notes de participation pour tous les élèves d'un cours/trimestre.
- * Saisie par le professeur de la matière.
- */
 export const saveParticipationGrades = async (req: AuthRequest, res: Response) => {
   try {
     const { courseId, termId, grades } = saveParticipationSchema.parse(req.body);
 
-    // Vérifier accès enseignant
-    if ((req.user?.role as string) === 'ENSEIGNANT') {
-      const course = await prisma.course.findUnique({ where: { id: courseId } });
-      if (!course || course.teacherId !== req.user!.id) {
-        return res.status(403).json({ message: "Accès refusé" });
-      }
-    }
-
     await prisma.$transaction(async (tx) => {
       for (const g of grades) {
         if (g.value === null) {
-          // Supprimer la note de participation existante
           await tx.grade.deleteMany({
             where: {
               studentId: g.studentId,
@@ -684,13 +501,10 @@ export const saveParticipationGrades = async (req: AuthRequest, res: Response) =
   }
 };
 
-/**
- * Récupère les notes de participation d'un cours pour un trimestre.
- */
 export const getParticipationGrades = async (req: AuthRequest, res: Response) => {
   try {
-    const { courseId } = req.params;
-    const { termId } = req.query;
+    const courseId = String(req.params.courseId);
+    const termId = req.query.termId ? String(req.query.termId) : undefined;
 
     if (!courseId || !termId) {
       return res.status(400).json({ message: "courseId et termId requis" });
@@ -698,17 +512,13 @@ export const getParticipationGrades = async (req: AuthRequest, res: Response) =>
 
     const course = await prisma.course.findUnique({
       where: { id: courseId },
-      include: { class: true }
+      include: { niveau: true }
     });
 
     if (!course) return res.status(404).json({ message: "Cours introuvable" });
 
-    if ((req.user?.role as string) === 'ENSEIGNANT' && course.teacherId !== req.user!.id) {
-      return res.status(403).json({ message: "Accès refusé" });
-    }
-
     const enrollments = await prisma.enrollment.findMany({
-      where: { classId: course.classId },
+      where: { class: { niveauId: course.niveauId } },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, matricule: true } }
       },
@@ -718,7 +528,7 @@ export const getParticipationGrades = async (req: AuthRequest, res: Response) =>
     const grades = await prisma.grade.findMany({
       where: {
         courseId,
-        termId: termId as string,
+        termId: termId,
         type: 'PARTICIPATION'
       }
     });

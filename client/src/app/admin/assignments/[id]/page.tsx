@@ -87,8 +87,15 @@ export default function GlobalAssignmentDetailsPage() {
   const [quizCorrection, setQuizCorrection] = useState<any[]>([]);
   const [savingQuiz, setSavingQuiz] = useState(false);
 
+  const getListPath = () => {
+    if (user?.role === 'SUPER_ADMIN') return '/admin/assignments';
+    if (user?.role === 'DIRECTEUR') return '/directeur/assignments';
+    if (user?.role === 'ENSEIGNANT') return '/enseignant/assignments';
+    return '/assignments';
+  };
+
   useEffect(() => {
-    if (isSuperAdmin) {
+    if (canAccess) {
       const fetchData = async () => {
         try {
           const res = await api.get(`/assignments/${id}`);
@@ -114,14 +121,14 @@ export default function GlobalAssignmentDetailsPage() {
           setClasses(classRes.data);
         } catch (error) {
           toast.error("Impossible de charger les données de l'évaluation.");
-          navigate('/admin/assignments');
+          navigate(getListPath());
         } finally {
           setLoading(false);
         }
       };
       fetchData();
     }
-  }, [isSuperAdmin, id, navigate, toast]);
+  }, [canAccess, id, navigate, toast]);
 
   const fetchParticipants = async () => {
     try {
@@ -247,7 +254,7 @@ export default function GlobalAssignmentDetailsPage() {
 
   return (
     <div className="p-6 md:p-8 lg:p-10 max-w-6xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500 pb-32">
-      <Button variant="ghost" onClick={() => navigate('/admin/assignments')} className="mb-4 text-brand-text-muted hover:text-brand-text">
+      <Button variant="ghost" onClick={() => navigate(getListPath())} className="mb-4 text-brand-text-muted hover:text-brand-text cursor-pointer">
         <ArrowLeft className="w-4 h-4 mr-2" /> Retour aux devoirs
       </Button>
 

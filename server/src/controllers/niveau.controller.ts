@@ -35,7 +35,7 @@ export const getNiveaux = async (req: AuthRequest, res: Response) => {
 
 export const getNiveau = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const niveau = await prisma.niveau.findUnique({
       where: { id },
@@ -93,7 +93,7 @@ export const createNiveau = async (req: AuthRequest, res: Response) => {
 
 export const updateNiveau = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { nom, rang } = req.body;
     
     const niveau = await prisma.niveau.findUnique({ where: { id } });
@@ -113,7 +113,7 @@ export const updateNiveau = async (req: AuthRequest, res: Response) => {
       where: { id },
       data: { 
         nom: trimmedNom, 
-        rang: parseInt(rang) !== undefined ? parseInt(rang) : niveau.rang
+        rang: rang !== undefined ? parseInt(rang) : niveau.rang
       },
       include: {
         _count: { select: { classes: true } }
@@ -128,7 +128,7 @@ export const updateNiveau = async (req: AuthRequest, res: Response) => {
 
 export const toggleNiveau = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     
     const current = await prisma.niveau.findUnique({ where: { id } });
     if (!current) return res.status(404).json({ message: "Niveau introuvable" });
@@ -149,7 +149,7 @@ export const toggleNiveau = async (req: AuthRequest, res: Response) => {
 
 export const deleteNiveau = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     
     const niveau = await prisma.niveau.findUnique({ where: { id } });
     if (!niveau) return res.status(404).json({ message: "Niveau introuvable" });

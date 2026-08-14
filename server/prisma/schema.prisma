@@ -79,6 +79,9 @@ enum AssignmentType {
   DEVOIR_MAISON
   DEVOIR_CLASSE
   DEVOIR_NIVEAU
+  COMPOSITION_NIVEAU
+  COMPO_NIVEAU
+  EXAMEN
 }
 
 // Type de quiz / évaluation
@@ -87,6 +90,9 @@ enum QuizType {
   DEVOIR_MAISON
   DEVOIR_CLASSE
   DEVOIR_NIVEAU
+  COMPOSITION_NIVEAU
+  COMPO_NIVEAU
+  EXAMEN
 }
 
 // Type de question
@@ -199,9 +205,12 @@ model School {
   code        String   @unique
   ville       String?
   address     String?
+  postalAddress String?
   phone       String?
   email       String?
   logoUrl     String?
+  signatureUrl String?
+  stampUrl    String?
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -388,6 +397,7 @@ model AcademicYear {
   assignments Assignment[]
   enrollments Enrollment[]
   annualAverages AnnualAverage[]
+  courses     Course[]
 
   @@index([isCurrent])
   @@index([status])
@@ -413,6 +423,7 @@ model Term {
   conducts        Conduct[]
   assignments     Assignment[]
   quizzes         Quiz[]
+  chapters        Chapter[]
 
   @@index([status])
   @@index([academicYearId])
@@ -459,6 +470,7 @@ model Subject {
   name        String
   code        String?
   coefficient Int     @default(1)
+  imageUrl    String?
   isActive    Boolean @default(true)
 
   schoolId String
@@ -536,6 +548,9 @@ model Course {
   niveauId String
   niveau   Niveau @relation("NiveauCourses", fields: [niveauId], references: [id], onDelete: Cascade)
 
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+
   // Modèle CNED : portée + niveau + publication
   scope       ContentScope @default(NIVEAU)
   isPublished Boolean      @default(false)
@@ -567,12 +582,15 @@ model Chapter {
   position  Int      @default(0)
   courseId   String
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  termId    String?
+  term      Term?    @relation(fields: [termId], references: [id], onDelete: SetNull)
   resources Resource[]
   progress  ChapterProgress[]
   exercises ChapterExercise[]
   createdAt DateTime @default(now())
 
   @@index([courseId])
+  @@index([termId])
 }
 
 // =============================================
@@ -624,6 +642,7 @@ model Assignment {
   description   String?
   startDate     DateTime?  // Date d'ouverture (disponible à partir de)
   dueDate       DateTime   // Date limite de rendu
+  timeLimit     Int?       // Durée en minutes (si applicable)
   points        Int        @default(20)
   coefficient   Int        @default(1)
   correctionUrl String?
@@ -631,6 +650,7 @@ model Assignment {
   imageUrl      String?    // Image d'illustration
   autoGrade     Boolean    @default(false) // Si QCM → correction auto
   isNiveauWide  Boolean    @default(false) // Rétro-compat; syncé avec scope
+  syncCalendar  Boolean    @default(true)  // Synchronisation automatique avec l'agenda élèves
 
   type          AssignmentType @default(DEVOIR_MAISON)
 
@@ -690,6 +710,8 @@ model AssignmentQuestion {
   type          String   @default("MULTIPLE_CHOICE")
   points        Int      @default(1)
   expectedAnswer String? @db.Text
+  imageUrl      String?  // Image d'illustration de la question
+  position      Int      @default(0)
   
   assignmentId  String
   assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
@@ -703,6 +725,7 @@ model AssignmentOption {
   id         String   @id @default(uuid())
   text       String
   isCorrect  Boolean  @default(false)
+  imageUrl   String?  // Image d'illustration de l'option (optionnel)
   
   questionId String
   question   AssignmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -1408,4 +1431,24 @@ model ExerciseAnswer {
 
   @@index([submissionId])
   @@index([questionId])
+}
+
+// =============================================
+// SYSTEM SETTING — Paramètres Globaux Plateforme
+// =============================================
+
+model SystemSetting {
+  id            String   @id @default("default")
+  platformName  String   @default("École 3.0 / SEEEC Platform")
+  logoUrl       String?
+  signatureUrl  String?
+  stampUrl      String?
+  email         String?
+  phone         String?
+  address       String?
+  postalAddress String?
+  websiteUrl    String?
+  description   String?  @db.Text
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
 }

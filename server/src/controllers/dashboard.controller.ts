@@ -8,13 +8,15 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
     const { yearId } = req.query; // Capture yearId query param
     if (!user) return res.status(401).json({ message: "Unauthorized" });
 
-    let stats = {};
+    let stats: any = {};
 
     switch (user.role) {
       case "SUPER_ADMIN": {
         let schoolsCount = 0;
         let usersCount = 0;
-        
+        let teachersCount = 0;
+        let educatorsCount = 0;
+        let classesCount = 0;
         let studentsCount = 0;
         let boysCount = 0;
         let girlsCount = 0;
@@ -24,7 +26,10 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
           schoolsCount = await prisma.school.count({
             where: { academicYears: { some: { id: yearId } } }
           });
-          usersCount = await prisma.user.count(); // Could be filtered if needed
+          usersCount = await prisma.user.count();
+          teachersCount = await prisma.user.count({ where: { role: 'ENSEIGNANT' } });
+          educatorsCount = await prisma.user.count({ where: { role: 'EDUCATEUR' } });
+          classesCount = await prisma.class.count({ where: { academicYearId: yearId } });
 
           // Total enrolled students for the specific year
           studentsCount = await prisma.enrollment.count({
@@ -47,7 +52,6 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             }
           });
 
-          // Fetch schools with their classes for this academic year to sum enrollments
           const schools = await prisma.school.findMany({
             where: { academicYears: { some: { id: yearId } } },
             include: {
@@ -67,8 +71,10 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
         } else {
            schoolsCount = await prisma.school.count();
            usersCount = await prisma.user.count();
+           teachersCount = await prisma.user.count({ where: { role: 'ENSEIGNANT' } });
+           educatorsCount = await prisma.user.count({ where: { role: 'EDUCATEUR' } });
+           classesCount = await prisma.class.count();
            
-           // Fallback to all students if no specific year is selected
            studentsCount = await prisma.user.count({ where: { role: 'APPRENANT' } });
            boysCount = await prisma.user.count({ where: { role: 'APPRENANT', gender: 'MASCULIN' } });
            girlsCount = await prisma.user.count({ where: { role: 'APPRENANT', gender: 'FEMININ' } });
@@ -84,12 +90,14 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
            }
         }
 
-        // Sort effectifsData for a cleaner chart (optional)
         effectifsData.sort((a, b) => b.v - a.v);
 
         stats = {
           schools: schoolsCount,
           users: usersCount,
+          teachers: teachersCount,
+          educators: educatorsCount,
+          classes: classesCount,
           students: studentsCount,
           boys: boysCount,
           girls: girlsCount,
@@ -99,7 +107,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
       }
 
       case "DIRECTEUR":
-      case "EDUCATEUR":
+      case "EDUCATEUR": {
         if (!user.schoolId) break;
         const classesCount = await prisma.class.count({
           where: { schoolId: user.schoolId },
@@ -107,81 +115,76 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
         const teachersCount = await prisma.user.count({
           where: { schoolId: user.schoolId, role: "ENSEIGNANT" },
         });
+        const educatorsCount = await prisma.user.count({
+          where: { schoolId: user.schoolId, role: "EDUCATEUR" },
+        });
         const studentsCount = await prisma.user.count({
-            where: { schoolId: user.schoolId, role: "APPRENANT" },
+          where: { schoolId: user.schoolId, role: "APPRENANT" },
         });
         stats = {
           classes: classesCount,
           teachers: teachersCount,
+          educators: educatorsCount,
           students: studentsCount
         };
         break;
+      }
 
-      case "ENSEIGNANT":
-        const coursesCount = await prisma.course.count({
+      case "ENSEIGNANT": {
+        const teacherClasses = await prisma.teacherClass.findMany({
           where: { teacherId: user.id },
+          include: { class: true }
         });
-        // Count submissions for assignments in courses taught by this teacher where grade is null
+        const distinctClassIds = Array.from(new Set(teacherClasses.map(tc => tc.classId)));
+        
         const ungradedSubmissionsCount = await prisma.submission.count({
-            where: {
-                assignment: {
-                    course: {
-                        teacherId: user.id
-                    }
-                },
-                grade: null
-            }
+          where: {
+            assignment: {
+              OR: [
+                { createdById: user.id },
+                { correctorId: user.id }
+              ]
+            },
+            grade: null
+          }
         });
+
         stats = {
-          courses: coursesCount,
+          courses: teacherClasses.length,
+          classes: distinctClassIds.length,
           ungradedSubmissions: ungradedSubmissionsCount,
         };
         break;
+      }
 
-      case "APPRENANT":
-        const enrolledCoursesCount = await prisma.course.count({
-          where: {
-            class: {
-              enrollments: {
-                some: {
-                  studentId: user.id,
-                },
-              },
-            },
-          },
-        });
-        
-        // Pending assignments: Assignments in enrolled courses that user hasn't submitted yet
-        // This is a bit complex query, simplifying for now to just assignments count in enrolled courses
-        // Or better: fetch all assignments and filter in memory or complex query.
-        // Let's try a cleaner query:
-        // 1. Get student's class ID
+      case "APPRENANT": {
         const enrollment = await prisma.enrollment.findFirst({
-            where: { studentId: user.id }
+            where: { studentId: user.id },
+            include: { class: { include: { niveau: true } } }
         });
 
+        let enrolledCoursesCount = 0;
         let pendingAssignmentsCount = 0;
-        if (enrollment) {
-             const classId = enrollment.classId;
-             // Count assignments for this class where NO submission exists for this student
-             // Prisma doesn't support "where not exists" easily in count without raw query or advanced filtering.
-             // Alternative: Count total assignments - Count submitted assignments
-             
-             const totalAssignments = await prisma.assignment.count({
-                 where: {
-                     course: {
-                         classId: classId
-                     }
-                 }
-             });
 
-             const submittedAssignments = await prisma.submission.count({
-                 where: {
-                     studentId: user.id
-                 }
-             });
-             
-             pendingAssignmentsCount = Math.max(0, totalAssignments - submittedAssignments);
+        if (enrollment?.class?.niveauId) {
+          enrolledCoursesCount = await prisma.course.count({
+            where: { niveauId: enrollment.class.niveauId }
+          });
+
+          const totalAssignments = await prisma.assignment.count({
+            where: {
+              OR: [
+                { niveauId: enrollment.class.niveauId },
+                { course: { niveauId: enrollment.class.niveauId } }
+              ]
+            }
+          });
+
+          const submittedAssignments = await prisma.submission.count({
+            where: { studentId: user.id }
+          });
+          
+          pendingAssignmentsCount = Math.max(0, totalAssignments - submittedAssignments);
         }
 
         stats = {
@@ -189,6 +192,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
           pendingAssignments: pendingAssignmentsCount,
         };
         break;
+      }
     }
 
     res.json(stats);

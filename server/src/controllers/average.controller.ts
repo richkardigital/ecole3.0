@@ -23,11 +23,16 @@ export const getTermAverages = async (req: AuthRequest, res: Response) => {
       }
     });
 
-    // Récupérer les cours de la classe avec include explicite
-    const courses = await prisma.course.findMany({
-      where: { classId: classId as string },
-      include: { subject: { select: { id: true, name: true, coefficient: true } } }
+    const targetClass = await prisma.class.findUnique({
+      where: { id: String(classId) },
+      include: { niveau: true }
     });
+
+    // Récupérer les cours de la classe avec include explicite
+    const courses = targetClass?.niveauId ? await prisma.course.findMany({
+      where: { niveauId: targetClass.niveauId },
+      include: { subject: { select: { id: true, name: true, coefficient: true } } }
+    }) : [];
 
     const results: any[] = [];
 
@@ -85,10 +90,14 @@ export const getAnnualAverages = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: "classId et academicYearId sont requis" });
     }
 
+    const targetClass = await prisma.class.findUnique({
+      where: { id: String(classId) }
+    });
+
     const averages = await prisma.annualAverage.findMany({
       where: {
-        academicYearId: academicYearId as string,
-        course: { classId: classId as string }
+        academicYearId: String(academicYearId),
+        course: { niveauId: targetClass?.niveauId || undefined }
       },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, matricule: true } },
@@ -227,10 +236,11 @@ export const getStudentAverages = async (req: AuthRequest, res: Response) => {
         return res.status(404).json({ message: "Élève non inscrit dans une classe active" });
       }
 
-      const courses = await prisma.course.findMany({
-        where: { classId: enrollment.classId },
+      const studentClass = await prisma.class.findUnique({ where: { id: enrollment.classId } });
+      const courses = studentClass?.niveauId ? await prisma.course.findMany({
+        where: { niveauId: studentClass.niveauId },
         include: { subject: { select: { name: true, coefficient: true } } }
-      });
+      }) : [];
 
       const courseAverages: any[] = [];
       for (const course of courses) {

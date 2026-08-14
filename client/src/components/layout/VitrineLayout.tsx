@@ -1,5 +1,6 @@
 import { Outlet, Link } from 'react-router-dom';
 import { VitrineNavbar } from './VitrineNavbar';
+import { VitrineFloatingActions } from '../common/VitrineFloatingActions';
 import { GraduationCap, Mail, Phone, MapPin, Sparkles, Shield, Heart, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -13,60 +14,57 @@ export const VitrineLayout = () => {
         <Outlet />
       </main>
 
-      {/* ── PREMIUM FOOTER ── */}
-      <footer className="relative z-10 pt-20 pb-10"
-        style={{
-          background: '#FFFFFF',
-          borderTop: '1px solid #E2E8F0',
-        }}>
+      {/* ── BOUTONS FLOTTANTS (WHATSAPP & RETOUR EN HAUT) ── */}
+      <VitrineFloatingActions />
+
+      {/* ── FOOTER OBSIDIEN NOIR PREMIUM ── */}
+      <footer className="relative z-10 pt-16 pb-10 bg-slate-950 text-white border-t border-slate-800">
         
-        {/* Footer ambient */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse, rgba(16,185,129,0.05) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        {/* Footer ambient light */}
+        <div 
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[250px] pointer-events-none opacity-40"
+          style={{ background: 'radial-gradient(ellipse, rgba(16,185,129,0.18) 0%, transparent 70%)', filter: 'blur(50px)' }} 
+        />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           
           {/* CTA Banner inside footer */}
-          <div className="rounded-3xl p-10 mb-16 text-center relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, rgba(16,185,129,0.06), rgba(14,165,233,0.04))',
-              border: '1px solid rgba(16,185,129,0.2)',
-            }}>
+          <div className="rounded-3xl p-8 sm:p-10 mb-14 text-center relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950 border border-slate-800 shadow-2xl">
             <div className="relative z-10">
-              <p className="text-xs font-black uppercase tracking-widest text-emerald-600 mb-3">Rejoignez le réseau SEEEC</p>
-              <h3 className="text-2xl md:text-3xl font-black text-slate-900 mb-6 tracking-tight">
+              <p className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-2">Rejoignez le réseau SEEEC</p>
+              <h3 className="text-2xl md:text-3xl font-black text-white mb-6 tracking-tight">
                 Votre école mérite le meilleur.
               </h3>
               <Link to="/inscription">
-                <Button variant="glow" size="md" rightIcon={<ArrowRight className="w-4 h-4" />}>
-                  Inscrire mon établissement — Gratuit 14 jours
+                <Button variant="glow" size="md" rightIcon={<ArrowRight className="w-4 h-4" />} className="shadow-lg shadow-emerald-500/25">
+                  Inscrire mon établissement
                 </Button>
               </Link>
             </div>
           </div>
 
           {/* Links grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12"
-            style={{ borderBottom: '1px solid #F1F5F9' }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-slate-800/80">
             
             {/* Brand */}
             <div className="lg:col-span-1 space-y-5">
               <Link to="/" className="flex items-center gap-3 group w-fit">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-                  <GraduationCap className="w-5 h-5 text-white" />
-                </div>
+                <img 
+                  src="/logo.png" 
+                  alt="Logo École 3.0" 
+                  className="h-10 w-auto max-w-[130px] object-contain drop-shadow-xs" 
+                />
                 <div>
-                  <span className="text-lg font-black text-slate-900 leading-none block">ÉCOLE 3.0</span>
-                  <span className="text-[9px] font-black tracking-[0.18em] text-emerald-600 uppercase flex items-center gap-1 mt-0.5">
-                    <Sparkles className="w-2 h-2" /> Signé SEEEC
+                  <span className="text-lg font-black text-white leading-none block">ÉCOLE 3.0</span>
+                  <span className="text-[10px] font-black tracking-[0.16em] text-emerald-400 uppercase flex items-center gap-1 mt-0.5">
+                    <Sparkles className="w-2.5 h-2.5 text-emerald-400" /> SEEEC Platform
                   </span>
                 </div>
               </Link>
-              <p className="text-sm text-slate-600 leading-relaxed">
+              <p className="text-sm text-slate-400 leading-relaxed font-medium">
                 La plateforme de référence pour la transformation numérique des établissements scolaires d'Afrique de l'Ouest.
               </p>
-              <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg chip-green">
+              <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
                 <Shield className="w-3.5 h-3.5" />
                 Données Sécurisées & MENA Compliant
               </div>
@@ -74,7 +72,7 @@ export const VitrineLayout = () => {
 
             {/* Plateforme */}
             <div>
-              <h4 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-5">Plateforme</h4>
+              <h4 className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 mb-5">Plateforme</h4>
               <ul className="space-y-3">
                 {[
                   { label: 'Accueil', path: '/' },
@@ -84,7 +82,7 @@ export const VitrineLayout = () => {
                   { label: 'Témoignages', path: '/temoignages' },
                 ].map((l) => (
                   <li key={l.path}>
-                    <Link to={l.path} className="text-sm text-slate-600 hover:text-slate-900 transition-colors font-medium">
+                    <Link to={l.path} className="text-sm text-slate-300 hover:text-emerald-400 transition-colors font-medium">
                       {l.label}
                     </Link>
                   </li>
@@ -94,7 +92,7 @@ export const VitrineLayout = () => {
 
             {/* Portails */}
             <div>
-              <h4 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-5">Accès & Portails</h4>
+              <h4 className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 mb-5">Accès & Portails</h4>
               <ul className="space-y-3">
                 {[
                   { label: 'Se connecter', path: '/login' },
@@ -103,7 +101,7 @@ export const VitrineLayout = () => {
                   { label: 'FAQ', path: '/faq' },
                 ].map((l) => (
                   <li key={l.path}>
-                    <Link to={l.path} className="text-sm text-slate-600 hover:text-slate-900 transition-colors font-medium">
+                    <Link to={l.path} className="text-sm text-slate-300 hover:text-emerald-400 transition-colors font-medium">
                       {l.label}
                     </Link>
                   </li>
@@ -113,28 +111,28 @@ export const VitrineLayout = () => {
 
             {/* Contact */}
             <div>
-              <h4 className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-5">Contact SEEEC</h4>
-              <ul className="space-y-3.5 text-sm text-slate-600">
+              <h4 className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 mb-5">Contact SEEEC</h4>
+              <ul className="space-y-3.5 text-sm text-slate-300 font-medium">
                 <li className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <span>Abidjan, Côte d'Ivoire<br />Plateau, Imm. SEEEC</span>
+                  <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>Abidjan, Côte d'Ivoire<br /><span className="text-slate-400 text-xs">Plateau, Imm. SEEEC</span></span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>+225 07 00 00 00 00</span>
+                  <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="font-semibold text-slate-200">+225 07 00 00 00 00</span>
                 </li>
                 <li className="flex items-center gap-3">
-                  <Mail className="w-4 h-4 text-sky-600 shrink-0" />
-                  <span>contact@seeec-ecole30.ci</span>
+                  <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="text-slate-200">contact@seeec-ecole30.ci</span>
                 </li>
               </ul>
             </div>
           </div>
 
-          {/* Bottom row */}
-          <div className="pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-            <span>© {new Date().getFullYear()} SEEEC — Stimuler l'Excellence et l'Entrepreneuriat à l'Ecole Connectée. Tous droits réservés.</span>
-            <span className="flex items-center gap-1.5 font-medium">
+          {/* Bottom row / Copyright */}
+          <div className="pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-400">
+            <span className="font-medium">© {new Date().getFullYear()} SEEEC — Stimuler l'Excellence et l'Entrepreneuriat à l'Ecole Connectée. Tous droits réservés.</span>
+            <span className="flex items-center gap-1.5 font-medium text-slate-400">
               Conçu avec <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" /> pour l'Éducation Africaine
             </span>
           </div>
@@ -143,3 +141,4 @@ export const VitrineLayout = () => {
     </div>
   );
 };
+

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { GraduationCap, Menu, X, Sparkles, ArrowRight } from 'lucide-react';
+import { Menu, X, Sparkles, ArrowRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 
@@ -38,25 +38,27 @@ export const VitrineNavbar = () => {
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18" style={{ height: '4.5rem' }}>
+        <div className="flex items-center justify-between h-20" style={{ height: '5rem' }}>
           
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group shrink-0">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-105"
-              style={{
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
-              }}
-            >
-              <GraduationCap className="w-5 h-5 text-white" />
+            <div className="relative flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+              <img 
+                src="/logo.png" 
+                alt="Logo École 3.0" 
+                className="h-11 w-auto max-w-[140px] object-contain drop-shadow-xs"
+                onError={(e) => {
+                  // Fallback to text if needed
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
             </div>
             <div>
               <span className="text-xl font-black tracking-tight leading-none block text-slate-900">
                 ÉCOLE 3.0
               </span>
-              <span className="text-[9px] font-black tracking-[0.18em] text-emerald-600 uppercase flex items-center gap-1 mt-0.5">
-                <Sparkles className="w-2.5 h-2.5" /> Signé SEEEC
+              <span className="text-[10px] font-black tracking-[0.16em] text-emerald-600 uppercase flex items-center gap-1 mt-0.5">
+                <Sparkles className="w-2.5 h-2.5" /> SEEEC Platform
               </span>
             </div>
           </Link>
@@ -93,10 +95,12 @@ export const VitrineNavbar = () => {
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
             <Link to="/login">
-              <Button variant="ghost" size="sm" className="font-bold">Se connecter</Button>
+              <Button variant="ghost" size="sm" className="font-bold text-slate-700 hover:text-slate-900">
+                Se connecter
+              </Button>
             </Link>
             <Link to="/inscription">
-              <Button variant="primary" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
+              <Button variant="glow" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
                 S'inscrire
               </Button>
             </Link>
@@ -142,7 +146,9 @@ export const VitrineNavbar = () => {
               <Button variant="outline" size="md" className="w-full">Se connecter</Button>
             </Link>
             <Link to="/inscription" onClick={() => setIsOpen(false)}>
-              <Button variant="glow" size="md" className="w-full" rightIcon={<ArrowRight className="w-4 h-4" />}>S'inscrire</Button>
+              <Button variant="glow" size="md" className="w-full" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                Inscrire mon école
+              </Button>
             </Link>
           </div>
         </div>

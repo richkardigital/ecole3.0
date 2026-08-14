@@ -43,7 +43,9 @@ import News from '@/app/communication/news/page';
 import Meetings from '@/app/academic/meetings/page';
 import Absences from '@/app/life/absences/page';
 import Conduct from '@/app/life/conduct/page';
-import Settings from '@/app/admin/settings/page';
+import AdminSystemSettingsPage from '@/app/admin/settings/page';
+import DirectorSchoolSettingsPage from '@/app/directeur/settings/page';
+import UserProfilePage from '@/app/profile/page';
 import Corrections from '@/app/academic/corrections/page';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import MainLayout from '@/components/layout/DashboardLayout';
@@ -92,7 +94,9 @@ function App() {
 
               {/* Auth */}
               <Route path="/login" element={<Login />} />
+              <Route path="/connexion" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/mot-de-passe-oublie" element={<ForgotPasswordPage />} />
 
               {/* Route fallback pour accès non autorisé */}
               <Route path="/unauthorized" element={<Navigate to="/dashboard" replace />} />
@@ -136,11 +140,6 @@ function App() {
                     <Route path="/admin/courses/:id" element={<CourseDetails />} />
                     <Route path="/admin/courses/:id/edit" element={<EditCoursePage />} />
                     <Route path="/admin/courses/:courseId/quizzes/new" element={<NewQuizPage />} />
-                    <Route path="/admin/courses/:courseId/quizzes/:quizId/edit" element={<EditQuizPage />} />
-                    <Route path="/admin/assignments" element={<GlobalAssignmentsPage />} />
-                    <Route path="/admin/assignments/new" element={<NewGlobalAssignmentPage />} />
-                    <Route path="/admin/assignments/:id" element={<GlobalAssignmentDetailsPage />} />
-                    <Route path="/admin/assignments/:id/edit" element={<EditGlobalAssignmentPage />} />
                     <Route path="/admin/report-cards" element={<ReportCards />} />
                     <Route path="/admin/seeec" element={<SeecPage />} />
                     <Route path="/admin/broadcast" element={<Broadcast />} />
@@ -152,7 +151,12 @@ function App() {
                     <Route path="/admin/forum" element={<Forum />} />
                     <Route path="/admin/agenda" element={<Agenda />} />
                     <Route path="/admin/evaluations" element={<EvaluationHub />} />
-                    <Route path="/admin/settings" element={<Settings />} />
+                    <Route path="/admin/assignments" element={<GlobalAssignmentsPage />} />
+                    <Route path="/admin/assignments/new" element={<NewGlobalAssignmentPage />} />
+                    <Route path="/admin/assignments/:id" element={<GlobalAssignmentDetailsPage />} />
+                    <Route path="/admin/assignments/:id/edit" element={<EditGlobalAssignmentPage />} />
+                    <Route path="/admin/profile" element={<UserProfilePage />} />
+                    <Route path="/admin/settings" element={<AdminSystemSettingsPage />} />
                   </Route>
 
                   {/* ═══════════════════════════════════════════ */}
@@ -172,6 +176,10 @@ function App() {
                     <Route path="/directeur/courses/:id/edit" element={<EditCoursePage />} />
                     <Route path="/directeur/courses/:courseId/quizzes/new" element={<NewQuizPage />} />
                     <Route path="/directeur/courses/:courseId/quizzes/:quizId/edit" element={<EditQuizPage />} />
+                    <Route path="/directeur/assignments" element={<GlobalAssignmentsPage />} />
+                    <Route path="/directeur/assignments/new" element={<NewGlobalAssignmentPage />} />
+                    <Route path="/directeur/assignments/:id" element={<GlobalAssignmentDetailsPage />} />
+                    <Route path="/directeur/assignments/:id/edit" element={<EditGlobalAssignmentPage />} />
                     <Route path="/directeur/report-cards" element={<ReportCards />} />
                     <Route path="/directeur/library" element={<AdminLibrary />} />
                     <Route path="/directeur/library/new" element={<NewLibraryDocumentPage />} />
@@ -185,7 +193,8 @@ function App() {
                     <Route path="/directeur/shared-resources/:id" element={<SharedCourseDetails />} />
                     <Route path="/directeur/agenda" element={<Agenda />} />
                     <Route path="/directeur/evaluations" element={<EvaluationHub />} />
-                    <Route path="/directeur/settings" element={<Settings />} />
+                    <Route path="/directeur/profile" element={<UserProfilePage />} />
+                    <Route path="/directeur/settings" element={<DirectorSchoolSettingsPage />} />
                   </Route>
 
                   {/* ═══════════════════════════════════════════ */}
@@ -197,9 +206,10 @@ function App() {
                     <Route path="/enseignant/evaluations" element={<EvaluationHub />} />
                     <Route path="/enseignant/courses" element={<Courses />} />
                     <Route path="/enseignant/courses/:id" element={<CourseDetails />} />
-                    <Route path="/enseignant/assignments" element={<AssignmentsPage />} />
+                    <Route path="/enseignant/assignments" element={<GlobalAssignmentsPage />} />
                     <Route path="/enseignant/assignments/new" element={<NewGlobalAssignmentPage />} />
-                    <Route path="/enseignant/assignments/:id" element={<AssignmentDetails />} />
+                    <Route path="/enseignant/assignments/:id" element={<GlobalAssignmentDetailsPage />} />
+                    <Route path="/enseignant/assignments/:id/edit" element={<EditGlobalAssignmentPage />} />
                     <Route path="/enseignant/corrections" element={<Corrections />} />
                     <Route path="/enseignant/library" element={<AdminLibrary />} />
                     <Route path="/enseignant/library/new" element={<NewLibraryDocumentPage />} />
@@ -211,7 +221,8 @@ function App() {
                     <Route path="/enseignant/forum" element={<Forum />} />
                     <Route path="/enseignant/shared-resources" element={<SharedResources />} />
                     <Route path="/enseignant/shared-resources/:id" element={<SharedCourseDetails />} />
-                    <Route path="/enseignant/settings" element={<Settings />} />
+                    <Route path="/enseignant/profile" element={<UserProfilePage />} />
+                    <Route path="/enseignant/settings" element={<UserProfilePage />} />
                   </Route>
 
                   {/* ═══════════════════════════════════════════ */}
@@ -224,12 +235,14 @@ function App() {
                     <Route path="/educateur/absences" element={<Absences />} />
                     <Route path="/educateur/conduct" element={<Conduct />} />
                     <Route path="/educateur/classes" element={<Classes />} />
+                    <Route path="/educateur/classes/:id" element={<ClassDetailsPage />} />
                     <Route path="/educateur/users" element={<Users />} />
                     <Route path="/educateur/courses" element={<Courses />} />
                     <Route path="/educateur/report-cards" element={<ReportCards />} />
                     <Route path="/educateur/chat" element={<Chat />} />
                     <Route path="/educateur/broadcast" element={<Broadcast />} />
-                    <Route path="/educateur/settings" element={<Settings />} />
+                    <Route path="/educateur/profile" element={<UserProfilePage />} />
+                    <Route path="/educateur/settings" element={<UserProfilePage />} />
                   </Route>
 
                   {/* ═══════════════════════════════════════════ */}
@@ -237,7 +250,8 @@ function App() {
                   {/* ═══════════════════════════════════════════ */}
                   <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'PARENT']} />}>
                     <Route path="/parent/dashboard" element={<ParentDashboard />} />
-                    <Route path="/parent/settings" element={<Settings />} />
+                    <Route path="/parent/profile" element={<UserProfilePage />} />
+                    <Route path="/parent/settings" element={<UserProfilePage />} />
                   </Route>
 
                   {/* ═══════════════════════════════════════════ */}
@@ -246,7 +260,8 @@ function App() {
                   <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'DIRECTEUR', 'EDUCATEUR', 'ENSEIGNANT', 'APPRENANT', 'PARENT']} />}>
                     <Route path="classes" element={<Classes />} />
                     <Route path="users" element={<Users />} />
-                    <Route path="settings" element={<Settings />} />
+                    <Route path="profile" element={<UserProfilePage />} />
+                    <Route path="settings" element={<UserProfilePage />} />
                     <Route path="broadcast" element={<Broadcast />} />
                     <Route path="news" element={<News />} />
                     <Route path="absences" element={<Absences />} />
@@ -256,8 +271,10 @@ function App() {
                     {/* Académique */}
                     <Route path="courses" element={<Courses />} />
                     <Route path="courses/:id" element={<CourseDetails />} />
+                    <Route path="academic/courses/:id" element={<CourseDetails />} />
                     <Route path="assignments" element={<AssignmentsPage />} />
                     <Route path="assignments/:id" element={<AssignmentDetails />} />
+                    <Route path="academic/assignments/:id" element={<AssignmentDetails />} />
                     <Route path="report-cards" element={<ReportCards />} />
                     <Route path="corrections" element={<Corrections />} />
 

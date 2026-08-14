@@ -18,6 +18,13 @@ import {
   BookOpen,
   Pencil,
   Award,
+  Mail,
+  Phone,
+  Building2,
+  School,
+  CheckCircle2,
+  Calendar,
+  X,
 } from "lucide-react";
 import mathCover from "@/assets/course-covers/math.svg";
 import musicCover from "@/assets/course-covers/music.svg";
@@ -35,6 +42,7 @@ import economyCover from "@/assets/course-covers/economy.svg";
 import frenchCover from "@/assets/course-covers/french.svg";
 import defaultCover from "@/assets/course-covers/default.svg";
 import ConfirmationModal from "@/components/ui/ConfirmModal";
+import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 
@@ -43,16 +51,43 @@ interface TeacherInfo {
   firstName: string;
   lastName: string;
   email?: string;
+  phone?: string;
+  matricule?: string;
+  avatarUrl?: string;
+  classes?: string[];
+  schools?: { id: string; name: string; code?: string; ville?: string }[];
 }
 
 interface CourseModel {
   id: string;
   coefficient: number;
-  subject?: { id: string; name: string; code?: string };
+  subject?: { id: string; name: string; code?: string; imageUrl?: string };
   niveau?: { id: string; nom: string };
   teachers?: TeacherInfo[];
+  teachersCount?: number;
   _count?: { chapters: number; assignments: number };
+  schoolsCount?: number;
+  academicYear?: { id: string; name: string };
+  academicYearId?: string;
 }
+
+const PRESET_COVERS_MAP: Record<string, string> = {
+  math: mathCover,
+  french: frenchCover,
+  english: englishCover,
+  chemistry: chemistryCover,
+  svt: svtCover,
+  history: historyCover,
+  philosophy: philosophyCover,
+  eps: epsCover,
+  music: musicCover,
+  arts: artsCover,
+  spanish: spanishCover,
+  edhc: edhcCover,
+  economy: economyCover,
+  office: officeCover,
+  default: defaultCover
+};
 
 interface Option {
   id: string;
@@ -78,31 +113,42 @@ const Courses = () => {
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedYearFilter, setSelectedYearFilter] = useState("ALL");
   const [selectedNiveauFilter, setSelectedNiveauFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
   const [niveauxList, setNiveauxList] = useState<Option[]>([]);
+  const [yearsList, setYearsList] = useState<Option[]>([]);
 
   // Modals state
   const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  // Teachers Details Modal
+  const [selectedCourseTeachers, setSelectedCourseTeachers] = useState<{
+    courseName: string;
+    courseCode?: string;
+    niveauName: string;
+    teachers: TeacherInfo[];
+  } | null>(null);
+  const [isTeachersModalOpen, setIsTeachersModalOpen] = useState(false);
+
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
-      const [coursesRes, niveauxRes] = await Promise.all([
+      const [coursesRes, niveauxRes, yearsRes] = await Promise.all([
         api.get("/courses"),
-        isAdmin
-          ? api.get("/niveaux")
-          : Promise.resolve({ data: [] }),
+        isAdmin ? api.get("/niveaux") : Promise.resolve({ data: [] }),
+        api.get("/academic/years").catch(() => ({ data: [] })),
       ]);
       const data: CourseModel[] = coursesRes.data;
       setCourses(data);
 
       if (isAdmin) {
-        setNiveauxList(niveauxRes.data);
+        setNiveauxList(niveauxRes.data || []);
       }
+      setYearsList(yearsRes.data || []);
     } catch (error) {
       console.error("Error fetching courses", error);
     } finally {
@@ -116,9 +162,18 @@ const Courses = () => {
 
   const openDeleteModal = (courseId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault();
     setCourseToDelete(courseId);
     setIsDeleteModalOpen(true);
+  };
+
+  const openTeachersModal = (course: CourseModel) => {
+    setSelectedCourseTeachers({
+      courseName: course.subject?.name || "Matière",
+      courseCode: course.subject?.code,
+      niveauName: course.niveau?.nom || "Niveau global",
+      teachers: course.teachers || [],
+    });
+    setIsTeachersModalOpen(true);
   };
 
   const confirmDeleteCourse = async () => {
@@ -130,157 +185,197 @@ const Courses = () => {
       fetchCourses();
     } catch (error) {
       console.error("Error deleting course", error);
-      alert("Impossible de supprimer ce cours. Veuillez réessayer.");
+      alert("Impossible de supprimer le cours.");
     }
   };
 
-  const SUBJECT_IMAGES: Record<string, string> = {
-    Mathématiques: mathCover,
-    Physique:
-      "https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=800&q=80",
-    Chimie: chemistryCover,
-    SVT: svtCover,
-    "Histoire-Géo": historyCover,
-    Français: frenchCover,
-    Francais: frenchCover,
-    Espagnol: spanishCover,
-    Anglais: englishCover,
-    Philosophie: philosophyCover,
-    EPS: epsCover,
-    Informatique: officeCover,
-    Bureautique: officeCover,
-    Arts: artsCover,
-    EDHC: edhcCover,
-    Économie: economyCover,
-    Economie: economyCover,
-    Entrepreneuriat: economyCover,
-    Musique: musicCover,
-  };
-  const DEFAULT_IMAGE = defaultCover;
-
-  const getCourseImage = (subjectName: string) => {
-    const subjectLower = (subjectName || "").toLowerCase();
-    const key = Object.keys(SUBJECT_IMAGES).find((k) =>
-      subjectLower.includes(k.toLowerCase()),
-    );
-    return key ? SUBJECT_IMAGES[key] : DEFAULT_IMAGE;
+  const getCourseImage = (subjectName: string, subjectImageUrl?: string) => {
+    if (subjectImageUrl && subjectImageUrl.trim() !== '') {
+      if (PRESET_COVERS_MAP[subjectImageUrl]) {
+        return PRESET_COVERS_MAP[subjectImageUrl];
+      }
+      if (subjectImageUrl.startsWith('http') || subjectImageUrl.startsWith('/') || subjectImageUrl.startsWith('data:')) {
+        return subjectImageUrl;
+      }
+    }
+    const s = (subjectName || "").toLowerCase().trim();
+    if (s.includes("sport") || s.includes("eps") || s.includes("physique-eps") || s.includes("gym")) return epsCover;
+    if (s.includes("math")) return mathCover;
+    if (s.includes("franc") || s.includes("franç") || s.includes("dictée") || s.includes("grammaire")) return frenchCover;
+    if (s.includes("anglais") || s.includes("angl") || s.includes("english")) return englishCover;
+    if (s.includes("physique") || s.includes("chimie") || s.includes("pc")) return chemistryCover;
+    if (s.includes("svt") || s.includes("science") || s.includes("biologie") || s.includes("terre")) return svtCover;
+    if (s.includes("histoire") || s.includes("geo") || s.includes("géo") || s.includes("hg")) return historyCover;
+    if (s.includes("philo")) return philosophyCover;
+    if (s.includes("musique") || s.includes("music") || s.includes("chant")) return musicCover;
+    if (s.includes("art") || s.includes("plastique") || s.includes("dessin")) return artsCover;
+    if (s.includes("espagnol") || s.includes("esp") || s.includes("allemand")) return spanishCover;
+    if (s.includes("edhc") || s.includes("civique") || s.includes("morale") || s.includes("droit")) return edhcCover;
+    if (s.includes("eco") || s.includes("éco") || s.includes("compta") || s.includes("gestion")) return economyCover;
+    if (s.includes("info") || s.includes("bureautique") || s.includes("tic") || s.includes("ordinateur")) return officeCover;
+    return defaultCover;
   };
 
-  // Dynamic filter options based on available courses
-  const dynamicNiveaux = Array.from(
-    new Map(
-      courses
-        .filter((c) => c.niveau?.nom)
-        .map((c) => [c.niveau!.nom, { id: c.niveau!.id, name: c.niveau!.nom }]),
-    ).values(),
-  );
-
-  // Multi-criteria Filtering
-  const filteredCourses = courses.filter((c) => {
-    const subjectName = c.subject?.name || "";
-    const teacherNames = (c.teachers || [])
-      .map((t) => `${t.firstName} ${t.lastName}`)
-      .join(" ");
-
-    const query = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      !query ||
-      subjectName.toLowerCase().includes(query) ||
-      teacherNames.toLowerCase().includes(query);
-
-    const matchesNiveau =
-      selectedNiveauFilter === "ALL" ||
-      c.niveau?.nom === selectedNiveauFilter;
-
-    return matchesSearch && matchesNiveau;
-  });
-
-  const paginatedCourses = filteredCourses.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
-  const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
-
-  const getDetailPath = (courseId: string) => {
-    if (isSuperAdmin) return `/admin/courses/${courseId}`;
-    if (isDirecteur) return `/directeur/courses/${courseId}`;
-    if (isEnseignant) return `/enseignant/courses/${courseId}`;
-    if (isEducateur) return `/educateur/courses/${courseId}`;
-    return `/courses/${courseId}`;
+  const getCreatePath = () => {
+    if (isSuperAdmin) return "/admin/courses/new";
+    if (isDirecteur) return "/directeur/courses/new";
+    return "/enseignant/courses/new";
   };
 
   const getEditPath = (courseId: string) => {
     if (isSuperAdmin) return `/admin/courses/${courseId}/edit`;
     if (isDirecteur) return `/directeur/courses/${courseId}/edit`;
-    return `/admin/courses/${courseId}/edit`;
+    return `/enseignant/courses/${courseId}/edit`;
   };
+
+  const getDetailPath = (courseId: string) => {
+    if (isSuperAdmin) return `/admin/courses/${courseId}`;
+    if (isDirecteur) return `/directeur/courses/${courseId}`;
+    if (isEnseignant) return `/enseignant/courses/${courseId}`;
+    return `/courses/${courseId}`;
+  };
+
+  const dynamicNiveaux = Array.from(
+    new Set(
+      courses
+        .map((c) => c.niveau?.nom)
+        .filter((nom): nom is string => Boolean(nom)),
+    ),
+  ).map((nom) => ({ id: nom, nom, name: nom }));
+
+  const filteredCourses = courses.filter((course) => {
+    const subjectName = (course.subject?.name || "").toLowerCase();
+    const subjectCode = (course.subject?.code || "").toLowerCase();
+    const niveauName = (course.niveau?.nom || "").toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
+
+    const matchesSearch =
+      !query ||
+      subjectName.includes(query) ||
+      subjectCode.includes(query) ||
+      niveauName.includes(query) ||
+      (course.teachers &&
+        course.teachers.some((t) =>
+          `${t.firstName} ${t.lastName}`.toLowerCase().includes(query),
+        ));
+
+    const matchesYear =
+      selectedYearFilter === "ALL" ||
+      (course as any).academicYearId === selectedYearFilter ||
+      (course as any).academicYear?.name === selectedYearFilter;
+
+    const matchesNiveau =
+      selectedNiveauFilter === "ALL" ||
+      course.niveau?.nom === selectedNiveauFilter ||
+      course.niveau?.id === selectedNiveauFilter;
+
+    return matchesSearch && matchesYear && matchesNiveau;
+  });
+
+  const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
+  const paginatedCourses = filteredCourses.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Page Header */}
       <PageHeader
-        title="Cours Académiques"
-        subtitle={
+        title={
           isSuperAdmin
-            ? "Gérez l'ensemble des cours académiques et leur programme officiel"
-            : isAdmin
-              ? "Supervisez les programmes académiques et l'assiduité"
+            ? "Supervision des Cours & Programmes Nationaux"
+            : isDirecteur
+              ? "Gestion des Cours de l'Établissement"
               : isEnseignant
-                ? "Consultez et complétez les chapitres de vos cours"
-                : "Accédez à vos cours et supports de cours"
+                ? "Mes Cours & Supports Pédagogiques"
+                : "Catalogue des Cours"
         }
-        icon={<BookOpen className="w-6 h-6 text-brand-accent" />}
+        description={
+          isSuperAdmin
+            ? "Supervisez tous les cours, le nombre de professeurs affectés, les élèves inscrits et les contenus pédagogiques."
+            : "Consultez le programme officiel, le corps professoral assigné et les évaluations associées."
+        }
         action={
-          isSuperAdmin ? (
+          isAdmin && (
             <Button
-              variant="primary"
-              onClick={() => navigate("/admin/courses/new")}
-              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => navigate(getCreatePath())}
+              className="flex items-center gap-2 shadow-lg shadow-brand-accent/20"
             >
-              Nouveau cours
+              <Plus className="w-4 h-4" />
+              Nouveau Cours
             </Button>
-          ) : null
+          )
         }
       />
 
-      {/* Filter & Sorting Bar */}
-      <div className="bg-brand-card p-4 rounded-xl border border-brand-border/50 space-y-3 shadow-md">
-        <div className="flex flex-col lg:flex-row gap-3 items-center justify-between">
-          {/* Search bar */}
-          <div className="relative w-full lg:w-[400px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
+      {/* Control Bar: Search & Filters */}
+      <div className="bg-brand-card rounded-2xl p-4 border border-brand-border/60 shadow-sm space-y-4">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          {/* Search Input */}
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" />
             <input
               type="text"
-              placeholder="Rechercher par matière, professeur..."
+              placeholder="Rechercher par matière, code, niveau ou professeur..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-brand-surface border border-brand-border/50 rounded-lg pl-9 pr-4 py-2 text-xs text-brand-text placeholder-brand-muted focus:outline-none focus:border-brand-accent"
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full bg-brand-surface border border-brand-border/50 rounded-xl pl-10 pr-4 py-2.5 text-sm text-brand-text placeholder-brand-muted focus:outline-none focus:border-brand-accent transition-colors"
             />
           </div>
 
-          {/* Filters & View Toggle */}
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">
-            {/* Filter by Niveau */}
-            {user?.role !== "APPRENANT" && (dynamicNiveaux.length > 0 || niveauxList.length > 0) && (
+          {/* Filter Selectors & View Switcher */}
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+            {/* Filter by Academic Year */}
+            {yearsList.length > 0 && (
               <div className="flex items-center gap-1.5">
-                <GraduationCap className="w-3.5 h-3.5 text-brand-muted" />
+                <Calendar className="w-3.5 h-3.5 text-brand-muted" />
                 <select
-                  value={selectedNiveauFilter}
+                  value={selectedYearFilter}
                   onChange={(e) => {
-                    setSelectedNiveauFilter(e.target.value);
+                    setSelectedYearFilter(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="bg-brand-surface border border-brand-border/50 rounded-lg px-2.5 py-1.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent max-w-[170px] truncate"
+                  className="bg-brand-surface border border-brand-border/50 rounded-lg px-2.5 py-1.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent max-w-[150px] truncate font-semibold"
                 >
-                  <option value="ALL">Tous les niveaux</option>
-                  {(dynamicNiveaux.length > 0 ? dynamicNiveaux : niveauxList).map((n: any) => (
-                    <option key={n.id} value={n.name || n.nom}>
-                      {n.name || n.nom}
+                  <option value="ALL">Toutes les années</option>
+                  {yearsList.map((y) => (
+                    <option key={y.id} value={y.id}>
+                      {y.name || y.nom}
                     </option>
                   ))}
                 </select>
               </div>
             )}
+
+            {/* Filter by Niveau */}
+            {user?.role !== "APPRENANT" &&
+              (niveauxList.length > 0 || dynamicNiveaux.length > 0) && (
+                <div className="flex items-center gap-1.5">
+                  <GraduationCap className="w-3.5 h-3.5 text-brand-muted" />
+                  <select
+                    value={selectedNiveauFilter}
+                    onChange={(e) => {
+                      setSelectedNiveauFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="bg-brand-surface border border-brand-border/50 rounded-lg px-2.5 py-1.5 text-xs text-brand-text focus:outline-none focus:border-brand-accent max-w-[170px] truncate font-semibold"
+                  >
+                    <option value="ALL">Tous les niveaux</option>
+                    {(niveauxList.length > 0
+                      ? niveauxList
+                      : dynamicNiveaux
+                    ).map((n: any) => (
+                      <option key={n.id} value={n.name || n.nom}>
+                        {n.name || n.nom}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
             {/* View Mode Switcher */}
             <div className="flex items-center bg-brand-surface border border-brand-border/50 rounded-lg p-0.5 ml-2">
@@ -337,146 +432,175 @@ const Courses = () => {
           </p>
         </div>
       ) : viewMode === "TABLE" ? (
-        /* SUPERVISION TABLE VIEW — Wide & Un-cramped Spacing */
+        /* SUPERVISION TABLE VIEW */
         <div className="bg-brand-card rounded-2xl border border-brand-border/60 overflow-hidden shadow-xl">
           <div className="overflow-x-auto min-w-full">
             <table className="w-full text-left text-sm border-collapse">
               <thead className="bg-brand-surface/90 text-brand-muted text-xs uppercase font-bold border-b border-brand-border/60 tracking-wider">
                 <tr>
                   <th className="px-6 py-4.5">Matière / Cours</th>
+                  <th className="px-6 py-4.5">Année Académique</th>
                   <th className="px-6 py-4.5">Niveau</th>
-                  <th className="px-6 py-4.5">Professeur(s)</th>
+                  <th className="px-6 py-4.5">Professeur(s) affecté(s)</th>
+                  <th className="px-6 py-4.5">École(s)</th>
                   <th className="px-6 py-4.5">Chapitres & Contenu</th>
                   <th className="px-6 py-4.5 text-center">Coef</th>
                   <th className="px-6 py-4.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-brand-border/40 font-medium">
-                {paginatedCourses.map((course) => (
-                  <tr
-                    key={course.id}
-                    className="hover:bg-white/5 transition-colors cursor-pointer group"
-                    onClick={() => navigate(getDetailPath(course.id))}
-                  >
-                    {/* Matière / Cours */}
-                    <td className="px-6 py-4.5 whitespace-nowrap">
-                      <div className="flex items-center gap-3.5">
-                        <img
-                          src={getCourseImage(course.subject?.name || "")}
-                          alt=""
-                          className="w-11 h-11 rounded-xl object-cover border border-brand-border/60 shrink-0 shadow-sm"
-                        />
-                        <div>
-                          <h4 className="font-bold text-brand-text text-base group-hover:text-brand-accent transition-colors">
-                            {course.subject?.name || "Matière"}
-                          </h4>
-                          {course.subject?.code && (
-                            <span className="text-[11px] font-mono text-brand-accent font-semibold px-2 py-0.5 rounded bg-brand-accent/10 border border-brand-accent/20">
-                              {course.subject.code}
-                            </span>
+                {paginatedCourses.map((course) => {
+                  const teacherCount =
+                    course.teachersCount ?? course.teachers?.length ?? 0;
+
+                  return (
+                    <tr
+                      key={course.id}
+                      className="hover:bg-white/5 transition-colors group"
+                    >
+                      {/* Matière / Cours */}
+                      <td className="px-6 py-4.5 whitespace-nowrap">
+                        <div className="flex items-center gap-3.5">
+                          <img
+                            src={getCourseImage(course.subject?.name || "")}
+                            alt=""
+                            className="w-11 h-11 rounded-xl object-cover border border-brand-border/60 shrink-0 shadow-sm"
+                          />
+                          <div>
+                            <h4 className="font-bold text-brand-text text-base group-hover:text-brand-accent transition-colors">
+                              {course.subject?.name || "Matière"}
+                            </h4>
+                            {course.subject?.code && (
+                              <span className="text-[11px] font-mono text-brand-accent font-semibold px-2 py-0.5 rounded bg-brand-accent/10 border border-brand-accent/20">
+                                {course.subject.code}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Année Académique */}
+                      <td className="px-6 py-4.5 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                          {(course as any).academicYear?.name ||
+                            "Toutes / Active"}
+                        </span>
+                      </td>
+
+                      {/* Niveau (Clickable -> Opens Students & Grades Evaluation Page) */}
+                      <td className="px-6 py-4.5 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`${getDetailPath(course.id)}?tab=STUDENTS`);
+                          }}
+                          title="Cliquer pour voir la liste des élèves, notes, devoirs et taux de participation"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-accent/15 text-brand-accent border border-brand-accent/30 hover:bg-brand-accent hover:text-white transition-all shadow-sm cursor-pointer"
+                        >
+                          <GraduationCap className="w-3.5 h-3.5" />
+                          <span>{course.niveau?.nom || "N/A"}</span>
+                        </button>
+                      </td>
+
+                      {/* Professeur(s) — Affiche le NOMBRE exact et ouvre la liste détaillée au clic */}
+                      <td className="px-6 py-4.5 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTeachersModal(course);
+                          }}
+                          title="Cliquer pour afficher la liste des professeurs avec leurs écoles et classes"
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer ${
+                            teacherCount > 0
+                              ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white"
+                              : "bg-brand-surface text-brand-muted border border-brand-border/40 hover:border-brand-accent/50"
+                          }`}
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          <span>
+                            {teacherCount}{" "}
+                            {teacherCount > 1
+                              ? "professeurs"
+                              : "professeur"}
+                          </span>
+                        </button>
+                      </td>
+
+                      {/* École(s) */}
+                      <td className="px-6 py-4.5 whitespace-nowrap text-sm font-semibold text-brand-text">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-300">
+                          <Building2 className="w-3.5 h-3.5 text-brand-muted" />
+                          {course.schoolsCount || 0} école(s)
+                        </span>
+                      </td>
+
+                      {/* Chapitres (Clickable -> Opens Course Content Management Page) */}
+                      <td className="px-6 py-4.5 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`${getDetailPath(course.id)}?tab=CONTENT`);
+                          }}
+                          title="Cliquer pour ajouter ou gérer les chapitres et contenus"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-500/10 text-slate-200 border border-slate-500/30 hover:bg-slate-700/40 hover:text-white transition-all shadow-sm cursor-pointer"
+                        >
+                          <BookOpen className="w-3.5 h-3.5 text-brand-accent" />
+                          <span>
+                            {course._count?.chapters || 0} chapitre(s)
+                          </span>
+                        </button>
+                      </td>
+
+                      {/* Coefficient */}
+                      <td className="px-6 py-4.5 whitespace-nowrap text-center text-sm font-extrabold text-brand-accent">
+                        {course.coefficient || 1}
+                      </td>
+
+                      {/* Actions Column (Editer, Consulter, Supprimer) */}
+                      <td
+                        className="px-6 py-4.5 whitespace-nowrap text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-end gap-2">
+                          {/* Consulter Page */}
+                          <button
+                            onClick={() => navigate(getDetailPath(course.id))}
+                            title="Consulter le cours et ses chapitres"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-brand-accent bg-brand-accent/10 hover:bg-brand-accent hover:text-white transition-all border border-brand-accent/20 cursor-pointer"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>Voir</span>
+                          </button>
+
+                          {/* Editer Page */}
+                          {isAdmin && (
+                            <button
+                              onClick={() => navigate(getEditPath(course.id))}
+                              title="Éditer le cours"
+                              className="p-2 rounded-lg text-amber-400 bg-amber-500/10 hover:bg-amber-500 hover:text-white transition-all border border-amber-500/20 cursor-pointer"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {/* Supprimer */}
+                          {isAdmin && (
+                            <button
+                              onClick={(e) => openDeleteModal(course.id, e)}
+                              title="Supprimer le cours"
+                              className="p-2 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-500 hover:text-white transition-all border border-red-500/20 cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
-                      </div>
-                    </td>
-
-                    {/* Niveau (Clickable -> Opens Students & Grades Evaluation Page) */}
-                    <td className="px-6 py-4.5 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`${getDetailPath(course.id)}?tab=STUDENTS`);
-                        }}
-                        title="Cliquer pour voir la liste des élèves et leurs évaluations"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-accent/15 text-brand-accent border border-brand-accent/30 hover:bg-brand-accent hover:text-white transition-all shadow-sm"
-                      >
-                        <GraduationCap className="w-3.5 h-3.5" />
-                        <span>{course.niveau?.nom || "N/A"}</span>
-                      </button>
-                    </td>
-
-                    {/* Professeur(s) */}
-                    <td className="px-6 py-4.5 whitespace-nowrap">
-                      {course.teachers && course.teachers.length > 0 ? (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {course.teachers.map((t) => (
-                            <span
-                              key={t.id}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
-                            >
-                              <User className="w-3 h-3" />
-                              {t.firstName} {t.lastName}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-brand-muted italic bg-brand-surface px-2.5 py-1 rounded-md border border-brand-border/40">
-                          Non assigné
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Chapitres (Clickable -> Opens Course Content Management Page) */}
-                    <td className="px-6 py-4.5 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`${getDetailPath(course.id)}?tab=CONTENT`);
-                        }}
-                        title="Cliquer pour ajouter ou gérer les chapitres et contenus"
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-500/10 text-slate-200 border border-slate-500/30 hover:bg-slate-700/40 hover:text-white transition-all shadow-sm"
-                      >
-                        <BookOpen className="w-3.5 h-3.5 text-brand-accent" />
-                        <span>{course._count?.chapters || 0} chapitre(s)</span>
-                      </button>
-                    </td>
-
-                    {/* Coefficient */}
-                    <td className="px-6 py-4.5 whitespace-nowrap text-center text-sm font-extrabold text-brand-accent">
-                      {course.coefficient || 1}
-                    </td>
-
-                    {/* Actions Column (Editer, Consulter, Supprimer) */}
-                    <td
-                      className="px-6 py-4.5 whitespace-nowrap text-right"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Consulter Page */}
-                        <button
-                          onClick={() => navigate(getDetailPath(course.id))}
-                          title="Consulter la page du cours"
-                          className="p-2 rounded-lg text-brand-muted hover:text-white hover:bg-white/10 transition-colors border border-transparent hover:border-brand-border/40"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-
-                        {/* Editer Page */}
-                        {isAdmin && (
-                          <button
-                            onClick={() => navigate(getEditPath(course.id))}
-                            title="Éditer le cours (Page)"
-                            className="p-2 rounded-lg text-amber-400 hover:text-white hover:bg-amber-500/20 transition-colors border border-transparent hover:border-amber-500/30"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                        )}
-
-                        {/* Supprimer */}
-                        {isAdmin && (
-                          <button
-                            onClick={(e) => openDeleteModal(course.id, e)}
-                            title="Supprimer le cours"
-                            className="p-2 rounded-lg text-red-400 hover:text-white hover:bg-red-500/20 transition-colors border border-transparent hover:border-red-500/30"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -484,116 +608,153 @@ const Courses = () => {
       ) : (
         /* GRID CARDS VIEW */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {paginatedCourses.map((course) => (
-            <div
-              key={course.id}
-              className="bg-brand-card rounded-2xl shadow-lg overflow-hidden cursor-pointer hover:shadow-brand-accent/10 hover:-translate-y-1 transition-all duration-300 border border-brand-border group relative flex flex-col"
-              onClick={() => navigate(getDetailPath(course.id))}
-            >
-              <div className="relative h-44 overflow-hidden shrink-0">
-                <img
-                  src={getCourseImage(course.subject?.name || "")}
-                  alt={course.subject?.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-brand-card via-brand-card/60 to-transparent"></div>
+          {paginatedCourses.map((course) => {
+            const teacherCount =
+              course.teachersCount ?? course.teachers?.length ?? 0;
+            const courseImageSrc = getCourseImage(
+              course.subject?.name || "",
+              course.subject?.imageUrl,
+            );
 
-                {/* Niveau Badge (Clickable) */}
-                <div className="absolute top-3 left-3">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`${getDetailPath(course.id)}?tab=STUDENTS`);
-                    }}
-                    title="Voir les élèves & évaluations"
-                    className="bg-brand-card/90 text-brand-text text-[11px] font-bold px-2.5 py-1 rounded-md border border-brand-border/60 backdrop-blur-md flex items-center gap-1.5 hover:bg-brand-accent hover:text-white transition-colors"
-                  >
-                    <GraduationCap className="w-3.5 h-3.5 text-brand-accent" />
-                    <span>{course.niveau?.nom || "Niveau N/A"}</span>
-                  </button>
-                </div>
+            return (
+              <div
+                key={course.id}
+                className="bg-brand-card rounded-2xl shadow-md overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-brand-accent/15 hover:-translate-y-1 transition-all duration-300 border border-brand-border/80 group relative flex flex-col justify-between"
+                onClick={() => navigate(getDetailPath(course.id))}
+              >
+                <div>
+                  {/* Image Container with robust dark gradient overlay */}
+                  <div className="relative h-48 w-full bg-slate-950 overflow-hidden shrink-0">
+                    <img
+                      src={courseImageSrc}
+                      alt={course.subject?.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-85"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-black/30" />
 
-                <div className="absolute bottom-4 left-5 right-5 text-white">
-                  <h3 className="text-xl font-bold drop-shadow-md text-white">
-                    {course.subject?.name}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`${getDetailPath(course.id)}?tab=CONTENT`);
-                      }}
-                      title="Gérer les chapitres & contenus"
-                      className="text-[11px] bg-brand-accent/20 border border-brand-accent/30 text-brand-accent hover:bg-brand-accent hover:text-white font-semibold px-2.5 py-0.5 rounded-full backdrop-blur-md transition-colors"
-                    >
-                      {course._count?.chapters || 0} chapitres
-                    </button>
+                    {/* Niveau Badge (Top Left) */}
+                    <div className="absolute top-3 left-3">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`${getDetailPath(course.id)}?tab=STUDENTS`);
+                        }}
+                        title="Voir les élèves & évaluations"
+                        className="bg-slate-900/85 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-lg border border-slate-700/80 backdrop-blur-md flex items-center gap-1.5 hover:bg-emerald-600 hover:border-emerald-500 transition-all cursor-pointer shadow-md"
+                      >
+                        <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>{course.niveau?.nom || "Niveau N/A"}</span>
+                      </button>
+                    </div>
+
+                    {/* Coeff Badge (Top Right) */}
+                    <div className="absolute top-3 right-3">
+                      <span className="bg-emerald-600/90 text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-md border border-emerald-400/40 backdrop-blur-md">
+                        Coeff : {course.coefficient || 1}
+                      </span>
+                    </div>
+
+                    {/* Subject Title & Chapters (Bottom Banner) */}
+                    <div className="absolute bottom-3.5 left-4 right-4">
+                      <h3 className="text-lg font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] tracking-tight line-clamp-1">
+                        {course.subject?.name}
+                      </h3>
+                      
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`${getDetailPath(course.id)}?tab=CONTENT`);
+                          }}
+                          title="Gérer les chapitres & contenus"
+                          className="text-[11px] font-bold bg-white/20 hover:bg-emerald-600 text-white border border-white/30 px-2.5 py-0.5 rounded-md backdrop-blur-md transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <BookOpen className="w-3 h-3 text-emerald-300" />
+                          <span>{course._count?.chapters || 0} chapitre(s)</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Body Content */}
+                  <div className="p-4 space-y-3">
+                    {/* Corps professoral */}
+                    <div className="space-y-1.5">
+                      <span className="block font-bold text-brand-muted text-[10px] uppercase tracking-wider">
+                        Corps professoral assigné :
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openTeachersModal(course);
+                        }}
+                        title="Afficher la liste des professeurs assignés"
+                        className={`w-full inline-flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          teacherCount > 0
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 hover:bg-emerald-600 hover:text-white"
+                            : "bg-brand-surface text-brand-muted border border-brand-border/40 hover:border-brand-accent/40"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span>
+                            {teacherCount}{" "}
+                            {teacherCount > 1 ? "professeurs" : "professeur"}
+                          </span>
+                        </span>
+                        <span className="text-[10px] opacity-80 underline font-semibold">
+                          Détails &rarr;
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="absolute top-3 right-3">
-                  <span className="bg-brand-accent/20 border border-brand-accent/30 text-brand-accent text-xs font-bold px-3 py-1 rounded-full shadow-lg backdrop-blur-md">
-                    Coeff: {course.coefficient || 1}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-                <div className="text-xs text-brand-text-muted space-y-1">
-                  <span className="block font-semibold text-brand-muted text-[10px] uppercase tracking-wider">
-                    Professeur(s) :
-                  </span>
-                  {course.teachers && course.teachers.length > 0 ? (
-                    <div className="flex flex-wrap gap-1 text-xs text-brand-text font-bold">
-                      {course.teachers.map((t) => (
-                        <span key={t.id} className="bg-brand-surface px-2 py-0.5 rounded border border-brand-border/40">
-                          {t.firstName} {t.lastName}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-brand-muted italic">Non assigné</span>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t border-brand-border/40 flex items-center justify-between">
-                  <span className="text-xs text-brand-accent font-bold">
+                {/* Card Footer Actions */}
+                <div className="p-4 pt-3 bg-brand-surface/50 border-t border-brand-border/60 flex items-center justify-between">
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
                     Programme Officiel
                   </span>
 
-                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="flex items-center gap-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       onClick={() => navigate(getDetailPath(course.id))}
-                      title="Consulter le cours"
-                      className="p-1.5 rounded-lg text-brand-muted hover:text-white hover:bg-white/10 transition-colors"
+                      title="Consulter le cours et ses chapitres"
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 hover:bg-emerald-600 hover:text-white transition-all border border-emerald-500/30 flex items-center gap-1 cursor-pointer"
                     >
-                      <Eye className="w-4 h-4" />
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Voir</span>
                     </button>
                     {isAdmin && (
                       <button
                         onClick={() => navigate(getEditPath(course.id))}
                         title="Éditer le cours"
-                        className="p-1.5 rounded-lg text-amber-400 hover:text-white hover:bg-amber-500/20 transition-colors"
+                        className="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500 hover:text-white transition-all border border-amber-500/20 cursor-pointer"
                       >
-                        <Pencil className="w-4 h-4" />
+                        <Pencil className="w-3.5 h-3.5" />
                       </button>
                     )}
                     {isAdmin && (
                       <button
                         onClick={(e) => openDeleteModal(course.id, e)}
-                        className="text-red-400 hover:text-red-300 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
+                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-500/20 cursor-pointer"
                         title="Supprimer le cours"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -620,7 +781,7 @@ const Courses = () => {
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm bg-brand-surface border border-brand-border text-brand-text rounded-md hover:bg-brand-sidebar disabled:opacity-50 transition-colors"
+              className="px-3 py-1 text-sm bg-brand-surface border border-brand-border text-brand-text rounded-md hover:bg-brand-sidebar disabled:opacity-50 transition-colors cursor-pointer"
             >
               Précédent
             </button>
@@ -629,13 +790,164 @@ const Courses = () => {
                 setCurrentPage((prev) => Math.min(prev + 1, totalPages))
               }
               disabled={currentPage === totalPages}
-              className="px-3 py-1 text-sm bg-brand-surface border border-brand-border text-brand-text rounded-md hover:bg-brand-sidebar disabled:opacity-50 transition-colors"
+              className="px-3 py-1 text-sm bg-brand-surface border border-brand-border text-brand-text rounded-md hover:bg-brand-sidebar disabled:opacity-50 transition-colors cursor-pointer"
             >
               Suivant
             </button>
           </div>
         </div>
       )}
+
+      {/* MODAL LISTE DÉTAILLÉE DES PROFESSEURS AFFECTÉS */}
+      <Modal
+        isOpen={isTeachersModalOpen}
+        onClose={() => setIsTeachersModalOpen(false)}
+        title={`Professeurs affectés — ${selectedCourseTeachers?.courseName || "Cours"} (${selectedCourseTeachers?.niveauName || "Niveau"})`}
+      >
+        <div className="space-y-4">
+          <div className="p-3 bg-brand-surface rounded-xl border border-brand-border/60 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-brand-text">
+              <Book className="w-4 h-4 text-brand-accent" />
+              <span>{selectedCourseTeachers?.courseName}</span>
+              {selectedCourseTeachers?.courseCode && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-brand-accent/15 text-brand-accent">
+                  {selectedCourseTeachers.courseCode}
+                </span>
+              )}
+            </div>
+            <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+              {selectedCourseTeachers?.teachers.length || 0} professeur(s)
+            </span>
+          </div>
+
+          {!selectedCourseTeachers?.teachers ||
+          selectedCourseTeachers.teachers.length === 0 ? (
+            <div className="py-10 text-center text-brand-muted space-y-2">
+              <Users className="w-10 h-10 mx-auto text-brand-border opacity-50" />
+              <p className="text-sm font-semibold text-brand-text">
+                Aucun professeur affecté à ce cours
+              </p>
+              <p className="text-xs text-brand-muted max-w-sm mx-auto">
+                Pour affecter un professeur à cette matière, rendez-vous dans la
+                gestion des classes ou des enseignants.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {selectedCourseTeachers.teachers.map((teacher) => (
+                <div
+                  key={teacher.id}
+                  className="bg-brand-surface/70 hover:bg-brand-surface p-4 rounded-xl border border-brand-border/60 transition-all space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 font-black text-sm flex items-center justify-center border border-emerald-500/30">
+                        {teacher.firstName.charAt(0)}
+                        {teacher.lastName.charAt(0)}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-brand-text">
+                          {teacher.firstName} {teacher.lastName}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                            Enseignant titulaire
+                          </span>
+                          {teacher.matricule && (
+                            <span className="text-[10px] font-mono text-brand-muted">
+                              Mat: {teacher.matricule}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 text-xs text-brand-text-muted">
+                      {teacher.email && (
+                        <a
+                          href={`mailto:${teacher.email}`}
+                          className="flex items-center gap-1 text-[11px] text-brand-muted hover:text-brand-accent transition"
+                        >
+                          <Mail className="w-3 h-3" />
+                          <span className="truncate max-w-[160px]">
+                            {teacher.email}
+                          </span>
+                        </a>
+                      )}
+                      {teacher.phone && (
+                        <a
+                          href={`tel:${teacher.phone}`}
+                          className="flex items-center gap-1 text-[11px] text-brand-muted hover:text-emerald-400 transition"
+                        >
+                          <Phone className="w-3 h-3" />
+                          <span>{teacher.phone}</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Classes & Écoles assignées */}
+                  <div className="pt-2.5 border-t border-brand-border/40 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    {/* Écoles */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <School className="w-3.5 h-3.5 text-brand-muted" />
+                      <span className="text-[11px] text-brand-muted">
+                        Établissement(s) :
+                      </span>
+                      {teacher.schools && teacher.schools.length > 0 ? (
+                        teacher.schools.map((sch) => (
+                          <span
+                            key={sch.id}
+                            className="bg-brand-card px-2 py-0.5 rounded text-[11px] font-bold text-brand-text border border-brand-border/50"
+                          >
+                            {sch.name} {sch.ville ? `(${sch.ville})` : ""}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] text-brand-muted italic">
+                          Établissement principal
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Classes */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <GraduationCap className="w-3.5 h-3.5 text-brand-accent" />
+                      <span className="text-[11px] text-brand-muted">
+                        Classe(s) :
+                      </span>
+                      {teacher.classes && teacher.classes.length > 0 ? (
+                        teacher.classes.map((clsName, idx) => (
+                          <span
+                            key={idx}
+                            className="bg-brand-accent/10 text-brand-accent border border-brand-accent/20 px-2 py-0.5 rounded text-[11px] font-bold"
+                          >
+                            {clsName}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[11px] text-brand-muted italic">
+                          Toutes les classes du niveau
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="pt-3 border-t border-brand-border/50 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsTeachersModalOpen(false)}
+            >
+              Fermer
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* DELETE MODAL */}
       <ConfirmationModal
@@ -645,7 +957,7 @@ const Courses = () => {
         title="Supprimer le cours ?"
         message="Êtes-vous sûr de vouloir supprimer ce cours et toutes ses ressources ?"
         confirmText="Supprimer"
-        variant="danger"
+        confirmStyle="danger"
       />
     </div>
   );

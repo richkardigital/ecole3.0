@@ -7,6 +7,7 @@ import type { AuthRequest } from "../middleware/auth.js";
 import { uploadToSupabase } from "../utils/supabase.js";
 
 const createCourseSchema = z.object({
+  academicYearId: z.string().optional().nullable(),
   niveauId: z.string(),
   subjectId: z.string(),
   coefficient: z.number().optional().default(1),
@@ -47,54 +48,49 @@ export const getLibrary = async (req: AuthRequest, res: Response) => {
     };
 
     if ((role as string) === "ENSEIGNANT") {
+      const teacherClasses = await prisma.teacherClass.findMany({
+        where: { teacherId: userId },
+        include: { class: true }
+      });
+      const niveauIds = Array.from(new Set(teacherClasses.map(tc => tc.class?.niveauId).filter((n): n is string => Boolean(n))));
       resources = await prisma.resource.findMany({
         where: {
-            course: {
-                teacherId: userId
-            }
+          OR: [
+            { createdById: userId },
+            { niveauId: { in: niveauIds } },
+            { course: { niveauId: { in: niveauIds } } }
+          ]
         },
         include: includeRelation.course.include ? includeRelation : undefined,
         orderBy: { createdAt: 'desc' }
       });
     } else if ((role as string) === "APPRENANT") {
-      // Logic MVP: Access by Level
-      // 1. Get student's enrollments to find their level(s)
       const enrollments = await prisma.enrollment.findMany({
         where: { studentId: userId },
         include: { class: true }
       });
       
-      const levels = [...new Set(enrollments.map(e => e.class.niveauId).filter(l => l !== null))];
-      const enrolledClassIds = enrollments.map(e => e.classId);
+      const levels = Array.from(new Set(enrollments.map(e => e.class?.niveauId).filter((n): n is string => Boolean(n))));
 
       resources = await prisma.resource.findMany({
         where: {
-          course: {
-            class: {
-              OR: [
-                // Option 1: Direct enrollment (Legacy/Fallback)
-                { id: { in: enrolledClassIds } },
-                // Option 2: Same level in same school
-                {
-                   niveauId: { in: levels as string[] },
-                   schoolId: schoolId // Ensure same school
-                }
-              ]
-            },
-          },
+          OR: [
+            { niveauId: { in: levels } },
+            { course: { niveauId: { in: levels } } },
+            ...(schoolId ? [{ schoolId }] : [])
+          ]
         },
         include: includeRelation.course.include ? includeRelation : undefined,
         orderBy: { createdAt: 'desc' }
       });
-    } else if ((role as string) === "DIRECTEUR" || (role as string) === "EDUCATEUR" || (role as string) === "EDUCATEUR") {
-         if (!schoolId) return res.status(400).json({message: "No school ID"});
+    } else if ((role as string) === "DIRECTEUR" || (role as string) === "EDUCATEUR") {
          resources = await prisma.resource.findMany({
             where: {
-                course: {
-                    class: {
-                        schoolId: schoolId
-                    }
-                }
+                OR: [
+                    ...(schoolId ? [{ schoolId }] : []),
+                    { isGlobal: true },
+                    { scope: "NIVEAU" }
+                ]
             },
             include: includeRelation.course.include ? includeRelation : undefined,
             orderBy: { createdAt: 'desc' }
@@ -126,7 +122,8 @@ export const getCourse = async (req: AuthRequest, res: Response) => {
       where: { id: String(id) },
       include: {
         niveau: true,
-        subject: true
+        subject: true,
+        academicYear: { select: { id: true, name: true, isCurrent: true } }
       }
     });
 
@@ -140,15 +137,21 @@ export const getCourse = async (req: AuthRequest, res: Response) => {
 
 export const createCourse = async (req: AuthRequest, res: Response) => {
   try {
-    const { niveauId, subjectId, coefficient } = createCourseSchema.parse(req.body);
+    const { academicYearId, niveauId, subjectId, coefficient } = createCourseSchema.parse(req.body);
 
     const course = await prisma.course.create({
       data: {
+        academicYearId: academicYearId || null,
         niveauId,
         subjectId,
         coefficient,
         scope: 'NIVEAU',
       },
+      include: {
+        niveau: true,
+        subject: true,
+        academicYear: { select: { id: true, name: true, isCurrent: true } }
+      }
     });
 
     res.status(201).json(course);
@@ -177,6 +180,7 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
     const courseInclude = {
       niveau: true,
       subject: true,
+      academicYear: { select: { id: true, name: true, isCurrent: true } },
       _count: {
         select: { chapters: true, assignments: true }
       }
@@ -184,35 +188,86 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
 
     let courses;
 
-    if ((role as string) === "SUPER_ADMIN") {
+    if (role === "SUPER_ADMIN") {
       courses = await prisma.course.findMany({
         include: courseInclude
       });
-    } else if (["DIRECTEUR", "EDUCATEUR"].includes(role as string)) {
-      // Pour simplifier l'accès au modèle CNED, on retourne tous les cours.
+    } else if (role === "DIRECTEUR" || role === "EDUCATEUR") {
       const schoolId = req.user?.schoolId;
       if (schoolId) {
-         const classes = await prisma.class.findMany({ where: { schoolId }, select: { niveauId: true } });
-         const niveauxIds = classes.map(c => c.niveauId).filter(id => id !== null) as string[];
-         courses = await prisma.course.findMany({
-            where: { niveauId: { in: niveauxIds } },
-            include: courseInclude
-         });
+        const schoolClasses = await prisma.class.findMany({
+          where: { schoolId },
+          select: { niveauId: true }
+        });
+        const niveauIds = Array.from(new Set(schoolClasses.map(c => c.niveauId).filter((id): id is string => Boolean(id))));
+        courses = await prisma.course.findMany({
+          where: niveauIds.length > 0 ? { niveauId: { in: niveauIds } } : undefined,
+          include: courseInclude
+        });
       } else {
-         courses = await prisma.course.findMany({ include: courseInclude });
+        courses = await prisma.course.findMany({
+          include: courseInclude
+        });
       }
-    } else if ((role as string) === "ENSEIGNANT") {
-      // L'enseignant accède aux cours globaux.
-       courses = await prisma.course.findMany({ include: courseInclude });
-    } else if ((role as string) === "APPRENANT") {
-      // L'apprenant voit les cours de son niveau.
-      const enrollments = await prisma.enrollment.findMany({
-         where: { studentId: userId },
-         select: { class: { select: { niveauId: true } } }
+    } else if (role === "ENSEIGNANT") {
+      // Uniquement les cours pour lesquels le professeur a été assigné par le directeur (TeacherClass)
+      const teacherAssignments = await prisma.teacherClass.findMany({
+        where: { teacherId: userId },
+        include: { class: { select: { niveauId: true } } }
       });
-      const niveauxIds = enrollments.map(e => e.class.niveauId).filter(id => id !== null) as string[];
+
+      const orConditions = teacherAssignments
+        .filter(ta => ta.subjectId && ta.class?.niveauId)
+        .map(ta => ({
+          subjectId: ta.subjectId,
+          niveauId: ta.class.niveauId
+        }));
+
+      if (orConditions.length === 0) {
+        courses = [];
+      } else {
+        courses = await prisma.course.findMany({
+          where: { OR: orConditions },
+          include: courseInclude
+        });
+      }
+    } else if (role === "APPRENANT") {
+      // Uniquement les cours correspondant au niveau de la classe active de l'élève
+      const enrollments = await prisma.enrollment.findMany({
+        where: { studentId: userId },
+        select: { class: { select: { niveauId: true } }, status: true }
+      });
+
+      const activeNiveaux = enrollments
+        .filter(e => e.status === "ACTIVE" && e.class?.niveauId)
+        .map(e => e.class.niveauId as string);
+
+      const finalNiveaux = activeNiveaux.length > 0 
+        ? activeNiveaux 
+        : (enrollments.map(e => e.class?.niveauId).filter((id): id is string => Boolean(id)) as string[]);
+
+      if (finalNiveaux.length === 0) {
+        courses = [];
+      } else {
+        courses = await prisma.course.findMany({
+          where: { niveauId: { in: finalNiveaux } },
+          include: courseInclude
+        });
+      }
+    } else if (role === "PARENT") {
+      const parentChildren = await prisma.parentChild.findMany({
+        where: { parentId: userId },
+        select: { studentId: true }
+      });
+      const childIds = parentChildren.map(c => c.studentId);
+      const enrollments = await prisma.enrollment.findMany({
+        where: { studentId: { in: childIds } },
+        select: { class: { select: { niveauId: true } } }
+      });
+      const childNiveaux = Array.from(new Set(enrollments.map(e => e.class?.niveauId).filter((id): id is string => Boolean(id))));
+
       courses = await prisma.course.findMany({
-        where: { niveauId: { in: niveauxIds } },
+        where: childNiveaux.length > 0 ? { niveauId: { in: childNiveaux } } : undefined,
         include: courseInclude
       });
     } else {
@@ -221,9 +276,8 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Enrich courses with assigned teachers via TeacherClass
-    const courseSubjectIds = Array.from(new Set(courses.map(c => c.subjectId)));
-    const courseNiveauIds = Array.from(new Set(courses.map(c => c.niveauId)));
+    const courseSubjectIds: string[] = Array.from(new Set(courses.map((c: any) => String(c.subjectId))));
+    const courseNiveauIds: string[] = Array.from(new Set(courses.map((c: any) => String(c.niveauId))));
 
     const teacherClasses = await prisma.teacherClass.findMany({
       where: {
@@ -232,24 +286,53 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
       },
       include: {
         teacher: {
-          select: { id: true, firstName: true, lastName: true, email: true }
+          select: { id: true, firstName: true, lastName: true, email: true, phone: true, matricule: true, avatarUrl: true }
         },
         class: {
-          select: { niveauId: true }
+          select: { id: true, name: true, niveauId: true, school: { select: { id: true, name: true, code: true, ville: true } } }
         }
       }
     });
 
-    const coursesWithTeachers = courses.map(course => {
-      const matchingTeachersMap = new Map<string, { id: string; firstName: string; lastName: string; email?: string }>();
-      teacherClasses.forEach(tc => {
+    const classesForSchools = await prisma.class.findMany({
+      where: { niveauId: { in: courseNiveauIds } },
+      select: { niveauId: true, schoolId: true }
+    });
+
+    const niveauSchoolsMap = new Map<string, Set<string>>();
+    classesForSchools.forEach(c => {
+        if (!c.niveauId || !c.schoolId) return;
+        if (!niveauSchoolsMap.has(c.niveauId)) niveauSchoolsMap.set(c.niveauId, new Set());
+        niveauSchoolsMap.get(c.niveauId)!.add(c.schoolId);
+    });
+
+    const coursesWithTeachers = courses.map((course: any) => {
+      const matchingTeachersMap = new Map<string, any>();
+      teacherClasses.forEach((tc: any) => {
         if (tc.subjectId === course.subjectId && tc.class?.niveauId === course.niveauId && tc.teacher) {
-          matchingTeachersMap.set(tc.teacher.id, tc.teacher);
+          if (!matchingTeachersMap.has(tc.teacher.id)) {
+            matchingTeachersMap.set(tc.teacher.id, {
+              ...tc.teacher,
+              classes: [tc.class?.name].filter(Boolean),
+              schools: tc.class?.school ? [tc.class.school] : []
+            });
+          } else {
+            const existing = matchingTeachersMap.get(tc.teacher.id);
+            if (tc.class?.name && !existing.classes.includes(tc.class.name)) {
+              existing.classes.push(tc.class.name);
+            }
+            if (tc.class?.school && !existing.schools.some((s: any) => s.id === tc.class.school.id)) {
+              existing.schools.push(tc.class.school);
+            }
+          }
         }
       });
+      const teachersList = Array.from(matchingTeachersMap.values());
       return {
         ...course,
-        teachers: Array.from(matchingTeachersMap.values())
+        teachers: teachersList,
+        teachersCount: teachersList.length,
+        schoolsCount: niveauSchoolsMap.get(course.niveauId)?.size || 0
       };
     });
 
@@ -263,7 +346,7 @@ export const getCourses = async (req: AuthRequest, res: Response) => {
 export const updateCourse = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { subjectId, niveauId, coefficient, isPublished } = req.body;
+    const { academicYearId, subjectId, niveauId, coefficient, isPublished } = req.body;
 
     const course = await prisma.course.findUnique({ where: { id: String(id) } });
     if (!course) return res.status(404).json({ message: "Cours non trouvé" });
@@ -271,6 +354,7 @@ export const updateCourse = async (req: AuthRequest, res: Response) => {
     const updated = await prisma.course.update({
       where: { id: String(id) },
       data: {
+        ...(academicYearId ? { academicYearId } : {}),
         ...(subjectId ? { subjectId } : {}),
         ...(niveauId ? { niveauId } : {}),
         ...(typeof coefficient === 'number' && coefficient > 0 ? { coefficient } : {}),
@@ -278,7 +362,8 @@ export const updateCourse = async (req: AuthRequest, res: Response) => {
       },
       include: {
         niveau: true,
-        subject: true
+        subject: true,
+        academicYear: { select: { id: true, name: true, isCurrent: true } }
       }
     });
 
@@ -295,7 +380,7 @@ export const updateCourse = async (req: AuthRequest, res: Response) => {
 export const createChapter = async (req: AuthRequest, res: Response) => {
   try {
     const { courseId } = req.params;
-    const { title, content } = req.body;
+    const { title, content, termId } = req.body;
 
     if (!courseId || !title) return res.status(400).json({ message: "Course ID and Title required" });
 
@@ -308,7 +393,11 @@ export const createChapter = async (req: AuthRequest, res: Response) => {
       data: {
         title,
         content: content || null,
-        courseId: String(courseId)
+        courseId: String(courseId),
+        termId: termId || null
+      },
+      include: {
+        term: { select: { id: true, name: true } }
       }
     });
 
@@ -370,10 +459,12 @@ export const createChapter = async (req: AuthRequest, res: Response) => {
         const chapters = await prisma.chapter.findMany({
             where: { courseId: String(id) },
             include: {
+                term: { select: { id: true, name: true } },
                 resources: true,
                 exercises: {
                     include: {
                         _count: { select: { questions: true } },
+                        createdBy: { select: { id: true, firstName: true, lastName: true, role: true } },
                         ...(role === 'APPRENANT' && userId ? {
                             submissions: { where: { studentId: userId }, select: { id: true, score: true, maxScore: true } }
                         } : {})
@@ -405,47 +496,35 @@ export const createChapter = async (req: AuthRequest, res: Response) => {
 export const updateChapter = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params; // chapterId
-    const { title, content } = req.body;
+    const { title, content, termId } = req.body;
 
     if (!id) return res.status(400).json({ message: "ID required" });
     if (!title) return res.status(400).json({ message: "Title required" });
 
-    if ((req.user?.role as string) === "EDUCATEUR" || (req.user?.role as string) === "EDUCATEUR") {
+    if ((req.user?.role as string) === "EDUCATEUR" || (req.user?.role as string) === "APPRENANT" || (req.user?.role as string) === "PARENT") {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const chapter = await prisma.chapter.findUnique({
       where: { id: String(id) },
       include: {
-        course: {
-          include: { class: { select: { schoolId: true } } },
-        },
+        course: true,
       },
     });
 
     if (!chapter) return res.status(404).json({ message: "Chapter not found" });
-    if (!chapter.course.class) return res.status(500).json({ message: "Cours invalide (classe manquante)" });
-
-    if ((req.user?.role as string) === "ENSEIGNANT") {
-      if (chapter.course.teacherId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
-
-    if ((req.user?.role as string) === "DIRECTEUR") {
-      if (!req.user.schoolId) return res.status(400).json({ message: "No school ID" });
-      if (chapter.course.class.schoolId !== req.user.schoolId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
 
     const updated = await prisma.chapter.update({
       where: { id: String(id) },
       data: {
         title,
         content: content || null,
+        termId: termId || null,
         position: req.body.position !== undefined ? parseInt(req.body.position) : undefined,
       },
+      include: {
+        term: { select: { id: true, name: true } }
+      }
     });
 
     res.json(updated);
@@ -460,39 +539,25 @@ export const deleteChapter = async (req: AuthRequest, res: Response) => {
     const { id } = req.params; // chapterId
     if (!id) return res.status(400).json({ message: "ID required" });
 
-    if ((req.user?.role as string) === "EDUCATEUR" || (req.user?.role as string) === "EDUCATEUR") {
+    if ((req.user?.role as string) === "EDUCATEUR" || (req.user?.role as string) === "APPRENANT" || (req.user?.role as string) === "PARENT") {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const chapter = await prisma.chapter.findUnique({
       where: { id: String(id) },
       include: {
-        course: {
-          include: { class: { select: { schoolId: true } } },
-        },
+        course: true,
       },
     });
 
     if (!chapter) return res.status(404).json({ message: "Chapter not found" });
-    if (!chapter.course.class) return res.status(500).json({ message: "Cours invalide (classe manquante)" });
-
-    if ((req.user?.role as string) === "ENSEIGNANT") {
-      if (chapter.course.teacherId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
-
-    if ((req.user?.role as string) === "DIRECTEUR") {
-      if (!req.user.schoolId) return res.status(400).json({ message: "No school ID" });
-      if (chapter.course.class.schoolId !== req.user.schoolId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
 
     await prisma.$transaction([
-      prisma.resource.updateMany({
+      prisma.resource.deleteMany({
         where: { chapterId: String(id) },
-        data: { chapterId: null },
+      }),
+      prisma.chapterProgress.deleteMany({
+        where: { chapterId: String(id) },
       }),
       prisma.chapter.delete({ where: { id: String(id) } }),
     ]);
@@ -506,12 +571,11 @@ export const deleteChapter = async (req: AuthRequest, res: Response) => {
 
 export const addMaterial = async (req: AuthRequest, res: Response) => {
   try {
-    if ((req.user?.role as string) === "EDUCATEUR") {
+    if ((req.user?.role as string) === "EDUCATEUR" || (req.user?.role as string) === "APPRENANT" || (req.user?.role as string) === "PARENT") {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const { id } = req.params; // courseId
-    // If file uploaded, url comes from file path
     let { title, type, url, source, chapterId } = req.body;
 
     if (req.file) {
@@ -522,14 +586,10 @@ export const addMaterial = async (req: AuthRequest, res: Response) => {
              return res.status(500).json({ message: "Failed to upload file" });
         }
         
-        // If type not provided, deduce from mime type roughly or default to PDF
         if (!type) {
             if (req.file.mimetype.includes('video')) type = 'VIDEO';
             else type = 'PDF';
         }
-    } else {
-        // Validation for manual URL (if schema check is strict)
-        // const { title, type, url } = createMaterialSchema.parse(req.body);
     }
 
     if (!title || !type || !url) {
@@ -538,22 +598,9 @@ export const addMaterial = async (req: AuthRequest, res: Response) => {
 
     if (!id) return res.status(400).json({ message: "ID required" });
 
-    // Verify teacher owns the course
-    if ((req.user?.role as string) === "ENSEIGNANT") {
-      const course = await prisma.course.findUnique({ where: { id: id as string } });
-      if (!course || course.teacherId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
-    if ((req.user?.role as string) === "DIRECTEUR") {
-      if (!req.user.schoolId) return res.status(400).json({ message: "No school ID" });
-      const course = await prisma.course.findUnique({
-        where: { id: id as string },
-        include: { class: { select: { schoolId: true } } },
-      });
-      if (!course || course.class.schoolId !== req.user.schoolId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+    const course = await prisma.course.findUnique({ where: { id: id as string } });
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
     }
 
     const material = await prisma.resource.create({
@@ -564,6 +611,7 @@ export const addMaterial = async (req: AuthRequest, res: Response) => {
         source: source || null,
         chapterId: chapterId || null,
         courseId: id as string,
+        createdById: req.user?.id || null,
       },
     });
 
@@ -576,7 +624,7 @@ export const addMaterial = async (req: AuthRequest, res: Response) => {
 
 export const updateMaterial = async (req: AuthRequest, res: Response) => {
   try {
-    if ((req.user?.role as string) === "EDUCATEUR") {
+    if ((req.user?.role as string) === "EDUCATEUR" || (req.user?.role as string) === "APPRENANT" || (req.user?.role as string) === "PARENT") {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -588,27 +636,12 @@ export const updateMaterial = async (req: AuthRequest, res: Response) => {
     const material = await prisma.resource.findUnique({
       where: { id: id as string },
       include: {
-        course: {
-          include: { class: { select: { schoolId: true } } },
-        },
+        course: true,
       },
     });
 
     if (!material) {
       return res.status(404).json({ message: "Material not found" });
-    }
-
-    // Verify teacher owns the course
-    if ((req.user?.role as string) === "ENSEIGNANT") {
-      if (material.course.teacherId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
-    if ((req.user?.role as string) === "DIRECTEUR") {
-      if (!req.user.schoolId) return res.status(400).json({ message: "No school ID" });
-      if (material.course.class.schoolId !== req.user.schoolId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     if (req.file) {
@@ -635,7 +668,7 @@ export const updateMaterial = async (req: AuthRequest, res: Response) => {
         type,
         url,
         source: source || null,
-        chapterId: chapterId || null,
+        chapterId: chapterId !== undefined ? (chapterId || null) : material.chapterId,
       },
     });
 
@@ -648,7 +681,7 @@ export const updateMaterial = async (req: AuthRequest, res: Response) => {
 
 export const deleteMaterial = async (req: AuthRequest, res: Response) => {
   try {
-    if ((req.user?.role as string) === "EDUCATEUR") {
+    if ((req.user?.role as string) === "EDUCATEUR" || (req.user?.role as string) === "APPRENANT" || (req.user?.role as string) === "PARENT") {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -658,28 +691,10 @@ export const deleteMaterial = async (req: AuthRequest, res: Response) => {
 
     const material = await prisma.resource.findUnique({
       where: { id: id as string },
-      include: {
-        course: {
-          include: { class: { select: { schoolId: true } } },
-        },
-      },
     });
 
     if (!material) {
       return res.status(404).json({ message: "Material not found" });
-    }
-
-    // Verify teacher owns the course
-    if ((req.user?.role as string) === "ENSEIGNANT") {
-      if (material.course.teacherId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
-    if ((req.user?.role as string) === "DIRECTEUR") {
-      if (!req.user.schoolId) return res.status(400).json({ message: "No school ID" });
-      if (material.course.class.schoolId !== req.user.schoolId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
     }
 
     await prisma.resource.delete({
@@ -706,12 +721,7 @@ export const deleteCourse = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    // Verify permission (Teacher must own the course, or be Admin)
-    if ((req.user?.role as string) === "ENSEIGNANT") {
-      if (course.teacherId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    } else if (req.user?.role !== "SUPER_ADMIN" && req.user?.role !== "DIRECTEUR") {
+    if (req.user?.role !== "SUPER_ADMIN" && req.user?.role !== "DIRECTEUR" && req.user?.role !== "ENSEIGNANT") {
         return res.status(403).json({ message: "Access denied" });
     }
 
@@ -828,8 +838,8 @@ export const getSharedCourses = async (req: AuthRequest, res: Response) => {
     if (!role) return res.status(401).json({ message: "Unauthorized" });
 
     const schoolId = String(req.query.schoolId || "").trim();
-    const classId = String(req.query.classId || "").trim();
     const niveauId = String(req.query.niveauId || "").trim();
+    const termId = String(req.query.termId || "").trim();
     const q = String(req.query.q || "").trim();
 
     let allowedNiveauIds: string[] | null = null;
@@ -846,58 +856,63 @@ export const getSharedCourses = async (req: AuthRequest, res: Response) => {
     }
 
     const where: any = {
-      class: {
-        academicYear: {
-          isCurrent: true
-        }
-      }
+      isPublished: true
     };
-
-    if (schoolId && schoolId !== "ALL") {
-      where.class.schoolId = schoolId;
-    }
-    
-    if (classId && classId !== "ALL") {
-      where.class.id = classId;
-    }
 
     if (niveauId && niveauId !== "ALL") {
        if (allowedNiveauIds && !allowedNiveauIds.includes(niveauId)) {
            return res.json([]);
        }
-       where.class.niveauId = niveauId;
+       where.niveauId = niveauId;
     } else if (allowedNiveauIds) {
-       where.class.niveauId = { in: allowedNiveauIds };
+       where.niveauId = { in: allowedNiveauIds };
+    }
+
+    if (termId && termId !== "ALL") {
+      where.chapters = { some: { termId } };
     }
 
     if (q) {
       where.OR = [
-        { subject: { name: { contains: q } } },
-        { class: { name: { contains: q } } }
+        { subject: { name: { contains: q, mode: 'insensitive' } } },
+        { niveau: { nom: { contains: q, mode: 'insensitive' } } }
       ];
     }
 
     const courses = await prisma.course.findMany({
       where,
       include: {
-        class: {
-          include: {
-            school: { select: { id: true, name: true, code: true, logoUrl: true } },
-            niveau: { select: { id: true, nom: true } }
+        niveau: { select: { id: true, nom: true } },
+        subject: { select: { id: true, name: true, code: true, imageUrl: true } },
+        academicYear: { select: { id: true, name: true } },
+        chapters: {
+          select: {
+            id: true,
+            title: true,
+            termId: true,
+            term: { select: { id: true, name: true } },
+            _count: { select: { resources: true, exercises: true } }
           }
         },
-        subject: { select: { id: true, name: true } },
-        teacher: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        _count: { select: { chapters: true, resources: true } }
+        _count: { select: { chapters: true, assignments: true, resources: true } }
       },
       orderBy: [
-        { subject: { name: "asc" } },
-        { class: { name: "asc" } }
+        { subject: { name: "asc" } }
       ]
     });
 
-    console.log(`[getSharedCourses] returning ${courses.length} courses for user ${req.user?.id} with role ${role}. Query params: schoolId=${schoolId}, niveauId=${niveauId}, classId=${classId}`);
-    res.json(courses);
+    // Calculate total exercises count per course
+    const enriched = courses.map(c => {
+      const totalExercises = c.chapters.reduce((sum, ch) => sum + (ch._count?.exercises || 0), 0);
+      const totalResources = c.chapters.reduce((sum, ch) => sum + (ch._count?.resources || 0), 0) + (c._count?.resources || 0);
+      return {
+        ...c,
+        totalExercises,
+        totalResources
+      };
+    });
+
+    res.json(enriched);
   } catch (error: any) {
     console.error("[getSharedCourses] Error:", error.message);
     res.status(500).json({ message: "Error fetching shared courses", error });
@@ -938,16 +953,10 @@ export const getSharedMaterials = async (req: AuthRequest, res: Response) => {
 
     const where: any = {
       course: {
-        class: {
-          ...(schoolId ? { schoolId } : {}),
-          ...(userNiveauId ? { niveauId: userNiveauId } : {})
-        },
+        isPublished: true,
+        ...(userNiveauId ? { niveauId: userNiveauId } : {})
       },
     };
-
-    if (classId && classId !== "ALL" && role !== "APPRENANT") {
-      where.course.class.id = classId;
-    }
 
     if (type && type !== "ALL") {
       where.type = type;
@@ -957,17 +966,7 @@ export const getSharedMaterials = async (req: AuthRequest, res: Response) => {
       where.OR = [
         { title: { contains: q, mode: "insensitive" } },
         { course: { subject: { name: { contains: q, mode: "insensitive" } } } },
-        { course: { class: { name: { contains: q, mode: "insensitive" } } } },
-        {
-          course: {
-            teacher: {
-              OR: [
-                { firstName: { contains: q, mode: "insensitive" } },
-                { lastName: { contains: q, mode: "insensitive" } },
-              ],
-            },
-          },
-        },
+        { course: { niveau: { nom: { contains: q, mode: "insensitive" } } } }
       ];
     }
 
@@ -976,13 +975,8 @@ export const getSharedMaterials = async (req: AuthRequest, res: Response) => {
       include: {
         course: {
           include: {
-            class: {
-              include: {
-                school: { select: { id: true, name: true } },
-              },
-            },
-            subject: true,
-            teacher: { select: { id: true, firstName: true, lastName: true } },
+            niveau: { select: { id: true, nom: true } },
+            subject: { select: { id: true, name: true, code: true } }
           },
         },
       },
@@ -1013,26 +1007,32 @@ export const toggleChapterProgress = async (req: AuthRequest, res: Response) => 
     if (!chapter) return res.status(404).json({ message: "Chapter not found" });
 
     const enrollment = await prisma.enrollment.findFirst({
-      where: { studentId: userId, classId: chapter.course.classId }
+      where: { studentId: userId, class: { niveauId: chapter.course.niveauId } }
     });
     if (!enrollment) return res.status(403).json({ message: "Non inscrit à ce cours" });
 
+    const chapterId = String(id);
     let progress = await prisma.chapterProgress.findUnique({
-      where: { studentId_chapterId: { studentId: userId, chapterId: id } }
+      where: { studentId_chapterId: { studentId: userId, chapterId } }
     });
+
+    // Règle métier : une fois coché/validé par l'apprenant, il ne peut plus le décocher
+    if (progress && progress.completed && req.user?.role === 'APPRENANT') {
+      return res.json(progress);
+    }
 
     if (progress) {
       progress = await prisma.chapterProgress.update({
         where: { id: progress.id },
-        data: { completed: Boolean(completed), completedAt: completed ? new Date() : null }
+        data: { completed: true, completedAt: new Date() }
       });
     } else {
       progress = await prisma.chapterProgress.create({
         data: {
           studentId: userId,
-          chapterId: id,
-          completed: Boolean(completed),
-          completedAt: completed ? new Date() : null
+          chapterId: chapterId,
+          completed: true,
+          completedAt: new Date()
         }
       });
     }
@@ -1051,16 +1051,17 @@ export const getCourseStats = async (req: AuthRequest, res: Response) => {
 
     const course = await prisma.course.findUnique({
       where: { id: String(id) },
-      include: { class: { include: { enrollments: true } }, _count: { select: { chapters: true } } }
+      include: { _count: { select: { chapters: true } } }
     });
 
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    if (role === "ENSEIGNANT" && course.teacherId !== userId) {
-      return res.status(403).json({ message: "Non autorisé" });
-    }
-
-    const totalStudents = course.class.enrollments.length;
+    const totalStudents = await prisma.enrollment.count({
+      where: {
+        class: { niveauId: course.niveauId },
+        status: 'ACTIVE'
+      }
+    });
     const totalChapters = course._count.chapters;
 
     // Get progress for this course's chapters
@@ -1088,7 +1089,7 @@ import { propagateCourse } from "../services/propagation.js";
 export const publishCourse = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { isPublished, scope, niveauId, schoolId: bodySchoolId } = req.body;
+    const { isPublished, scope, niveauId } = req.body;
     const role = req.user?.role as string;
 
     const course = await prisma.course.findUnique({ where: { id: String(id) } });
@@ -1107,8 +1108,7 @@ export const publishCourse = async (req: AuthRequest, res: Response) => {
       data: {
         isPublished: Boolean(isPublished),
         scope: effectiveScope as any,
-        niveauId: niveauId || course.niveauId || null,
-        schoolId: bodySchoolId || course.schoolId || req.user?.schoolId || null
+        niveauId: niveauId || course.niveauId || undefined,
       }
     });
 
@@ -1144,30 +1144,177 @@ export const publishCourse = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getCourseStudents = async (req: AuthRequest, res: Response) => {
+export const getCourseSchools = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const course = await prisma.course.findUnique({ where: { id: String(id) } });
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    // Fetch students enrolled in classes that have the course's niveau
-    const enrollments = await prisma.enrollment.findMany({
+    // Fetch unique schools that have classes in this course's niveau
+    const classes = await prisma.class.findMany({
       where: {
-        class: { niveauId: course.niveauId },
-        status: 'ACTIVE'
+        niveauId: course.niveauId,
+        ...(req.user?.role === 'DIRECTEUR' && req.user.schoolId ? { schoolId: req.user.schoolId } : {})
       },
       include: {
-        student: {
-          select: { id: true, firstName: true, lastName: true, matricule: true, email: true }
+        school: {
+          select: { id: true, name: true, code: true, ville: true, address: true, phone: true, email: true }
         },
-        class: {
-          select: { id: true, name: true }
+        _count: { select: { enrollments: true } }
+      }
+    });
+
+    const schoolsMap = new Map<string, any>();
+    classes.forEach(cls => {
+      if (cls.school) {
+        if (!schoolsMap.has(cls.school.id)) {
+          schoolsMap.set(cls.school.id, {
+            ...cls.school,
+            classCount: 1,
+            classes: [cls.name],
+            studentCount: cls._count.enrollments
+          });
+        } else {
+          const s = schoolsMap.get(cls.school.id);
+          s.classCount += 1;
+          if (!s.classes.includes(cls.name)) {
+            s.classes.push(cls.name);
+          }
+          s.studentCount += cls._count.enrollments;
         }
       }
     });
 
-    res.json(enrollments);
+    res.json(Array.from(schoolsMap.values()));
   } catch (error) {
+    res.status(500).json({ message: "Error fetching course schools", error });
+  }
+};
+
+export const getCourseStudents = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const course = await prisma.course.findUnique({
+      where: { id: String(id) },
+      include: {
+        subject: true,
+        niveau: true,
+        chapters: { select: { id: true, title: true, termId: true } }
+      }
+    });
+    if (!course) return res.status(404).json({ message: "Course not found" });
+
+    const totalChaptersCount = course.chapters.length;
+
+    // Fetch students enrolled in classes that have the course's niveau
+    const enrollments = await prisma.enrollment.findMany({
+      where: {
+        class: {
+          niveauId: course.niveauId,
+          ...(req.user?.role === 'DIRECTEUR' && req.user.schoolId ? { schoolId: req.user.schoolId } : {})
+        },
+        status: 'ACTIVE'
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            matricule: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+            chapterProgress: {
+              where: {
+                chapter: { courseId: course.id },
+                completed: true
+              },
+              select: { chapterId: true, completedAt: true }
+            },
+            grades: {
+              where: {
+                courseId: course.id
+              },
+              include: {
+                assignment: {
+                  select: { id: true, title: true, type: true, points: true, coefficient: true, dueDate: true }
+                },
+                term: {
+                  select: { id: true, name: true }
+                }
+              }
+            }
+          }
+        },
+        class: {
+          select: {
+            id: true,
+            name: true,
+            school: { select: { id: true, name: true, code: true, ville: true } }
+          }
+        }
+      }
+    });
+
+    const studentsWithStats = enrollments.map(enr => {
+      const s = enr.student;
+      const completedCount = s.chapterProgress ? s.chapterProgress.length : 0;
+      const progressPercent = totalChaptersCount > 0
+        ? Math.round((completedCount / totalChaptersCount) * 100)
+        : 0;
+
+      // Calcul des moyennes par trimestre
+      const termGradesMap: { [termId: string]: { totalPoints: number; totalCoef: number; grades: any[] } } = {};
+      let totalCourseWeighted = 0;
+      let totalCourseCoef = 0;
+
+      (s.grades || []).forEach(g => {
+        const tid = g.termId || g.term?.id || 'DEFAULT';
+        if (!termGradesMap[tid]) {
+          termGradesMap[tid] = { totalPoints: 0, totalCoef: 0, grades: [] };
+        }
+        const coef = g.coefficient || g.assignment?.coefficient || 1;
+        termGradesMap[tid].totalPoints += g.value * coef;
+        termGradesMap[tid].totalCoef += coef;
+        termGradesMap[tid].grades.push(g);
+
+        totalCourseWeighted += g.value * coef;
+        totalCourseCoef += coef;
+      });
+
+      const termAverages: { [termId: string]: number } = {};
+      Object.keys(termGradesMap).forEach(tid => {
+        const item = termGradesMap[tid];
+        termAverages[tid] = item.totalCoef > 0 ? Number((item.totalPoints / item.totalCoef).toFixed(2)) : 0;
+      });
+
+      const overallAverage = totalCourseCoef > 0 ? Number((totalCourseWeighted / totalCourseCoef).toFixed(2)) : null;
+
+      return {
+        id: enr.id,
+        studentId: s.id,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        matricule: s.matricule || 'N/A',
+        email: s.email,
+        phone: s.phone,
+        avatarUrl: s.avatarUrl,
+        classId: enr.class?.id,
+        className: enr.class?.name,
+        school: enr.class?.school,
+        completedChaptersCount: completedCount,
+        totalChaptersCount,
+        participationRate: progressPercent,
+        grades: s.grades || [],
+        termAverages,
+        overallAverage
+      };
+    });
+
+    res.json(studentsWithStats);
+  } catch (error) {
+    console.error("Error fetching course students:", error);
     res.status(500).json({ message: "Error fetching course students", error });
   }
 };
@@ -1182,20 +1329,46 @@ export const getCourseTeachers = async (req: AuthRequest, res: Response) => {
     const teacherClasses = await prisma.teacherClass.findMany({
       where: {
         subjectId: course.subjectId,
-        class: { niveauId: course.niveauId }
+        class: {
+          niveauId: course.niveauId,
+          ...(req.user?.role === 'DIRECTEUR' && req.user.schoolId ? { schoolId: req.user.schoolId } : {})
+        }
       },
       include: {
         teacher: {
-          select: { id: true, firstName: true, lastName: true, email: true }
+          select: { id: true, firstName: true, lastName: true, email: true, phone: true, matricule: true, avatarUrl: true }
         },
         class: {
-          select: { id: true, name: true }
+          select: { id: true, name: true, school: { select: { id: true, name: true, code: true, ville: true } } }
         }
       }
     });
 
-    res.json(teacherClasses);
+    // Group by teacher
+    const teachersMap = new Map<string, any>();
+    teacherClasses.forEach(tc => {
+      if (!tc.teacher) return;
+      const tid = tc.teacher.id;
+      if (!teachersMap.has(tid)) {
+        teachersMap.set(tid, {
+          ...tc.teacher,
+          classes: [tc.class?.name].filter(Boolean),
+          schools: tc.class?.school ? [tc.class.school] : []
+        });
+      } else {
+        const existing = teachersMap.get(tid);
+        if (tc.class?.name && !existing.classes.includes(tc.class.name)) {
+          existing.classes.push(tc.class.name);
+        }
+        if (tc.class?.school && !existing.schools.some((s: any) => s.id === tc.class.school.id)) {
+          existing.schools.push(tc.class.school);
+        }
+      }
+    });
+
+    res.json(Array.from(teachersMap.values()));
   } catch (error) {
+    console.error("Error fetching course teachers:", error);
     res.status(500).json({ message: "Error fetching course teachers", error });
   }
 };

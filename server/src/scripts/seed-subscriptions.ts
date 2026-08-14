@@ -2,67 +2,102 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const DEFAULT_SUBSCRIPTIONS = [
+export const DEFAULT_SUBSCRIPTIONS = [
   {
-    name: "Plan Découverte",
-    planKey: "decouverte",
-    description: "Essai gratuit 14 jours",
-    price: 0,
-    period: "Essai gratuit",
-    features: ["Gestion des élèves", "Notes basiques", "Agenda scolaire"],
-    isActive: true
-  },
-  {
-    name: "Établissement Pro",
-    planKey: "pro",
-    description: "La solution complète pour votre établissement",
-    price: 45000,
+    name: "Pack Standard",
+    planKey: "standard",
+    description: "Idéal pour les collèges et établissements de proximité (jusqu'à 500 élèves)",
+    price: 75000,
     period: "par trimestre",
-    features: ["Gestion illimitée", "Bulletins avancés", "Messagerie et Annonces", "Support prioritaire"],
+    features: [
+      "Gestion complète des élèves & classes",
+      "Notes, évaluations & relevés",
+      "Bulletins automatisés officiels",
+      "Agenda scolaire synchronisé",
+      "Cahier de texte numérique",
+      "Support technique par email"
+    ],
     isActive: true
   },
   {
-    name: "Complexe Mixte",
-    planKey: "mixte",
-    description: "Sur Devis",
-    price: 0,
-    period: "sur-mesure",
-    features: ["Toutes les options Pro", "Multi-établissements", "Formation sur site", "Personnalisation poussée"],
+    name: "Pack Pro Établissement",
+    planKey: "pro",
+    description: "La solution complète pour tout le secondaire (collèges & lycées d'excellence)",
+    price: 150000,
+    period: "par trimestre",
+    features: [
+      "Tous les avantages du Pack Standard",
+      "Collèges & Lycées (1er et 2nd cycles)",
+      "Effectifs élèves & professeurs illimités",
+      "Bulletins officiels SEEEC + Registre de Conduite",
+      "Messagerie directe & Annonces Flash News",
+      "Librairie numérique 3.0 (Manuels & Annales)",
+      "Accompagnement & Support prioritaire"
+    ],
+    isActive: true
+  },
+  {
+    name: "Pack Élite Complexe",
+    planKey: "elite",
+    description: "Pour les grands groupes scolaires, complexes mixtes et réseaux multi-établissements",
+    price: 250000,
+    period: "par trimestre",
+    features: [
+      "Tous les avantages du Pack Pro",
+      "Multi-établissements & Gestion centralisée",
+      "Enseignement Général, Technique & Mixte",
+      "Module Examens Blancs & Statistiques avancées",
+      "Personnalisation & Intégration SEEEC",
+      "Formation des équipes pédagogiques sur site",
+      "Chef de projet dédié & Support 24/7"
+    ],
     isActive: true
   }
 ];
 
-async function main() {
-  console.log('Seeding subscriptions...');
+export async function seedSubscriptions() {
+  console.log('📦 Initialisation des 3 packs d\'abonnement payants...');
 
-  // 1. Créer ou mettre à jour les abonnements par défaut
   for (const sub of DEFAULT_SUBSCRIPTIONS) {
     await prisma.subscription.upsert({
       where: { planKey: sub.planKey },
-      update: {},
+      update: {
+        name: sub.name,
+        description: sub.description,
+        price: sub.price,
+        period: sub.period,
+        features: sub.features,
+        isActive: sub.isActive,
+      },
       create: sub,
     });
   }
 
-  // 2. Assigner l'abonnement par défaut ('pro') aux écoles existantes qui n'ont pas d'abonnement
+  // Assigner l'abonnement 'pro' aux écoles existantes sans abonnement
   const defaultSub = await prisma.subscription.findUnique({ where: { planKey: 'pro' } });
   
   if (defaultSub) {
     const updatedSchools = await prisma.school.updateMany({
       where: { subscriptionId: null },
-      data: { subscriptionId: defaultSub.id }
+      data: { 
+        subscriptionId: defaultSub.id,
+        subscriptionStatus: 'ACTIVE'
+      }
     });
-    console.log(`Assigned default subscription 'pro' to ${updatedSchools.count} existing schools.`);
+    console.log(`✅ Abonnement par défaut 'Pack Pro' assigné à ${updatedSchools.count} établissements.`);
   }
 
-  console.log('Subscriptions seeded successfully.');
+  console.log('✅ Abonnements initialisés avec succès.');
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
+async function main() {
+  await seedSubscriptions();
+  await prisma.$disconnect();
+}
+
+if (process.argv[1]?.includes('seed-subscriptions')) {
+  main().catch(err => {
+    console.error('Erreur seed subscriptions:', err);
     process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
   });
+}

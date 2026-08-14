@@ -45,6 +45,7 @@ import subscriptionRoutes from "./routes/subscription.routes.js";
 import parentRoutes from "./routes/parent.routes.js";
 import averageRoutes from "./routes/average.routes.js";
 import exerciseRoutes from "./routes/exercise.routes.js";
+import systemSettingsRoutes from "./routes/system-settings.routes.js";
 
 const app = express();
 
@@ -118,6 +119,7 @@ app.use("/api/calendar", calendarRoutes);          // Calendrier unifié
 app.use("/api/subscriptions", subscriptionRoutes); // Gestion des abonnements
 app.use("/api/parents", parentRoutes);             // Gestion parents-enfants (modèle CNED)
 app.use("/api/averages", averageRoutes);           // Moyennes trimestrielles et annuelles
+app.use("/api/system-settings", systemSettingsRoutes); // Configuration globale de la plateforme
 app.use("/api", exerciseRoutes);                   // Exercices par chapitre
 
 import { globalErrorHandler } from "./middleware/error-handler.js";

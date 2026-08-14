@@ -25,12 +25,12 @@ const router = Router();
 
 router.use(authenticate);
 
-router.post("/", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.fields([{ name: 'file', maxCount: 1 }, { name: 'voiceNote', maxCount: 1 }, { name: 'correction', maxCount: 1 }]), createAssignment);
+router.post("/", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.any(), createAssignment);
 router.post("/quick-add", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), quickAddAssignment);
 router.get("/agenda", getAgenda); // Must be before /:id
 router.get("/", getAssignments);
 router.get("/:id", getAssignmentById);
-router.put("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT]), updateAssignment);
+router.put("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT]), upload.any(), updateAssignment);
 router.patch("/:id/publish", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT]), publishAssignment);
 router.delete("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), deleteAssignment);
 

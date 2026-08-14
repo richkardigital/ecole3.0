@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { AuthRequest } from "../middleware/auth.js";
 import { uploadToSupabase } from "../utils/supabase.js";
 import { propagateAssignment } from "../services/propagation.js";
+import { ROLES } from "../config/constants.js";
 
 const createAssignmentSchema = z.object({
   title: z.string(),
@@ -32,120 +33,189 @@ const gradeSubmissionSchema = z.object({
 
 export const createAssignment = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, description, startDate, dueDate, courseId, niveauId, subjectId, type, termId, coefficient, autoGrade, isNiveauWide, imageUrl } = req.body;
+    const { 
+      title, 
+      description, 
+      startDate, 
+      dueDate, 
+      courseId, 
+      niveauId, 
+      subjectId, 
+      academicYearId,
+      type, 
+      termId, 
+      coefficient, 
+      points,
+      timeLimit,
+      autoGrade, 
+      isNiveauWide, 
+      imageUrl,
+      syncCalendar,
+      published
+    } = req.body;
+
     let finalDescription = description || "";
     let voiceNoteUrl = null;
     let correctionUrl = null;
+    let attachments: string[] = [];
 
-    // Handle files
-    // req.files is { [fieldname: string]: Express.Multer.File[] } when using upload.fields
-    const files = req.files as { [fieldname: string]: any[] } | undefined;
+    // Helper to find file in array or object
+    const getFile = (name: string) => {
+      if (Array.isArray(req.files)) {
+        return (req.files as Express.Multer.File[]).find(f => f.fieldname === name);
+      } else if (req.files && typeof req.files === 'object') {
+        return (req.files as Record<string, Express.Multer.File[]>)[name]?.[0];
+      }
+      return undefined;
+    };
 
-    if (files) {
-        if (files['file'] && files['file'][0]) {
-            const publicUrl = await uploadToSupabase(files['file'][0]);
-            if (publicUrl) {
-                finalDescription += `\n\n[Télécharger le fichier joint](${publicUrl})`;
-            }
-        }
-        if (files['voiceNote'] && files['voiceNote'][0]) {
-             voiceNoteUrl = await uploadToSupabase(files['voiceNote'][0]);
-        }
-        if (files['correction'] && files['correction'][0]) {
-             correctionUrl = await uploadToSupabase(files['correction'][0]);
-        }
-    } else if (req.file) {
-        // Fallback
-        const publicUrl = await uploadToSupabase(req.file);
-        if (publicUrl) {
-            finalDescription += `\n\n[Télécharger le fichier joint](${publicUrl})`;
-        }
+    const mainFile = getFile('file') || (req.file as Express.Multer.File | undefined);
+    if (mainFile) {
+      const publicUrl = await uploadToSupabase(mainFile);
+      if (publicUrl) {
+        attachments.push(publicUrl);
+      }
+    }
+
+    const voiceNoteFile = getFile('voiceNote');
+    if (voiceNoteFile) {
+      voiceNoteUrl = await uploadToSupabase(voiceNoteFile);
+    }
+
+    const correctionFile = getFile('correction');
+    if (correctionFile) {
+      correctionUrl = await uploadToSupabase(correctionFile);
     }
 
     if (!title || !dueDate) {
-         return res.status(400).json({ message: "Missing required fields" });
+      return res.status(400).json({ message: "Le titre et la date limite sont requis" });
     }
 
     if (!courseId && !niveauId) {
-         return res.status(400).json({ message: "courseId or niveauId is required" });
+      return res.status(400).json({ message: "courseId ou niveauId est requis" });
     }
 
-    const parsedDate = new Date(dueDate);
-    const parsedCoefficient = coefficient ? parseInt(coefficient) : 1;
+    // Resolve course information if courseId provided
+    let resolvedNiveauId = niveauId || null;
+    let resolvedSubjectId = subjectId || null;
+    let resolvedAcademicYearId = academicYearId || null;
 
-    const role = req.user?.role as string;
-
-    // ENSEIGNANT : ne peut pas créer de contenu au niveau NIVEAU
-    if (role === "ENSEIGNANT" && (niveauId || type === 'DEVOIR_NIVEAU')) {
-      return res.status(403).json({
-        message: "Les enseignants ne peuvent pas créer de devoirs de niveau. Contactez le Super Administrateur."
+    if (courseId) {
+      const course = await prisma.course.findUnique({
+        where: { id: String(courseId) },
+        include: { niveau: true, subject: true }
       });
-    }
-
-    if (role === "ENSEIGNANT" && courseId) {
-      const course = await prisma.course.findUnique({ where: { id: courseId } });
-      if (!course || course.teacherId !== req.user!.id) {
-        return res.status(403).json({ message: "Access denied" });
+      if (course) {
+        if (!resolvedNiveauId) resolvedNiveauId = course.niveauId;
+        if (!resolvedSubjectId) resolvedSubjectId = course.subjectId;
+        if (!resolvedAcademicYearId) resolvedAcademicYearId = course.academicYearId;
       }
-    } else if (niveauId && role !== "SUPER_ADMIN") {
-      return res.status(403).json({ message: "Seul le Super Administrateur peut créer des devoirs de niveau." });
     }
 
-    if (type === 'DEVOIR_NIVEAU' && role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ message: "Seul un Super Admin peut créer un devoir de niveau." });
+    // Determine AssignmentType
+    let resolvedType: any = "DEVOIR_NIVEAU";
+    if (type === "COMPOSITION" || type === "COMPOSITION_NIVEAU" || type === "COMPO_NIVEAU") {
+      resolvedType = "COMPOSITION_NIVEAU";
+    } else if (type === "DEVOIR" || type === "DEVOIR_NIVEAU") {
+      resolvedType = "DEVOIR_NIVEAU";
+    } else if (type === "DEVOIR_MAISON") {
+      resolvedType = "DEVOIR_MAISON";
+    } else if (type === "DEVOIR_CLASSE") {
+      resolvedType = "DEVOIR_CLASSE";
+    } else if (type === "EXERCICE_MAISON") {
+      resolvedType = "EXERCICE_MAISON";
+    } else if (type === "EXAMEN") {
+      resolvedType = "EXAMEN";
+    }
+
+    const parsedDueDate = new Date(dueDate);
+    const parsedStartDate = startDate ? new Date(startDate) : new Date();
+    const parsedCoefficient = coefficient ? parseInt(coefficient) : 1;
+    const parsedPoints = points ? parseInt(points) : 20;
+    const parsedTimeLimit = timeLimit ? parseInt(timeLimit) : null;
+    const isAutoGrade = String(autoGrade) === 'true';
+    const isSyncCalendar = syncCalendar !== undefined ? String(syncCalendar) === 'true' : true;
+    const isPublished = published !== undefined ? String(published) === 'true' : true;
+
+    // Parse questions & handle question images if any
+    let questionsData: any = undefined;
+    if (req.body.questions) {
+      let rawQuestions = typeof req.body.questions === 'string' ? JSON.parse(req.body.questions) : req.body.questions;
+      if (Array.isArray(rawQuestions) && rawQuestions.length > 0) {
+        const processedQuestions = [];
+        for (let i = 0; i < rawQuestions.length; i++) {
+          const q = rawQuestions[i];
+          let qImgUrl = q.imageUrl || null;
+          const qImgFile = getFile(`questionImage_${i}`) || getFile(`questions[${i}][image]`);
+          if (qImgFile) {
+            const uploaded = await uploadToSupabase(qImgFile);
+            if (uploaded) qImgUrl = uploaded;
+          }
+
+          processedQuestions.push({
+            text: q.text,
+            type: q.type || 'MULTIPLE_CHOICE',
+            points: Number(q.points) || 1,
+            position: i,
+            imageUrl: qImgUrl,
+            expectedAnswer: q.expectedAnswer || null,
+            options: q.options && Array.isArray(q.options) ? {
+              create: q.options.map((opt: any) => ({
+                text: opt.text,
+                isCorrect: Boolean(opt.isCorrect),
+                imageUrl: opt.imageUrl || null
+              }))
+            } : undefined
+          });
+        }
+        questionsData = { create: processedQuestions };
+      }
     }
 
     const assignment = await prisma.assignment.create({
       data: {
         title,
         description: finalDescription || null,
-        dueDate: parsedDate,
-        courseId: courseId || null,
-        niveauId: niveauId || null,
-        subjectId: subjectId || null,
-        academicYearId: req.body.academicYearId || null,
-        termId: termId || null,
-        type: type || "DEVOIR",
+        startDate: parsedStartDate,
+        dueDate: parsedDueDate,
+        timeLimit: parsedTimeLimit,
+        points: parsedPoints,
         coefficient: parsedCoefficient,
-        startDate: startDate ? new Date(startDate) : null,
-        autoGrade: Boolean(autoGrade),
-        isNiveauWide: Boolean(isNiveauWide) || Boolean(niveauId),
+        courseId: courseId ? String(courseId) : null,
+        niveauId: resolvedNiveauId,
+        subjectId: resolvedSubjectId,
+        academicYearId: resolvedAcademicYearId,
+        termId: termId || null,
+        type: resolvedType,
+        autoGrade: isAutoGrade,
+        isNiveauWide: true,
+        syncCalendar: isSyncCalendar,
+        published: isPublished,
         imageUrl: imageUrl || null,
         createdById: req.user?.id,
         voiceNoteUrl: voiceNoteUrl || null,
         correctionUrl: correctionUrl || null,
-        // Modèle CNED : scope et workflow
-        scope: niveauId ? 'NIVEAU' : (req.body.scope || 'CLASSE'),
-        schoolId: req.body.schoolId || req.user?.schoolId || null,
-        workflowStatus: 'BROUILLON',
-        attachments: req.body.attachments ? (Array.isArray(req.body.attachments) ? req.body.attachments : JSON.parse(req.body.attachments)) : [],
-        questions: req.body.questions ? {
-          create: (typeof req.body.questions === 'string' ? JSON.parse(req.body.questions) : req.body.questions).map((q: any) => ({
-            text: q.text,
-            type: q.type || 'MULTIPLE_CHOICE',
-            points: Number(q.points) || 1,
-            options: q.options ? {
-              create: q.options.map((opt: any) => ({
-                text: opt.text,
-                isCorrect: Boolean(opt.isCorrect)
-              }))
-            } : undefined
-          }))
-        } : undefined
+        attachments: attachments.length > 0 ? attachments : (req.body.attachments ? (Array.isArray(req.body.attachments) ? req.body.attachments : JSON.parse(req.body.attachments)) : []),
+        scope: resolvedNiveauId ? 'NIVEAU' : 'CLASSE',
+        workflowStatus: isPublished ? 'PUBLIE' : 'BROUILLON',
+        questions: questionsData
       },
       include: {
         questions: {
           include: {
             options: true
           }
-        }
+        },
+        subject: true,
+        niveau: true,
+        term: true
       }
     });
 
     res.status(201).json(assignment);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error creating assignment", error });
+    console.error("Error creating assignment:", error);
+    res.status(500).json({ message: "Erreur lors de la création de l'évaluation", error });
   }
 };
 
@@ -162,23 +232,17 @@ export const quickAddAssignment = async (req: AuthRequest, res: Response) => {
   try {
     const { title, courseId, termId, type, points, coefficient } = quickAddAssignmentSchema.parse(req.body);
 
-    if ((req.user?.role as string) === "ENSEIGNANT") {
-      const course = await prisma.course.findUnique({ where: { id: courseId } });
-      if (!course || course.teacherId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-    }
-
     const assignment = await prisma.assignment.create({
       data: {
         title,
         courseId,
         termId: termId || null,
-        type: (type as any) || "DEVOIR",
+        type: (type as any) || "DEVOIR_MAISON",
         points: points || 20,
         coefficient: coefficient || 1,
         dueDate: new Date(), // Just default to today since it's an offline manual assessment
-        published: true // Ensure it shows up instantly
+        published: true, // Ensure it shows up instantly
+        createdById: req.user?.id
       }
     });
 
@@ -192,7 +256,7 @@ export const quickAddAssignment = async (req: AuthRequest, res: Response) => {
 
 export const publishAssignment = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { published } = req.body;
     const role = req.user?.role as string;
     
@@ -277,7 +341,7 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
             if (schoolId) whereClass.schoolId = schoolId;
         } else if ((req.user?.role as string) === 'ENSEIGNANT') {
             if (schoolId) whereClass.schoolId = schoolId;
-            whereClass.courses = { some: { teacherId: req.user.id } };
+            whereClass.teacherClasses = { some: { teacherId: req.user.id } };
         } else if ((req.user?.role as string) === 'APPRENANT') {
             if (schoolId) whereClass.schoolId = schoolId;
             whereClass.enrollments = { some: { studentId: req.user.id } };
@@ -285,10 +349,11 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
 
         const classes = await prisma.class.findMany({
             where: whereClass,
-            select: { id: true }
+            select: { id: true, niveauId: true }
         });
 
         const classIds = classes.map(c => c.id);
+        const classNiveauIds = classes.map(c => c.niveauId).filter(Boolean) as string[];
 
         // Find the actual Niveau IDs for global assignments (including school-specific and global)
         const niveaux = await prisma.niveau.findMany({
@@ -300,7 +365,7 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
                 ]
             }
         });
-        const niveauIds = niveaux.map(n => n.id);
+        const niveauIds = Array.from(new Set([...niveaux.map(n => n.id), ...classNiveauIds]));
 
         if (classIds.length === 0 && niveauIds.length === 0) {
             return res.json([]);
@@ -310,12 +375,12 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
         const assignmentWhere: any = {
             OR: [
                 {
-                    course: {
-                        classId: { in: classIds }
-                    }
+                    niveauId: { in: niveauIds }
                 },
                 {
-                    niveauId: { in: niveauIds }
+                    course: {
+                        niveauId: { in: niveauIds }
+                    }
                 }
             ],
             dueDate: {
@@ -335,7 +400,7 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
                 course: {
                     include: {
                         subject: true,
-                        class: true
+                        niveau: true
                     }
                 },
                 subject: true,
@@ -368,7 +433,7 @@ export const getAssignmentById = async (req: AuthRequest, res: Response) => {
           select: {
             id: true,
             subject: { select: { name: true } },
-            class: { select: { name: true } }
+            niveau: { select: { nom: true } }
           }
         },
         submissions: {
@@ -399,12 +464,11 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
 
         if (userRole === 'ENSEIGNANT') {
             // Un enseignant ne voit que les devoirs globaux des niveaux où il enseigne
-            const courses = await prisma.course.findMany({
+            const teacherClasses = await prisma.teacherClass.findMany({
                 where: { teacherId: req.user?.id },
                 include: { class: true }
             });
-            const niveauIdsRaw = courses.map(c => c.class.niveauId).filter(Boolean);
-            const niveauIds = niveauIdsRaw.filter((val, index, self) => self.indexOf(val) === index) as string[];
+            const niveauIds = Array.from(new Set(teacherClasses.map(tc => tc.class?.niveauId).filter((n): n is string => Boolean(n))));
             if (niveauIds.length === 0) return res.json([]);
             
             // Si on demande un niveau spécifique, on vérifie que le prof l'enseigne bien
@@ -495,25 +559,28 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
 
     const course = await prisma.course.findUnique({
         where: { id: String(courseId) },
-        include: { class: { include: { enrollments: { where: { studentId: req.user?.id } } } } }
+        include: { niveau: true, subject: true }
     });
 
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    const role = req.user?.role as string;
-    if (role === 'SUPER_ADMIN') {
-        // Super Admin has full access
-    } else if (role === 'ENSEIGNANT' && course.teacherId !== req.user?.id) {
-        return res.status(403).json({ message: "Access denied" });
-    } else if (role === 'APPRENANT' && course.class.enrollments.length === 0) {
-        return res.status(403).json({ message: "Access denied" });
-    } else if ((role === 'DIRECTEUR' || role === 'EDUCATEUR') && req.user?.schoolId && course.class.schoolId !== req.user?.schoolId) {
-        return res.status(403).json({ message: "Access denied" });
-    }
-
     const assignments = await prisma.assignment.findMany({
-      where: { courseId: String(courseId) },
+      where: { 
+        OR: [
+          { courseId: String(courseId) },
+          { AND: [{ niveauId: course.niveauId }, { subjectId: course.subjectId }] }
+        ]
+      },
       include: {
+        subject: true,
+        niveau: true,
+        term: true,
+        questions: {
+          include: {
+            options: true
+          },
+          orderBy: { position: 'asc' }
+        },
         _count: {
           select: { submissions: true },
         },
@@ -527,7 +594,7 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
             take: 1
         }
       },
-      orderBy: { dueDate: 'asc' }
+      orderBy: { dueDate: 'desc' }
     });
 
     res.json(assignments);
@@ -538,7 +605,7 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
 
 export const submitAssignment = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params; // assignmentId
+    const id = String(req.params.id); // assignmentId
     const { content, answers } = req.body;
     let fileUrl = req.body.fileUrl;
 
@@ -648,7 +715,7 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
             });
             if (enrollment) {
                 const course = await prisma.course.findFirst({
-                    where: { classId: enrollment.classId, subjectId: assignment.subjectId }
+                    where: { niveauId: assignment.niveauId, subjectId: assignment.subjectId }
                 });
                 finalCourseId = course?.id ?? null;
             }
@@ -700,12 +767,12 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
 
 export const deleteAssignment = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     if (!id) return res.status(400).json({ message: "ID required" });
 
     const assignment = await prisma.assignment.findUnique({
-      where: { id: id as string },
+      where: { id },
       include: { course: true }
     });
 
@@ -715,7 +782,7 @@ export const deleteAssignment = async (req: AuthRequest, res: Response) => {
 
     // Verify permission
     if ((req.user?.role as string) === "ENSEIGNANT") {
-      if (assignment.course.teacherId !== req.user.id) {
+      if (assignment.createdById !== req.user.id && assignment.correctorId !== req.user.id) {
         return res.status(403).json({ message: "Access denied" });
       }
     } else if (req.user?.role !== "SUPER_ADMIN" && req.user?.role !== "DIRECTEUR") {
@@ -727,7 +794,7 @@ export const deleteAssignment = async (req: AuthRequest, res: Response) => {
     }
 
     await prisma.assignment.delete({
-      where: { id: id as string },
+      where: { id },
     });
 
     res.json({ message: "Assignment deleted successfully" });
@@ -739,47 +806,109 @@ export const deleteAssignment = async (req: AuthRequest, res: Response) => {
 
 export const updateAssignment = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const { title, description, dueDate, courseId, niveauId, subjectId, type, coefficient } = req.body;
+    const id = String(req.params.id);
+    const { title, description, dueDate, courseId, niveauId, subjectId, type, coefficient, points, timeLimit } = req.body;
     let finalDescription = description || "";
 
     const existing = await prisma.assignment.findUnique({
       where: { id },
-      include: { questions: true }
+      include: { questions: { include: { options: true } } }
     });
 
     if (!existing) {
       return res.status(404).json({ message: "Assignment not found" });
     }
 
-    if (existing.published) {
-      return res.status(400).json({ message: "Vous ne pouvez plus modifier une évaluation publiée." });
+    // Check if modifying is allowed:
+    // If published, check if it has already started and has submissions
+    const submissionsCount = await prisma.submission.count({ where: { assignmentId: id } });
+    const isStarted = existing.startDate && new Date() > new Date(existing.startDate);
+
+    if (existing.published && isStarted && submissionsCount > 0 && req.user?.role !== ROLES.SUPER_ADMIN) {
+      return res.status(400).json({ message: "Vous ne pouvez plus modifier une évaluation en cours ayant déjà des participations." });
     }
 
-    // Process attachments
-    const attachments = req.body.attachments ? (Array.isArray(req.body.attachments) ? req.body.attachments : JSON.parse(req.body.attachments)) : existing.attachments;
+    // Helper to find file in array or object
+    const getFile = (name: string) => {
+      if (Array.isArray(req.files)) {
+        return (req.files as Express.Multer.File[]).find(f => f.fieldname === name);
+      } else if (req.files && typeof req.files === 'object') {
+        return (req.files as Record<string, Express.Multer.File[]>)[name]?.[0];
+      }
+      return undefined;
+    };
 
-    // We will delete old questions and create new ones for simplicity
+    let attachments: string[] = req.body.attachments 
+      ? (Array.isArray(req.body.attachments) ? req.body.attachments : JSON.parse(req.body.attachments)) 
+      : existing.attachments;
+
+    const mainFile = getFile('file') || (req.file as Express.Multer.File | undefined);
+    if (mainFile) {
+      const publicUrl = await uploadToSupabase(mainFile);
+      if (publicUrl) {
+        attachments = [publicUrl];
+      }
+    }
+
+    let correctionUrl = existing.correctionUrl;
+    const correctionFile = getFile('correction');
+    if (correctionFile) {
+      const uploadedCorrection = await uploadToSupabase(correctionFile);
+      if (uploadedCorrection) {
+        correctionUrl = uploadedCorrection;
+      }
+    }
+
+    const voiceNoteFile = getFile('voiceNote');
+    if (voiceNoteFile) {
+      const voiceNoteUrl = await uploadToSupabase(voiceNoteFile);
+      if (voiceNoteUrl) {
+        finalDescription += `\n[Écouter la consigne vocale](${voiceNoteUrl})`;
+      }
+    }
+
+    // Process questions
+    let questionsInput: any = undefined;
     if (req.body.questions) {
       await prisma.assignmentQuestion.deleteMany({ where: { assignmentId: id } });
+
+      let rawQuestions = typeof req.body.questions === 'string' ? JSON.parse(req.body.questions) : req.body.questions;
+      if (Array.isArray(rawQuestions) && rawQuestions.length > 0) {
+        const processedQuestions = [];
+        for (let i = 0; i < rawQuestions.length; i++) {
+          const q = rawQuestions[i];
+          let qImgUrl = q.imageUrl || null;
+          const qImgFile = getFile(`questionImage_${i}`) || getFile(`questions[${i}][image]`);
+          if (qImgFile) {
+            const uploaded = await uploadToSupabase(qImgFile);
+            if (uploaded) qImgUrl = uploaded;
+          }
+
+          processedQuestions.push({
+            text: q.text,
+            type: q.type || 'SINGLE_CHOICE',
+            points: Number(q.points) || 1,
+            position: i,
+            imageUrl: qImgUrl,
+            expectedAnswer: q.expectedAnswer || null,
+            options: q.options && Array.isArray(q.options) ? {
+              create: q.options.map((opt: any) => ({
+                text: opt.text,
+                isCorrect: Boolean(opt.isCorrect),
+                imageUrl: opt.imageUrl || null
+              }))
+            } : undefined
+          });
+        }
+        questionsInput = { create: processedQuestions };
+      }
     }
 
-    const questionsInput = req.body.questions ? {
-      create: (typeof req.body.questions === 'string' ? JSON.parse(req.body.questions) : req.body.questions).map((q: any) => ({
-        text: q.text,
-        type: q.type || 'MULTIPLE_CHOICE',
-        points: Number(q.points) || 1,
-        options: q.options ? {
-          create: q.options.map((opt: any) => ({
-            text: opt.text,
-            isCorrect: Boolean(opt.isCorrect)
-          }))
-        } : undefined
-      }))
-    } : undefined;
-
     const parsedDate = dueDate ? new Date(dueDate) : existing.dueDate;
+    const parsedStartDate = req.body.startDate ? new Date(req.body.startDate) : existing.startDate;
     const parsedCoefficient = coefficient ? parseInt(coefficient) : existing.coefficient;
+    const parsedPoints = points ? parseInt(points) : existing.points;
+    const parsedTimeLimit = timeLimit ? parseInt(timeLimit) : existing.timeLimit;
 
     const updated = await prisma.assignment.update({
       where: { id },
@@ -787,6 +916,7 @@ export const updateAssignment = async (req: AuthRequest, res: Response) => {
         title: title || existing.title,
         description: finalDescription || existing.description,
         dueDate: parsedDate,
+        startDate: parsedStartDate,
         courseId: courseId || existing.courseId,
         niveauId: niveauId || existing.niveauId,
         subjectId: subjectId || existing.subjectId,
@@ -794,10 +924,12 @@ export const updateAssignment = async (req: AuthRequest, res: Response) => {
         termId: req.body.termId || existing.termId,
         type: type || existing.type,
         coefficient: parsedCoefficient,
-        startDate: req.body.startDate ? new Date(req.body.startDate) : existing.startDate,
+        points: parsedPoints,
+        timeLimit: parsedTimeLimit,
         autoGrade: req.body.autoGrade !== undefined ? Boolean(req.body.autoGrade) : existing.autoGrade,
         isNiveauWide: req.body.isNiveauWide !== undefined ? Boolean(req.body.isNiveauWide) : existing.isNiveauWide,
         imageUrl: req.body.imageUrl || existing.imageUrl,
+        correctionUrl,
         attachments,
         questions: questionsInput
       },
@@ -823,33 +955,31 @@ export const getSubmissions = async (req: AuthRequest, res: Response) => {
     
     if (!id) return res.status(400).json({ message: "ID required" });
 
-    // Check ownership if teacher
-    if ((req.user?.role as string) === "ENSEIGNANT") {
-        const assignment = await prisma.assignment.findUnique({
-            where: { id: id as string },
-            include: { course: true }
-        });
-        if (!assignment || assignment.course.teacherId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
-    }
-
     const submissions = await prisma.submission.findMany({
       where: { assignmentId: id as string },
       include: {
         student: {
           select: {
+            id: true,
             firstName: true,
             lastName: true,
             email: true,
+            avatarUrl: true,
+            enrollments: {
+              select: {
+                class: { select: { id: true, name: true } }
+              }
+            }
           },
         },
         grade: true,
       },
+      orderBy: { submittedAt: 'desc' }
     });
 
     res.json(submissions);
   } catch (error) {
+    console.error("Error fetching submissions:", error);
     res.status(500).json({ message: "Error fetching submissions", error });
   }
 };
@@ -926,7 +1056,7 @@ export const getAssignmentParticipants = async (req: AuthRequest, res: Response)
       whereClause.enrollments = { some: { classId: String(classId) } };
     } else if (assignment.courseId) {
       const course = await prisma.course.findUnique({ where: { id: assignment.courseId } });
-      if (course) whereClause.enrollments = { some: { classId: course.classId } };
+      if (course) whereClause.enrollments = { some: { class: { niveauId: course.niveauId } } };
     } else if (assignment.niveauId) {
       whereClause.enrollments = { some: { class: { niveauId: assignment.niveauId } } };
     }
@@ -963,7 +1093,13 @@ export const gradeStudentAssignment = async (req: AuthRequest, res: Response) =>
     const { id } = req.params; // assignmentId
     const { studentId, value, comment } = req.body;
     
-    if (!id || !studentId) return res.status(400).json({ message: 'Missing fields' });
+    if (!id || !studentId) return res.status(400).json({ message: 'Champs requis manquants' });
+
+    const assignment = await prisma.assignment.findUnique({
+      where: { id: String(id) },
+      include: { course: true }
+    });
+    if (!assignment) return res.status(404).json({ message: 'Devoir non trouvé' });
     
     let submission = await prisma.submission.findFirst({ 
       where: { assignmentId: id as string, studentId: String(studentId) } 
@@ -978,25 +1114,40 @@ export const gradeStudentAssignment = async (req: AuthRequest, res: Response) =>
         }
       });
     }
+
+    const numValue = Number(value);
+    if (isNaN(numValue) || numValue < 0 || numValue > 20) {
+      return res.status(400).json({ message: 'La note doit être comprise entre 0 et 20' });
+    }
     
     const grade = await prisma.grade.upsert({
       where: { submissionId: submission.id },
       create: {
-        value: Number(value),
-        comment,
+        value: numValue,
+        comment: comment || null,
         studentId: String(studentId),
         submissionId: submission.id,
-        assignmentId: id as string
+        assignmentId: id as string,
+        courseId: assignment.courseId || null,
+        termId: assignment.termId || null,
+        coefficient: assignment.coefficient || 1,
+        type: 'DEVOIR',
+        validated: true,
+        isGraded: true,
+        source: 'ENSEIGNANT'
       },
       update: {
-        value: Number(value),
-        comment
+        value: numValue,
+        comment: comment || null,
+        validated: true,
+        isGraded: true
       }
     });
     
     res.json(grade);
   } catch (error) {
-    res.status(500).json({ message: 'Error grading', error });
+    console.error("Error grading student assignment:", error);
+    res.status(500).json({ message: 'Erreur lors de la notation', error });
   }
 };
 

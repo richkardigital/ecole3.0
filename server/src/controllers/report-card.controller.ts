@@ -1,12 +1,11 @@
-
-import type { Request, Response } from "express";
+import type { Response } from "express";
 import prisma from "../utils/prisma.js";
 import type { AuthRequest } from "../middleware/auth.js";
 
 // Helper to calculate average
 const calculateAverage = (grades: any[]) => {
   if (grades.length === 0) return 0;
-  const sum = grades.reduce((acc, curr) => acc + curr.value, 0);
+  const sum = grades.reduce((acc, curr) => acc + (curr.value ?? 0), 0);
   return parseFloat((sum / grades.length).toFixed(2));
 };
 
@@ -22,51 +21,75 @@ export const getStudentReportCard = async (req: AuthRequest, res: Response) => {
         return res.status(403).json({ message: "Access denied" });
     }
 
-    // 1. Get Student Enrollments to know which classes/courses they have
+    // 1. Get Student Enrollments to know which classes they belong to
     const enrollments = await prisma.enrollment.findMany({
         where: { studentId: String(studentId) },
-        include: { class: true }
-    });
-
-    if (enrollments.length === 0) {
-        return res.json({ studentId, averages: [], globalAverage: 0 });
-    }
-
-    // 2. Get all courses for these classes
-    const classIds = enrollments.map(e => e.classId);
-    const courses = await prisma.course.findMany({
-        where: { classId: { in: classIds } },
         include: { 
-            subject: true,
-            assignments: {
-                include: {
-                    grades: {
-                        where: { studentId: String(studentId) }
-                    }
-                }
+          class: {
+            include: {
+              teacherClasses: {
+                include: { subject: true }
+              }
             }
+          }
         }
     });
 
-    // 3. Calculate averages per course
-    const courseAverages = courses.map(course => {
-        // Collect all grades from all assignments
-        // Note: This assumes grades are linked to assignments. 
-        // If a grade is direct (oral), it might not have assignmentId? 
-        // Schema: Grade has assignmentId? and submissionId?. 
-        // Let's assume for MVP all grades come via assignments or we fetch all grades for student & course.
-        // Better: Fetch grades directly for student where assignment.courseId is X.
-        
-        const grades = course.assignments.flatMap(a => a.grades);
-        const average = calculateAverage(grades);
-        
-        return {
-            courseId: course.id,
-            subjectName: course.subject.name,
-            coefficient: course.coefficient,
-            average,
-            gradesCount: grades.length
-        };
+    if (enrollments.length === 0) {
+        return res.json({ studentId, courses: [], globalAverage: 0 });
+    }
+
+    // 2. Fetch all grades for this student
+    const grades = await prisma.grade.findMany({
+      where: {
+        studentId: String(studentId),
+        ...(termId ? { termId: String(termId) } : {})
+      },
+      include: {
+        course: { include: { subject: true } },
+        assignment: { include: { subject: true } }
+      }
+    });
+
+    // 3. Extract unique subjects for the student
+    const subjectsMap = new Map<string, { id: string; name: string; coefficient: number }>();
+    for (const enr of enrollments) {
+      for (const tc of enr.class.teacherClasses) {
+        if (tc.subject) {
+          subjectsMap.set(tc.subject.id, {
+            id: tc.subject.id,
+            name: tc.subject.name,
+            coefficient: tc.subject.coefficient || 1
+          });
+        }
+      }
+    }
+
+    // If no teacherClasses assigned yet, use subjects found in grades
+    for (const g of grades) {
+      const subj = g.course?.subject || g.assignment?.subject;
+      if (subj && !subjectsMap.has(subj.id)) {
+        subjectsMap.set(subj.id, {
+          id: subj.id,
+          name: subj.name,
+          coefficient: subj.coefficient || 1
+        });
+      }
+    }
+
+    const courseAverages = Array.from(subjectsMap.values()).map(subject => {
+      const subjectGrades = grades.filter(g => 
+        (g.course?.subjectId === subject.id) || 
+        (g.assignment?.subjectId === subject.id)
+      );
+      const avg = calculateAverage(subjectGrades);
+      return {
+        courseId: subject.id,
+        subjectName: subject.name,
+        coefficient: subject.coefficient,
+        average: avg,
+        gradesCount: subjectGrades.length
+      };
     });
 
     // 4. Calculate Global Average (Weighted)
@@ -117,10 +140,14 @@ export const getClassReportCard = async (req: AuthRequest, res: Response) => {
             orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }]
         });
 
-        const courses = await prisma.course.findMany({
+        const teacherClasses = await prisma.teacherClass.findMany({
             where: { classId: String(classId) },
             include: { subject: true }
         });
+
+        const subjects = teacherClasses
+          .map(tc => tc.subject)
+          .filter(Boolean);
 
         const reports = [];
 
@@ -130,24 +157,24 @@ export const getClassReportCard = async (req: AuthRequest, res: Response) => {
                      studentId: student.id,
                      ...(termId ? { termId: String(termId) } : {})
                  },
-                 include: { assignment: true }
+                 include: {
+                     course: { include: { subject: true } },
+                     assignment: { include: { subject: true } }
+                 }
              });
 
-             const courseAverages = courses.map(course => {
+             const courseAverages = subjects.map(subj => {
                  const cGrades = grades.filter(g => 
-                     g.courseId === course.id || 
-                     g.assignment?.courseId === course.id ||
-                     (g.assignment?.subjectId && g.assignment.subjectId === course.subjectId)
+                     (g.course?.subjectId === subj.id) || 
+                     (g.assignment?.subjectId === subj.id)
                  );
-
-                 const sum = cGrades.reduce((acc, curr) => acc + curr.value, 0);
                  const count = cGrades.length;
-                 const average = count > 0 ? parseFloat((sum / count).toFixed(2)) : null;
+                 const average = count > 0 ? calculateAverage(cGrades) : null;
 
                  return {
-                     subjectName: course.subject.name,
+                     subjectName: subj.name,
                      average: average,
-                     coefficient: (course as any).coefficient || 1,
+                     coefficient: subj.coefficient || 1,
                      hasGrades: count > 0
                  };
              });
@@ -175,3 +202,5 @@ export const getClassReportCard = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: "Error generating class report", error });
     }
 };
+
+

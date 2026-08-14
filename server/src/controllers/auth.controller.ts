@@ -166,7 +166,7 @@ export const registerSchool = async (req: Request, res: Response) => {
           startDate: new Date(`${currentYear}-09-01`),
           endDate: new Date(`${currentYear + 1}-06-30`),
           isCurrent: true,
-          schoolId: newSchool.id
+          schools: { connect: { id: newSchool.id } }
         }
       });
 

@@ -4,12 +4,73 @@ import { useForm } from 'react-hook-form';
 import { useAuth } from '@/context/AuthContext';
 import {
   Plus, BookOpen, Trash2, Edit2, Eye, Search,
-  Building2, CheckCircle2, XCircle, Code, Layers, Sparkles
+  Building2, CheckCircle2, XCircle, Code, Layers, Sparkles, Image as ImageIcon
 } from 'lucide-react';
+import mathCover from '@/assets/course-covers/math.svg';
+import musicCover from '@/assets/course-covers/music.svg';
+import spanishCover from '@/assets/course-covers/spanish.svg';
+import chemistryCover from '@/assets/course-covers/chemistry.svg';
+import svtCover from '@/assets/course-covers/svt.svg';
+import philosophyCover from '@/assets/course-covers/philosophy.svg';
+import epsCover from '@/assets/course-covers/eps.svg';
+import officeCover from '@/assets/course-covers/office.svg';
+import englishCover from '@/assets/course-covers/english.svg';
+import artsCover from '@/assets/course-covers/arts.svg';
+import historyCover from '@/assets/course-covers/history.svg';
+import edhcCover from '@/assets/course-covers/edhc.svg';
+import economyCover from '@/assets/course-covers/economy.svg';
+import frenchCover from '@/assets/course-covers/french.svg';
+import defaultCover from '@/assets/course-covers/default.svg';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+
+const PRESET_COVERS: { [key: string]: { label: string; src: string } } = {
+  math: { label: 'Mathématiques', src: mathCover },
+  french: { label: 'Français', src: frenchCover },
+  english: { label: 'Anglais', src: englishCover },
+  chemistry: { label: 'Physique-Chimie', src: chemistryCover },
+  svt: { label: 'SVT & Biologie', src: svtCover },
+  history: { label: 'Histoire-Géo', src: historyCover },
+  philosophy: { label: 'Philosophie', src: philosophyCover },
+  eps: { label: 'EPS & Sport', src: epsCover },
+  music: { label: 'Musique', src: musicCover },
+  arts: { label: 'Arts Plastiques', src: artsCover },
+  spanish: { label: 'Langues / Espagnol', src: spanishCover },
+  edhc: { label: 'EDHC & Civisme', src: edhcCover },
+  economy: { label: 'Économie & Gestion', src: economyCover },
+  office: { label: 'Informatique / TIC', src: officeCover },
+  default: { label: 'Général / Autre', src: defaultCover },
+};
+
+export const getSubjectIllustration = (subjectName: string, customImg?: string | null): string => {
+  if (customImg && customImg.trim() !== '') {
+    if (PRESET_COVERS[customImg]) {
+      return PRESET_COVERS[customImg].src;
+    }
+    if (customImg.startsWith('http') || customImg.startsWith('/') || customImg.startsWith('data:')) {
+      return customImg;
+    }
+  }
+
+  const s = (subjectName || '').toLowerCase().trim();
+  if (s.includes('sport') || s.includes('eps') || s.includes('physique-eps') || s.includes('gym')) return epsCover;
+  if (s.includes('math')) return mathCover;
+  if (s.includes('franc') || s.includes('franç') || s.includes('dictée') || s.includes('grammaire')) return frenchCover;
+  if (s.includes('anglais') || s.includes('angl') || s.includes('english')) return englishCover;
+  if (s.includes('physique') || s.includes('chimie') || s.includes('pc')) return chemistryCover;
+  if (s.includes('svt') || s.includes('science') || s.includes('biologie') || s.includes('terre')) return svtCover;
+  if (s.includes('histoire') || s.includes('geo') || s.includes('géo') || s.includes('hg')) return historyCover;
+  if (s.includes('philo')) return philosophyCover;
+  if (s.includes('musique') || s.includes('music') || s.includes('chant')) return musicCover;
+  if (s.includes('art') || s.includes('plastique') || s.includes('dessin')) return artsCover;
+  if (s.includes('espagnol') || s.includes('esp') || s.includes('allemand')) return spanishCover;
+  if (s.includes('edhc') || s.includes('civique') || s.includes('morale') || s.includes('droit')) return edhcCover;
+  if (s.includes('eco') || s.includes('éco') || s.includes('compta') || s.includes('gestion')) return economyCover;
+  if (s.includes('info') || s.includes('bureautique') || s.includes('tic') || s.includes('ordinateur')) return officeCover;
+  return defaultCover;
+};
 
 interface SchoolModel {
   id: string;
@@ -22,12 +83,14 @@ interface SubjectModel {
   id: string;
   name: string;
   code?: string;
+  imageUrl?: string;
+  coefficient?: number;
   schoolId: string;
   school?: SchoolModel;
   _count?: { courses: number; grades: number };
 }
 
-type FormData = { name: string; code?: string; schoolId?: string };
+type FormData = { name: string; code?: string; imageUrl?: string; coefficient?: number; schoolId?: string };
 
 export default function SubjectsPage() {
   const { user } = useAuth();
@@ -96,7 +159,7 @@ export default function SubjectsPage() {
 
   const openCreateModal = () => {
     setEditingSubject(null);
-    reset({ name: '', code: '', schoolId: schools[0]?.id || '' });
+    reset({ name: '', code: '', imageUrl: '', coefficient: 1, schoolId: schools[0]?.id || '' });
     setFormError(null);
     setIsFormModalOpen(true);
   };
@@ -106,6 +169,8 @@ export default function SubjectsPage() {
     reset({
       name: subject.name,
       code: subject.code || '',
+      imageUrl: subject.imageUrl || '',
+      coefficient: subject.coefficient || 1,
       schoolId: subject.schoolId,
     });
     setFormError(null);
@@ -163,6 +228,9 @@ export default function SubjectsPage() {
     return matchName || matchSchool;
   });
 
+  const selectedName = watch('name') || '';
+  const selectedImageUrl = watch('imageUrl');
+
   return (
     <div className="space-y-6">
       {/* Toast */}
@@ -177,8 +245,8 @@ export default function SubjectsPage() {
 
       {/* Page Header */}
       <PageHeader
-        title="Gestion des Matières"
-        description={isSuperAdmin ? "Catalogue et configuration des disciplines enseignées dans l'établissement." : "Consultez les matières disponibles. Seul l'administrateur peut les créer ou les modifier."}
+        title="Gestion des Matières & Disciplines"
+        description={isSuperAdmin ? "Catalogue et configuration des disciplines enseignées avec illustrations automatiques." : "Consultez les matières disponibles. Seul l'administrateur peut les créer ou les modifier."}
       >
         {isSuperAdmin && (
           <Button variant="glow" onClick={openCreateModal} leftIcon={<Plus className="w-4 h-4" />}>
@@ -196,7 +264,7 @@ export default function SubjectsPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher par matière, code..."
-            className="w-full pl-10 pr-4 py-2.5 text-xs text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-medium"
+            className="w-full pl-10 pr-4 py-2.5 text-xs text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-bold"
           />
         </div>
 
@@ -232,74 +300,91 @@ export default function SubjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filteredSubjects.map((subject) => (
-            <div
-              key={subject.id}
-              className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 flex flex-col justify-between group"
-            >
-              <div>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
-                    <BookOpen className="w-5 h-5" />
+          {filteredSubjects.map((subject) => {
+            const illustrationSrc = getSubjectIllustration(subject.name, subject.imageUrl);
+
+            return (
+              <div
+                key={subject.id}
+                className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-emerald-300 transition-all duration-300 flex flex-col justify-between group overflow-hidden"
+              >
+                <div>
+                  {/* Subject Banner / Illustration */}
+                  <div className="relative h-32 w-full bg-slate-900 overflow-hidden shrink-0">
+                    <img
+                      src={illustrationSrc}
+                      alt={subject.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-85"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
+                    
+                    {subject.code && (
+                      <div className="absolute top-2.5 right-2.5">
+                        <span className="font-mono text-[10px] font-extrabold bg-black/60 text-emerald-300 px-2.5 py-1 rounded-lg border border-emerald-500/30 backdrop-blur-md">
+                          {subject.code}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="absolute bottom-2.5 left-3.5 right-3.5">
+                      <h3 className="font-black text-white text-base tracking-tight drop-shadow-md line-clamp-1">
+                        {subject.name}
+                      </h3>
+                    </div>
                   </div>
-                  {subject.code && (
-                    <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded-md border border-slate-200">
-                      {subject.code}
-                    </span>
-                  )}
+
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono text-[11px] text-slate-400 font-semibold truncate">
+                        slug: {generateSlug(subject.name)}
+                      </span>
+                    </div>
+
+                    {isSuperAdmin && subject.school && (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600 font-bold">
+                        <Building2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="truncate">{subject.school.name}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <h3 className="font-black text-slate-900 text-base mb-1 group-hover:text-emerald-700 transition-colors">
-                  {subject.name}
-                </h3>
+                <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-600">
+                    {subject._count?.courses ?? 0} cours rattaché(s)
+                  </span>
 
-                <p className="text-xs font-mono text-slate-400 font-medium mb-3">
-                  slug: {generateSlug(subject.name)}
-                </p>
-
-                {isSuperAdmin && subject.school && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold mb-3">
-                    <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="truncate">{subject.school.name}</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => openViewModal(subject)}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors"
+                      title="Voir les détails"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    {isSuperAdmin && (
+                      <>
+                        <button
+                          onClick={() => openEditModal(subject)}
+                          className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-100 transition-colors"
+                          title="Éditer"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => { setDeletingSubject(subject); setIsDeleteModalOpen(true); }}
+                          className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-100 transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
-                )}
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between mt-4">
-                <span className="text-[11px] font-bold text-slate-500">
-                  {subject._count?.courses ?? 0} cours rattaché(s)
-                </span>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openViewModal(subject)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                    title="Voir les détails"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  {isSuperAdmin && (
-                    <>
-                      <button
-                        onClick={() => openEditModal(subject)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                        title="Éditer"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => { setDeletingSubject(subject); setIsDeleteModalOpen(true); }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </>
-                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -308,7 +393,7 @@ export default function SubjectsPage() {
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
         title={editingSubject ? "Modifier la matière" : "Nouvelle Matière"}
-        size="md"
+        size="lg"
         accentColor="green"
       >
         <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-4">
@@ -326,7 +411,7 @@ export default function SubjectsPage() {
               </label>
               <select
                 {...register('schoolId', { required: true })}
-                className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
+                className="w-full px-4 py-2.5 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
               >
                 {schools.map(s => (
                   <option key={s.id} value={s.id}>{s.name} ({s.ville || 'Abidjan'})</option>
@@ -335,34 +420,67 @@ export default function SubjectsPage() {
             </div>
           )}
 
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-              Nom de la matière <span className="text-emerald-600">*</span>
-            </label>
-            <input
-              {...register('name', { required: true })}
-              placeholder="Ex: Mathématiques, Histoire-Géographie..."
-              className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-bold"
-              autoFocus
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                Nom de la matière <span className="text-emerald-600">*</span>
+              </label>
+              <input
+                {...register('name', { required: true })}
+                placeholder="Ex: Mathématiques, Histoire-Géographie..."
+                className="w-full px-4 py-2.5 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-bold"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                Code (Optionnel)
+              </label>
+              <input
+                {...register('code')}
+                placeholder="Ex: MATHS, HIST-GEO"
+                className="w-full px-4 py-2.5 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-bold uppercase"
+              />
+            </div>
           </div>
 
-          {watch('name') && (
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-600">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Slug généré :</span>
-              <span className="text-emerald-700 font-bold">{generateSlug(watch('name'))}</span>
-            </div>
-          )}
-
+          {/* Preset / Custom Image Picker */}
           <div>
             <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-              Code (Optionnel)
+              Illustration de la matière (Image de fond automatique ou personnalisée)
             </label>
-            <input
-              {...register('code')}
-              placeholder="Ex: MATHS, HIST-GEO"
-              className="w-full px-4 py-3 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-bold uppercase"
-            />
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 max-h-40 overflow-y-auto p-1.5 bg-slate-50 rounded-xl border border-slate-250">
+              {Object.entries(PRESET_COVERS).map(([key, item]) => {
+                const isSelected = selectedImageUrl === key || (!selectedImageUrl && getSubjectIllustration(selectedName) === item.src);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setValue('imageUrl', key)}
+                    className={`relative rounded-xl overflow-hidden border p-1.5 flex flex-col items-center gap-1 text-left transition-all ${
+                      isSelected
+                        ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <img src={item.src} alt={item.label} className="w-full h-12 object-cover rounded-lg" />
+                    <span className="text-[10px] font-bold text-slate-800 truncate w-full text-center">
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                {...register('imageUrl')}
+                placeholder="Ou saisir une clé de preset (math, french, etc.) ou une URL d'image..."
+                className="w-full px-4 py-2 text-xs text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-medium"
+              />
+            </div>
           </div>
 
           <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
@@ -385,34 +503,43 @@ export default function SubjectsPage() {
           footer={<Button variant="secondary" onClick={() => setIsViewModalOpen(false)}>Fermer</Button>}
         >
           <div className="space-y-4">
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold text-slate-400 font-mono">ID: {viewingSubject.id}</span>
-                {viewingSubject.code && (
-                  <span className="font-mono text-xs font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md">
-                    {viewingSubject.code}
-                  </span>
-                )}
+            <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white">
+              <div className="relative h-40 w-full bg-slate-950 overflow-hidden">
+                <img
+                  src={getSubjectIllustration(viewingSubject.name, viewingSubject.imageUrl)}
+                  alt={viewingSubject.name}
+                  className="w-full h-full object-cover opacity-90"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
+                <div className="absolute bottom-3 left-4 right-4">
+                  <h3 className="text-xl font-black text-white drop-shadow-md">{viewingSubject.name}</h3>
+                  {viewingSubject.code && (
+                    <span className="inline-block mt-1 font-mono text-xs font-extrabold bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-2.5 py-0.5 rounded-md">
+                      {viewingSubject.code}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <h3 className="text-xl font-black text-slate-900 mb-1">{viewingSubject.name}</h3>
-              <p className="text-xs font-mono text-emerald-700 font-bold mb-4">slug: {generateSlug(viewingSubject.name)}</p>
+              <div className="p-4 space-y-3">
+                <p className="text-xs font-mono text-emerald-700 font-bold">slug: {generateSlug(viewingSubject.name)}</p>
 
-              {viewingSubject.school && (
-                <div className="mb-4 p-2.5 rounded-xl bg-white border border-slate-200 text-xs flex items-center gap-2 font-bold text-slate-700">
-                  <Building2 className="w-4 h-4 text-emerald-600" />
-                  {viewingSubject.school.name} ({viewingSubject.school.ville || 'Abidjan'})
-                </div>
-              )}
+                {viewingSubject.school && (
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center gap-2 font-bold text-slate-700">
+                    <Building2 className="w-4 h-4 text-emerald-600" />
+                    {viewingSubject.school.name} ({viewingSubject.school.ville || 'Abidjan'})
+                  </div>
+                )}
 
-              <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t border-slate-200/60">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Cours rattachés</span>
-                  <span className="font-bold text-slate-900">{viewingSubject._count?.courses ?? 0}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Évaluations / Notes</span>
-                  <span className="font-bold text-slate-900">{viewingSubject._count?.grades ?? 0}</span>
+                <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t border-slate-200/60">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Cours rattachés</span>
+                    <span className="font-extrabold text-slate-900">{viewingSubject._count?.courses ?? 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Évaluations / Notes</span>
+                    <span className="font-extrabold text-slate-900">{viewingSubject._count?.grades ?? 0}</span>
+                  </div>
                 </div>
               </div>
             </div>

@@ -38,17 +38,17 @@ export default function FaqPage() {
     <div className="min-h-screen bg-[#F8FAFC] overflow-x-hidden">
       
       {/* ── HERO ── */}
-      <section className="relative pt-28 pb-20 overflow-hidden hero-bg">
+      <section className="relative pt-8 sm:pt-12 pb-6 sm:pb-8 overflow-hidden hero-bg">
         <div className="max-w-3xl mx-auto px-4 text-center relative z-10">
-          <span className="chip chip-violet mb-8 inline-flex">
+          <span className="chip chip-violet mb-4 inline-flex">
             <HelpCircle className="w-3 h-3" />
             Foire Aux Questions
           </span>
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-slate-900 mb-6 leading-[0.95]">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-slate-900 mb-4 leading-[1.02]">
             Comment pouvons-nous<br />
             <span className="gradient-text">vous aider ?</span>
           </h1>
-          <p className="text-lg text-slate-600 max-w-xl mx-auto leading-relaxed mb-12 font-medium">
+          <p className="text-sm sm:text-base md:text-lg text-slate-600 max-w-xl mx-auto leading-relaxed mb-6 font-medium">
             Retrouvez les réponses aux questions les plus fréquentes des directeurs, professeurs et parents.
           </p>
 
@@ -58,26 +58,26 @@ export default function FaqPage() {
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher (ex: bulletins, inscription, sécurité...)"
-              className="w-full pl-12 pr-4 py-4 text-slate-900 text-sm placeholder:text-slate-400 outline-none transition-all rounded-2xl bg-white border border-slate-200 shadow-xs focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher une question (bulletins, inscription, sécurité...)"
+              className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none"
             />
           </div>
         </div>
       </section>
 
-      {/* ── FAQ BODY ── */}
-      <section className="py-12 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Category tabs */}
-        <div className="flex justify-center flex-wrap gap-2 mb-12">
-          {CATEGORIES.map((c) => (
+      {/* ── ACCORDION SECTION ── */}
+      <section className="py-8 sm:py-12 max-w-3xl mx-auto px-4">
+        {/* Category Filter */}
+        <div className="flex justify-center gap-2 mb-8 flex-wrap">
+          {CATEGORIES.map(c => (
             <button
               key={c.key}
               onClick={() => setCat(c.key)}
-              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 cat === c.key
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-900'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
               }`}
             >
               {c.label}

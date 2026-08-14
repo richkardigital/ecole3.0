@@ -131,7 +131,7 @@ export const getMyChildren = async (req: AuthRequest, res: Response) => {
 export const getChildProgress = async (req: AuthRequest, res: Response) => {
   try {
     const role = req.user?.role as string;
-    const { studentId } = req.params;
+    const studentId = String(req.params.studentId);
 
     // PARENT : vérifier le lien
     if (role === "PARENT") {
@@ -158,8 +158,7 @@ export const getChildProgress = async (req: AuthRequest, res: Response) => {
           include: {
             class: {
               include: {
-                niveau: { select: { id: true, nom: true } },
-                courses: { include: { subject: true } }
+                niveau: { select: { id: true, nom: true } }
               }
             }
           }
@@ -193,14 +192,14 @@ export const getChildProgress = async (req: AuthRequest, res: Response) => {
       submitted: propagations.filter((p) => p.submitted).length,
       pending: propagations.filter((p) => !p.submitted).length,
       list: propagations.map((p) => ({
-        id: p.assignment.id,
-        title: p.assignment.title,
-        subject: p.assignment.subject?.name,
-        dueDate: p.assignment.dueDate,
-        type: p.assignment.type,
+        id: p.assignment?.id,
+        title: p.assignment?.title,
+        subject: p.assignment?.subject?.name,
+        dueDate: p.assignment?.dueDate,
+        type: p.assignment?.type,
         submitted: p.submitted,
         submittedAt: p.submittedAt,
-        workflowStatus: p.assignment.workflowStatus
+        workflowStatus: p.assignment?.workflowStatus
       }))
     };
 
@@ -209,11 +208,29 @@ export const getChildProgress = async (req: AuthRequest, res: Response) => {
       where: { studentId, isGraded: true },
       include: {
         course: { include: { subject: { select: { name: true } } } },
+        assignment: { include: { subject: { select: { name: true } } } },
         term: { select: { name: true } }
       },
       orderBy: { createdAt: "desc" },
       take: 20
     });
+
+    // Récupérer les absences
+    const absences = await prisma.absence.findMany({
+      where: { studentId }
+    });
+
+    // Récupérer le dernier bulletin de l'élève
+    const bulletin = await prisma.bulletinEleve.findFirst({
+      where: { studentId },
+      orderBy: { createdAt: "desc" }
+    });
+
+    // Calcul de la moyenne globale
+    const gradeValues = grades.map((g) => g.value).filter((v): v is number => typeof v === "number" && !isNaN(v));
+    const overallAverage = gradeValues.length > 0 
+      ? Number((gradeValues.reduce((a, b) => a + b, 0) / gradeValues.length).toFixed(2))
+      : null;
 
     res.json({
       student: {
@@ -224,17 +241,23 @@ export const getChildProgress = async (req: AuthRequest, res: Response) => {
         currentClass: student.enrollments[0]?.class?.name || null,
         niveau: student.enrollments[0]?.class?.niveau?.nom || null
       },
+      overallAverage,
+      totalAbsences: absences.length,
+      completedAssignments: assignmentSummary.submitted,
+      pendingAssignments: assignmentSummary.pending,
       assignments: assignmentSummary,
       recentGrades: grades.map((g) => ({
         id: g.id,
         value: g.value,
+        coefficient: g.coefficient || 1,
         type: g.type,
         source: g.source,
-        subject: g.course?.subject?.name,
+        subject: g.course?.subject?.name || g.assignment?.subject?.name,
         term: g.term?.name,
         comment: g.comment,
-        date: g.createdAt
-      }))
+        createdAt: g.createdAt
+      })),
+      bulletin
     });
   } catch (error) {
     console.error(error);

@@ -16,7 +16,7 @@ export const auditLog = (action: string, entity?: string) => {
               data: {
                 action,
                 entity,
-                entityId: req.params.id || null, // Best effort guess
+                entityId: req.params.id ? String(req.params.id) : null, // Best effort guess
                 metadata: JSON.stringify({
                   method: req.method,
                   url: req.originalUrl,

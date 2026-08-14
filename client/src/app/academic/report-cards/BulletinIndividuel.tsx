@@ -31,9 +31,14 @@ interface BulletinData {
   school: {
     name: string;
     address?: string;
+    postalAddress?: string;
+    ville?: string;
     phone?: string;
     email?: string;
     logoUrl?: string;
+    signatureUrl?: string;
+    stampUrl?: string;
+    manager?: { firstName: string; lastName: string } | null;
   } | null;
   term: {
     id: string;
@@ -151,16 +156,24 @@ export default function BulletinIndividuel({ data, onClose }: Props) {
       >
         {/* En-tête */}
         <div className="border-b-2 border-gray-800 pb-4 mb-6">
-          <div className="flex justify-between items-start">
-            <div>
+          <div className="flex justify-between items-start gap-4">
+            <div className="max-w-[65%]">
               {school?.logoUrl && (
-                <img src={school.logoUrl} alt="Logo école" className="h-16 mb-2 object-contain" />
+                <img src={school.logoUrl} alt="Logo école" className="h-16 max-w-[220px] mb-2 object-contain" />
               )}
               <h1 className="text-xl font-black text-gray-900 uppercase tracking-wide">{school?.name ?? 'École'}</h1>
-              {school?.address && <p className="text-xs text-gray-500 mt-0.5">{school.address}</p>}
-              {school?.phone && <p className="text-xs text-gray-500">{school.phone}</p>}
+              {school?.address && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {school.address}{school?.ville ? `, ${school.ville}` : ''}
+                </p>
+              )}
+              {school?.postalAddress && <p className="text-xs text-gray-500">BP : {school.postalAddress}</p>}
+              <div className="flex flex-wrap gap-x-3 text-xs text-gray-500 mt-0.5">
+                {school?.phone && <span>Tél : {school.phone}</span>}
+                {school?.email && <span>Email : {school.email}</span>}
+              </div>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
               <div className="inline-block border-2 border-gray-800 px-4 py-2 rounded">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bulletin de Notes</p>
                 <p className="text-lg font-black text-gray-900">{term?.name}</p>
@@ -380,17 +393,40 @@ export default function BulletinIndividuel({ data, onClose }: Props) {
 
         {/* Signatures */}
         <div className="grid grid-cols-3 gap-6 mt-10 pt-6 border-t-2 border-gray-200">
-          {[
-            { label: "L'Élève", sublabel: '' },
-            { label: 'Les Parents / Tuteurs', sublabel: '' },
-            { label: 'Le Directeur', sublabel: bulletin?.valideDirecteurPar ? `${bulletin.valideDirecteurPar.firstName} ${bulletin.valideDirecteurPar.lastName}` : '' },
-          ].map((sig) => (
-            <div key={sig.label} className="text-center">
-              <div className="h-16 border-b border-gray-300 mb-2" />
-              <p className="text-xs font-bold text-gray-600 uppercase">{sig.label}</p>
-              {sig.sublabel && <p className="text-xs text-gray-400 mt-0.5">{sig.sublabel}</p>}
+          <div className="text-center">
+            <div className="h-20 border-b border-gray-300 mb-2 flex items-center justify-center" />
+            <p className="text-xs font-bold text-gray-600 uppercase">L'Élève</p>
+          </div>
+          <div className="text-center">
+            <div className="h-20 border-b border-gray-300 mb-2 flex items-center justify-center" />
+            <p className="text-xs font-bold text-gray-600 uppercase">Les Parents / Tuteurs</p>
+          </div>
+          <div className="text-center">
+            <div className="h-20 border-b border-gray-300 mb-2 flex items-center justify-center relative overflow-hidden">
+              {school?.signatureUrl && (
+                <img
+                  src={school.signatureUrl}
+                  alt="Signature Directeur"
+                  className="max-h-16 max-w-[150px] object-contain z-10"
+                />
+              )}
+              {school?.stampUrl && (
+                <img
+                  src={school.stampUrl}
+                  alt="Cachet de l'établissement"
+                  className="max-h-16 max-w-[150px] object-contain absolute opacity-80 z-0 pointer-events-none"
+                />
+              )}
             </div>
-          ))}
+            <p className="text-xs font-bold text-gray-600 uppercase">Le Directeur</p>
+            <p className="text-xs text-gray-500 font-medium mt-0.5">
+              {bulletin?.valideDirecteurPar
+                ? `${bulletin.valideDirecteurPar.firstName} ${bulletin.valideDirecteurPar.lastName}`
+                : school?.manager
+                ? `${school.manager.firstName} ${school.manager.lastName}`
+                : ''}
+            </p>
+          </div>
         </div>
 
         <div className="text-center text-xs text-gray-400 mt-6">

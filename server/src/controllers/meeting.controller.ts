@@ -43,7 +43,7 @@ export const getMeetings = async (req: AuthRequest, res: Response) => {
 export const updateMeeting = async (req: AuthRequest, res: Response) => {
   try {
     const data = updateMeetingSchema.parse(req.body);
-    const meeting = await MeetingService.update(req.params.id, data);
+    const meeting = await MeetingService.update(String(req.params.id), data);
     res.json(meeting);
   } catch (error) {
     res.status(400).json({ message: "Invalid data", error });
@@ -52,7 +52,7 @@ export const updateMeeting = async (req: AuthRequest, res: Response) => {
 
 export const deleteMeeting = async (req: AuthRequest, res: Response) => {
   try {
-    await MeetingService.delete(req.params.id);
+    await MeetingService.delete(String(req.params.id));
     res.json({ message: "Meeting deleted" });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });

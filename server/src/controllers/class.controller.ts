@@ -9,6 +9,7 @@ const createClassSchema = z.object({
   name: z.string(),
   niveauId: z.string().optional(),
   schoolId: z.string().optional(),
+  academicYearId: z.string().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -19,7 +20,7 @@ const enrollStudentSchema = z.object({
 
 export const createClass = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, niveauId, schoolId: bodySchoolId, isActive } = createClassSchema.parse(req.body);
+    const { name, niveauId, schoolId: bodySchoolId, academicYearId, isActive } = createClassSchema.parse(req.body);
     
     // Use bodySchoolId if provided and user is SUPER_ADMIN, otherwise use user's schoolId
     const schoolId = (req.user?.role === 'SUPER_ADMIN' && bodySchoolId) 
@@ -30,13 +31,28 @@ export const createClass = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: "School ID required" });
     }
 
+    // Auto-associate active academic year if not provided
+    let finalAcademicYearId = academicYearId || null;
+    if (!finalAcademicYearId) {
+      const activeYear = await prisma.academicYear.findFirst({
+        where: { isCurrent: true, isActive: true }
+      });
+      if (activeYear) finalAcademicYearId = activeYear.id;
+    }
+
     const newClass = await prisma.class.create({
       data: {
         name,
         schoolId,
         niveauId: niveauId || null,
+        academicYearId: finalAcademicYearId,
         isActive: isActive !== undefined ? isActive : true,
       },
+      include: {
+        niveau: true,
+        school: true,
+        academicYear: true,
+      }
     });
 
     res.status(201).json(newClass);
@@ -45,12 +61,10 @@ export const createClass = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// ... skip to updateClass ...
-
 export const updateClass = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, niveauId, isActive } = createClassSchema.parse(req.body);
+    const { name, niveauId, academicYearId, isActive } = createClassSchema.parse(req.body);
 
     if (!id) return res.status(400).json({ message: "Missing id" });
 
@@ -59,8 +73,14 @@ export const updateClass = async (req: Request, res: Response) => {
       data: {
         name,
         niveauId: niveauId || null,
+        academicYearId: academicYearId !== undefined ? academicYearId : undefined,
         isActive: isActive !== undefined ? isActive : undefined,
       },
+      include: {
+        niveau: true,
+        school: true,
+        academicYear: true,
+      }
     });
 
     res.json(updatedClass);
@@ -76,9 +96,39 @@ export const getClassById = async (req: AuthRequest, res: Response) => {
       where: { id: String(id) },
       include: {
         school: true,
-        niveau: true,
+        niveau: {
+          include: {
+            courses: {
+              include: {
+                subject: true,
+                _count: { select: { chapters: true, assignments: true, quizzes: true } }
+              }
+            },
+            _count: {
+              select: { courses: true }
+            }
+          }
+        },
+        academicYear: true,
+        teacherClasses: {
+          include: {
+            teacher: {
+              select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true, matricule: true }
+            },
+            subject: {
+              select: { id: true, name: true, coefficient: true, code: true }
+            }
+          }
+        },
+        enrollments: {
+          include: {
+            student: {
+              select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true, matricule: true, isActive: true }
+            }
+          }
+        },
         _count: {
-          select: { enrollments: true, courses: true },
+          select: { enrollments: true, teacherClasses: true },
         },
       },
     });
@@ -87,7 +137,16 @@ export const getClassById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: "Class not found" });
     }
 
-    res.json(cls);
+    const courseCount = cls.niveau?._count?.courses || cls.teacherClasses?.length || 0;
+    const enrichedClass = {
+      ...cls,
+      _count: {
+        ...cls._count,
+        courses: courseCount
+      }
+    };
+
+    res.json(enrichedClass);
   } catch (error) {
     res.status(500).json({ message: "Error fetching class", error });
   }
@@ -110,7 +169,7 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
     } else if ((user?.role as string) === 'ENSEIGNANT') {
         if (!user?.schoolId) return res.status(400).json({ message: "User not associated with a school" });
         where.schoolId = user.schoolId;
-        where.courses = {
+        where.teacherClasses = {
             some: { teacherId: user.id }
         };
     } else if ((user?.role as string) === 'APPRENANT') {
@@ -121,13 +180,37 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
         };
     }
 
+    if (req.query.niveauId) {
+      where.niveauId = String(req.query.niveauId);
+    }
+    if (req.query.academicYearId) {
+      where.academicYearId = String(req.query.academicYearId);
+    }
+
     const classes = await prisma.class.findMany({
       where,
       include: {
-        niveau: true,
+        niveau: {
+          include: {
+            _count: {
+              select: { courses: true }
+            }
+          }
+        },
         school: true,
+        academicYear: true,
+        teacherClasses: {
+          include: {
+            teacher: {
+              select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true, matricule: true }
+            },
+            subject: {
+              select: { id: true, name: true, coefficient: true }
+            }
+          }
+        },
         _count: {
-          select: { enrollments: true, courses: true },
+          select: { enrollments: true, teacherClasses: true },
         },
       },
     });
@@ -165,11 +248,19 @@ export const getClasses = async (req: AuthRequest, res: Response) => {
         if (rankA !== rankB) {
             return rankA - rankB;
         }
-        // Secondary sort: alphabetical with numeric support (e.g. "6ème A" vs "6ème B")
         return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     });
 
-    res.json(sortedClasses);
+    const enrichedClasses = sortedClasses.map(cls => ({
+      ...cls,
+      _count: {
+        enrollments: cls._count.enrollments,
+        teacherClasses: cls._count.teacherClasses,
+        courses: cls.niveau?._count?.courses || cls.teacherClasses?.length || 0
+      }
+    }));
+
+    res.json(enrichedClasses);
   } catch (error) {
     res.status(500).json({ message: "Error fetching classes", error });
   }
@@ -197,7 +288,11 @@ export const enrollStudent = async (req: Request, res: Response) => {
        });
 
        if (existingEnrollment) {
-          return res.status(400).json({ message: "L'élève est déjà inscrit dans une classe pour cette année académique." });
+          if (existingEnrollment.classId === classId) {
+            return res.status(400).json({ message: "L'élève est déjà inscrit dans cette classe." });
+          }
+          // Move from previous class to this class
+          await prisma.enrollment.delete({ where: { id: existingEnrollment.id } });
        }
     } else {
        const exactEnrollment = await prisma.enrollment.findUnique({
@@ -212,7 +307,13 @@ export const enrollStudent = async (req: Request, res: Response) => {
       data: {
         studentId,
         classId,
+        academicYearId: targetClass.academicYearId || null,
+        status: 'ACTIVE'
       },
+      include: {
+        student: true,
+        class: true
+      }
     });
 
     res.status(201).json(enrollment);
@@ -229,8 +330,8 @@ export const unenrollStudent = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Missing studentId or classId" });
     }
     
-    const enrollment = await prisma.enrollment.findUnique({
-      where: { studentId_classId: { studentId, classId } }
+    const enrollment = await prisma.enrollment.findFirst({
+      where: { studentId, classId }
     });
 
     if (!enrollment) {
@@ -238,10 +339,10 @@ export const unenrollStudent = async (req: Request, res: Response) => {
     }
 
     await prisma.enrollment.delete({
-      where: { studentId_classId: { studentId, classId } }
+      where: { id: enrollment.id }
     });
 
-    res.json({ message: "Désinscription réussie" });
+    res.json({ message: "Élève retiré de la classe avec succès (le compte utilisateur reste conservé)" });
   } catch (error) {
     res.status(500).json({ message: "Error unenrolling student", error });
   }
@@ -252,7 +353,7 @@ export const getClassStudents = async (req: Request, res: Response) => {
         const { id } = req.params;
         if (!id) return res.status(400).json({ message: "Missing id" });
         
-        const students = await prisma.enrollment.findMany({
+        const enrollments = await prisma.enrollment.findMany({
             where: { classId: String(id) },
             include: {
                 student: {
@@ -260,17 +361,29 @@ export const getClassStudents = async (req: Request, res: Response) => {
                         id: true,
                         firstName: true,
                         lastName: true,
-                        email: true
+                        email: true,
+                        matricule: true,
+                        phone: true,
+                        avatarUrl: true,
+                        gender: true,
+                        isActive: true
                     }
                 }
             }
         });
-        res.json(students.map((e: any) => e.student));
+
+        const students = enrollments.map((e: any) => ({
+            ...e.student,
+            enrollmentId: e.id,
+            enrollmentStatus: e.status,
+            joinedAt: e.joinedAt
+        }));
+
+        res.json(students);
     } catch (error) {
         res.status(500).json({ message: "Error fetching students", error });
     }
-}
-
+};
 
 export const deleteClass = async (req: Request, res: Response) => {
   try {
@@ -286,163 +399,170 @@ export const deleteClass = async (req: Request, res: Response) => {
   }
 };
 
-export const importStudents = async (req: AuthRequest, res: Response) => {
+export const transferStudent = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params; // classId
-        if (!id) return res.status(400).json({ message: "Missing id" });
+        const { studentId, studentIds, fromClassId, toClassId, targetClassId } = req.body;
+        const targetId = toClassId || targetClassId;
 
-        const schoolId = req.user?.schoolId;
-
-        if (!req.file) {
-            return res.status(400).json({ message: "Aucun fichier fourni" });
+        if (!targetId) {
+            return res.status(400).json({ message: "Target class ID is required" });
         }
-
-        // Use buffer since we are using memoryStorage
-        if (!req.file.buffer) {
-             return res.status(400).json({ message: "File buffer is empty" });
-        }
-        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        if (!sheetName) throw new Error("Excel file is empty");
-        const sheet = workbook.Sheets[sheetName];
-        if (!sheet) throw new Error("Sheet not found");
-        const data = xlsx.utils.sheet_to_json(sheet) as any[];
 
         const targetClass = await prisma.class.findUnique({
-            where: { id: String(id) },
-            select: { academicYearId: true }
+            where: { id: String(targetId) },
+            select: { id: true, academicYearId: true, name: true }
         });
-        if (!targetClass) return res.status(404).json({ message: "Class not found" });
 
-        let createdCount = 0;
-        let enrolledCount = 0;
+        if (!targetClass) {
+            return res.status(404).json({ message: "Target class not found" });
+        }
 
-        for (const row of data) {
-            const firstName = row['Prénom'] || row['Prenom'] || row['firstname'] || row['First Name'];
-            const lastName = row['Nom'] || row['lastname'] || row['Last Name'];
+        const idsToTransfer: string[] = Array.isArray(studentIds) 
+            ? studentIds 
+            : studentId 
+                ? [studentId] 
+                : [];
 
-            if (!firstName || !lastName) continue;
+        if (idsToTransfer.length === 0) {
+            return res.status(400).json({ message: "No students specified for transfer" });
+        }
 
-            // Generate email: prenom.nom@ecole.com (simplified)
-            const cleanFirstName = firstName.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-            const cleanLastName = lastName.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-            let baseEmail = row['Email'] || row['email'] || row['Email Ecole'] || `${cleanFirstName}.${cleanLastName}@ecole.com`;
-            
-            // Check if user exists
-            let user = await prisma.user.findUnique({ where: { email: baseEmail } });
-            
-            if (!user) {
-                 // Generate random password
-                 const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-                 let generatedPassword = "";
-                 for (let i = 0; i < 10; i++) {
-                     generatedPassword += chars.charAt(Math.floor(Math.random() * chars.length));
-                 }
-                 
-                 const hashedPassword = await bcrypt.hash(generatedPassword, 10);
-                 try {
-                    user = await prisma.user.create({
-                        data: {
-                            email: baseEmail,
-                            password: hashedPassword,
-                            firstName: firstName.toString(),
-                            lastName: lastName.toString(),
-                            role: "APPRENANT",
-                            schoolId: schoolId || null
-                        }
-                    });
-                    createdCount++;
-                    
-                    // Simulate email sending
-                    console.log(`[EMAIL ENVOYÉ] À : ${baseEmail}`);
-                    console.log(`[EMAIL ENVOYÉ] Sujet : Bienvenue sur École Connectée`);
-                    console.log(`[EMAIL ENVOYÉ] Message : Bonjour ${firstName},\nVotre compte a été créé. Voici vos identifiants :\nEmail: ${baseEmail}\nMot de passe: ${generatedPassword}`);
-                    
-                 } catch (e) {
-                     console.log(`Skipping ${baseEmail} due to error`, e);
-                     continue;
-                 }
+        let transferredCount = 0;
+
+        for (const sId of idsToTransfer) {
+            // Delete any existing enrollments for the student in the source class or for the same academic year
+            if (fromClassId) {
+                await prisma.enrollment.deleteMany({
+                    where: { studentId: sId, classId: String(fromClassId) }
+                });
             }
 
-            // Enroll in class
             if (targetClass.academicYearId) {
-                const existingEnrollment = await prisma.enrollment.findFirst({
+                await prisma.enrollment.deleteMany({
                     where: {
-                        studentId: user.id,
+                        studentId: sId,
                         class: { academicYearId: targetClass.academicYearId }
                     }
                 });
-                if (existingEnrollment) {
-                    console.log(`Skipping enrollment for ${baseEmail}, already enrolled in this academic year`);
-                    continue;
-                }
             } else {
-                const exactEnrollment = await prisma.enrollment.findUnique({
-                    where: { studentId_classId: { studentId: user.id, classId: String(id) } }
+                await prisma.enrollment.deleteMany({
+                    where: { studentId: sId, classId: targetClass.id }
                 });
-                if (exactEnrollment) {
-                    console.log(`Skipping enrollment for ${baseEmail}, already enrolled in this class`);
-                    continue;
-                }
             }
 
+            // Create new single enrollment in the target class
             await prisma.enrollment.create({
                 data: {
-                    studentId: user.id,
-                    classId: String(id)
+                    studentId: sId,
+                    classId: targetClass.id,
+                    academicYearId: targetClass.academicYearId || null,
+                    status: 'ACTIVE'
                 }
             });
-            enrolledCount++;
+            transferredCount++;
         }
 
-        res.json({ message: "Import terminé", created: createdCount, enrolled: enrolledCount });
-
+        res.json({ 
+            message: `${transferredCount} élève(s) transféré(s) avec succès vers la classe ${targetClass.name}.`,
+            transferredCount,
+            targetClass: targetClass.name
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Erreur lors de l'import", error });
+        console.error("Error transferring students:", error);
+        res.status(500).json({ message: "Error transferring student(s)", error });
     }
 };
 
-export const transferStudent = async (req: Request, res: Response) => {
-    try {
-        const { studentId, fromClassId, toClassId } = req.body;
-        if (!studentId || !fromClassId || !toClassId) {
-            return res.status(400).json({ message: "Missing required fields" });
-        }
-
-        const enrollment = await prisma.enrollment.findFirst({
-            where: { studentId, classId: fromClassId }
-        });
-
-        if (!enrollment) {
-            return res.status(404).json({ message: "Enrollment not found in source class" });
-        }
-
-        // Check if already enrolled in target class
-        const existingTargetEnrollment = await prisma.enrollment.findFirst({
-            where: { studentId, classId: toClassId }
-        });
-
-        if (existingTargetEnrollment) {
-            // Already there, just remove old enrollment
-            await prisma.enrollment.delete({ where: { id: enrollment.id } });
-            return res.json({ message: "Student was already in target class. Removed from old class." });
-        }
-
-        await prisma.enrollment.update({
-            where: { id: enrollment.id },
-            data: { classId: toClassId }
-        });
-
-        res.json({ message: "Student transferred successfully" });
-    } catch (error) {
-        res.status(500).json({ message: "Error transferring student", error });
+export const assignTeacherToClass = async (req: AuthRequest, res: Response) => {
+  try {
+    const { classId, teacherId, subjectId } = req.body;
+    if (!classId || !teacherId || !subjectId) {
+      return res.status(400).json({ message: "classId, teacherId and subjectId are required" });
     }
+
+    const assignment = await prisma.teacherClass.upsert({
+      where: {
+        teacherId_classId_subjectId: { 
+          teacherId: String(teacherId), 
+          classId: String(classId), 
+          subjectId: String(subjectId) 
+        }
+      },
+      update: {},
+      create: {
+        teacherId: String(teacherId),
+        classId: String(classId),
+        subjectId: String(subjectId)
+      },
+      include: {
+        teacher: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true, matricule: true } },
+        subject: { select: { id: true, name: true, coefficient: true } }
+      }
+    });
+
+    res.status(201).json(assignment);
+  } catch (error) {
+    res.status(500).json({ message: "Error assigning teacher to class", error });
+  }
+};
+
+export const unassignTeacherFromClass = async (req: AuthRequest, res: Response) => {
+  try {
+    const { teacherClassId, classId, teacherId, subjectId } = req.body;
+
+    if (teacherClassId) {
+      await prisma.teacherClass.delete({ where: { id: String(teacherClassId) } });
+    } else if (classId && teacherId && subjectId) {
+      await prisma.teacherClass.delete({
+        where: {
+          teacherId_classId_subjectId: {
+            teacherId: String(teacherId),
+            classId: String(classId),
+            subjectId: String(subjectId)
+          }
+        }
+      });
+    } else {
+      return res.status(400).json({ message: "Missing identifier for teacher assignment" });
+    }
+
+    res.json({ message: "Affectation retirée avec succès" });
+  } catch (error) {
+    res.status(500).json({ message: "Error unassigning teacher from class", error });
+  }
+};
+
+export const getClassCourses = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const cls = await prisma.class.findUnique({
+      where: { id: String(id) },
+      select: { id: true, name: true, niveauId: true }
+    });
+
+    if (!cls) return res.status(404).json({ message: "Class not found" });
+    if (!cls.niveauId) return res.json([]);
+
+    const courses = await prisma.course.findMany({
+      where: { niveauId: cls.niveauId },
+      include: {
+        subject: true,
+        niveau: true,
+        _count: {
+          select: { chapters: true, assignments: true, quizzes: true }
+        }
+      }
+    });
+
+    res.json(courses);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching class courses", error });
+  }
 };
 
 export const previewImportStudents = async (req: AuthRequest, res: Response) => {
     try {
-         if (!req.file) {
+        if (!req.file) {
             return res.status(400).json({ message: "Aucun fichier fourni" });
         }
         if (!req.file.buffer) {
@@ -460,7 +580,6 @@ export const previewImportStudents = async (req: AuthRequest, res: Response) => 
         for (const row of data) {
             const firstName = row['Prénom'] || row['Prenom'] || row['firstname'] || row['First Name'];
             const lastName = row['Nom'] || row['lastname'] || row['Last Name'];
-            // Explicitly check for 'Email Ecole' or 'Email'
             const email = row['Email'] || row['email'] || row['Email Ecole']; 
             const password = row['Password'] || row['Mot de passe'] || row['password'];
 
@@ -480,7 +599,6 @@ export const previewImportStudents = async (req: AuthRequest, res: Response) => 
             if (!email) { status.status = 'INVALID'; status.reasons.push('Email manquant'); }
             if (!password) { status.status = 'INVALID'; status.reasons.push('Mot de passe manquant'); }
             
-            // Generate or validate email
             let checkEmail = email;
             if (!checkEmail && firstName && lastName) {
                  const cleanFirstName = firstName.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -509,5 +627,105 @@ export const previewImportStudents = async (req: AuthRequest, res: Response) => 
     } catch (error) {
         console.error("Preview error", error);
         res.status(500).json({ message: "Error previewing import", error });
+    }
+};
+
+export const importStudents = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params; // classId
+        if (!id) return res.status(400).json({ message: "Missing id" });
+
+        const schoolId = req.user?.schoolId;
+
+        if (!req.file) {
+            return res.status(400).json({ message: "Aucun fichier fourni" });
+        }
+
+        if (!req.file.buffer) {
+             return res.status(400).json({ message: "File buffer is empty" });
+        }
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) throw new Error("Excel file is empty");
+        const sheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(sheet) as any[];
+
+        const targetClass = await prisma.class.findUnique({
+            where: { id: String(id) },
+            select: { academicYearId: true }
+        });
+        if (!targetClass) return res.status(404).json({ message: "Class not found" });
+
+        let createdCount = 0;
+        let enrolledCount = 0;
+
+        for (const row of data) {
+            const firstName = row['Prénom'] || row['Prenom'] || row['firstname'] || row['First Name'];
+            const lastName = row['Nom'] || row['lastname'] || row['Last Name'];
+
+            if (!firstName || !lastName) continue;
+
+            const cleanFirstName = firstName.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+            const cleanLastName = lastName.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+            let baseEmail = row['Email'] || row['email'] || row['Email Ecole'] || `${cleanFirstName}.${cleanLastName}@ecole.com`;
+            
+            let user = await prisma.user.findUnique({ where: { email: baseEmail } });
+            
+            if (!user) {
+                 const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+                 let generatedPassword = "";
+                 for (let i = 0; i < 10; i++) {
+                     generatedPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+                 }
+                 
+                 const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+                 try {
+                    user = await prisma.user.create({
+                        data: {
+                            email: baseEmail,
+                            password: hashedPassword,
+                            firstName: firstName.toString(),
+                            lastName: lastName.toString(),
+                            role: "APPRENANT",
+                            schoolId: schoolId || null
+                        }
+                    });
+                    createdCount++;
+                 } catch (e) {
+                     console.log(`Skipping ${baseEmail} due to error`, e);
+                     continue;
+                 }
+            }
+
+            // Clean previous enrollment in this academic year if any
+            if (targetClass.academicYearId) {
+                await prisma.enrollment.deleteMany({
+                    where: {
+                        studentId: user.id,
+                        class: { academicYearId: targetClass.academicYearId }
+                    }
+                });
+            } else {
+                await prisma.enrollment.deleteMany({
+                    where: { studentId: user.id, classId: String(id) }
+                });
+            }
+
+            await prisma.enrollment.create({
+                data: {
+                    studentId: user.id,
+                    classId: String(id),
+                    academicYearId: targetClass.academicYearId || null,
+                    status: 'ACTIVE'
+                }
+            });
+            enrolledCount++;
+        }
+
+        res.json({ message: "Import terminé avec succès", created: createdCount, enrolled: enrolledCount });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Erreur lors de l'import", error });
     }
 };

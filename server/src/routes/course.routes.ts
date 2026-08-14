@@ -26,6 +26,7 @@ import {
   publishCourse,
   getCourseStudents,
   getCourseTeachers,
+  getCourseSchools,
   updateCourse
 } from "../controllers/course.controller.js";
 
@@ -44,25 +45,26 @@ router.post("/", requireRole([ROLES.SUPER_ADMIN]), createCourse);
 router.get("/", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getCourses);
 router.get("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getCourse);
 router.put("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), updateCourse);
+router.get("/:id/schools", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), getCourseSchools);
 router.get("/:id/students", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), getCourseStudents);
 router.get("/:id/teachers", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), getCourseTeachers);
 router.delete("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), deleteCourse);
 
-// Chapitres — Seul le SUPER_ADMIN crée/modifie/supprime les chapitres (contenu pédagogique officiel)
-router.post("/:courseId/chapters", requireRole([ROLES.SUPER_ADMIN]), createChapter);
-router.put("/chapters/:id", requireRole([ROLES.SUPER_ADMIN]), updateChapter);
-router.delete("/chapters/:id", requireRole([ROLES.SUPER_ADMIN]), deleteChapter);
+// Chapitres — SUPER_ADMIN, DIRECTEUR et ENSEIGNANT
+router.post("/:courseId/chapters", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), createChapter);
+router.put("/chapters/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), updateChapter);
+router.delete("/chapters/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), deleteChapter);
 router.get("/:id/content", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getCourseChapters);
 router.post("/chapters/:id/progress", requireRole([ROLES.APPRENANT]), toggleChapterProgress);
 router.get("/:id/stats", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), getCourseStats);
 
-// Publication d'un cours avec propagation CNED
-router.patch("/:id/publish", requireRole([ROLES.SUPER_ADMIN]), publishCourse);
+// Publication d'un cours avec propagation
+router.patch("/:id/publish", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), publishCourse);
 
-// Material routes — Seul le SUPER_ADMIN ajoute les contenus (supports de cours)
-router.post("/:id/materials", requireRole([ROLES.SUPER_ADMIN]), upload.single('file'), addMaterial);
-router.put("/materials/:id", requireRole([ROLES.SUPER_ADMIN]), upload.single('file'), updateMaterial);
+// Material routes — Supports de cours
+router.post("/:id/materials", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), upload.single('file'), addMaterial);
+router.put("/materials/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), upload.single('file'), updateMaterial);
 router.get("/:id/materials", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getMaterials);
-router.delete("/materials/:id", requireRole([ROLES.SUPER_ADMIN]), deleteMaterial);
+router.delete("/materials/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), deleteMaterial);
 
 export default router;

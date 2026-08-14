@@ -36,7 +36,7 @@ export default function ParentDashboard() {
       setLoading(true);
       setError(null);
       const res = await api.get('/parents/children');
-      const childrenData = res.data;
+      const childrenData = Array.isArray(res.data) ? res.data : (res.data?.children || []);
 
       // Fetch progress for each child
       const childrenWithProgress = await Promise.all(
@@ -45,18 +45,18 @@ export default function ParentDashboard() {
             const progRes = await api.get(`/parents/children/${child.id}/progress`);
             return {
               ...child,
-              class: child.enrollments?.[0]?.class?.name || 'Non assigné',
-              niveau: child.enrollments?.[0]?.class?.niveau?.nom || 'N/A',
-              school: child.school?.name || 'N/A',
+              class: child.currentClass || child.enrollments?.[0]?.class?.name || 'Non assigné',
+              niveau: child.niveau || child.enrollments?.[0]?.class?.niveau?.nom || 'N/A',
+              school: child.school?.name || child.school || 'SEEEC Établissement',
               progress: progRes.data
             };
           } catch (err) {
             console.error(`Erreur chargement progression pour ${child.firstName}`, err);
             return {
               ...child,
-              class: child.enrollments?.[0]?.class?.name || 'Non assigné',
-              niveau: 'N/A',
-              school: 'N/A',
+              class: child.currentClass || child.enrollments?.[0]?.class?.name || 'Non assigné',
+              niveau: child.niveau || 'N/A',
+              school: child.school?.name || child.school || 'SEEEC Établissement',
               progress: null
             };
           }

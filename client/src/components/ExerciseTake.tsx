@@ -173,11 +173,9 @@ export default function ExerciseTake({ exerciseId, onClose }: ExerciseTakeProps)
               {exercise.type === 'QCM' ? 'QCM' : exercise.type === 'VRAI_FAUX' ? 'Vrai / Faux' : 'Texte Libre'}
             </span>
             <span className="text-xs text-brand-text-muted">{exercise.questions.length} question(s)</span>
-            {exercise.isGraded && (
-              <span className="text-xs bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-2 py-1 rounded font-bold">
-                Noté × {exercise.coefficient}
-              </span>
-            )}
+            <span className="text-xs bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-1 rounded font-bold">
+              Exercice d'entraînement
+            </span>
           </div>
         </div>
 

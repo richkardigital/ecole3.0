@@ -4,7 +4,7 @@ import type { AuthRequest } from "../middleware/auth.js";
 
 // ─── Types d'événements calendrier ───────────────────────────────────────────
 
-type CalendarEventType = "EVALUATION" | "DEVOIR" | "DEVOIR_NIVEAU" | "EXAMEN" | "REUNION" | "TRIMESTRE";
+type CalendarEventType = "COMPOSITION" | "EVALUATION" | "DEVOIR" | "DEVOIR_NIVEAU" | "EXAMEN" | "REUNION" | "TRIMESTRE";
 
 interface CalendarEvent {
   id: string;
@@ -14,15 +14,20 @@ interface CalendarEvent {
   endDate: Date | null;
   color: string;
   description?: string | null;
+  courseId?: string | null;
   courseName?: string | null;
   className?: string | null;
   subjectName?: string | null;
   link?: string;
-  isOpen?: boolean; // Quiz actuellement ouvert
+  isOpen?: boolean; // Évaluation actuellement ouverte
   coefficient?: number;
+  timeLimit?: number | null;
+  assignmentId?: string | null;
+  quizId?: string | null;
 }
 
 const TYPE_COLOR: Record<CalendarEventType, string> = {
+  COMPOSITION: "#6366f1",   // Indigo
   EVALUATION: "#ef4444",    // Rouge
   DEVOIR: "#f97316",        // Orange
   DEVOIR_NIVEAU: "#8b5cf6", // Violet
@@ -37,6 +42,7 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
     const userRole = req.user?.role as string;
+    const userSchoolId = req.user?.schoolId;
     const { startDate, endDate, academicYearId, termId } = req.query;
 
     const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 3600 * 1000);
@@ -50,9 +56,8 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
       const whereYear: any = {};
       if (academicYearId) whereYear.id = String(academicYearId);
       else if (!["SUPER_ADMIN"].includes(userRole)) {
-        // Chercher les années liées à l'école de l'utilisateur
-        if (req.user?.schoolId) {
-          whereYear.schools = { some: { id: req.user.schoolId } };
+        if (userSchoolId) {
+          whereYear.schools = { some: { id: userSchoolId } };
         }
       }
 
@@ -83,24 +88,20 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
     }
 
     // ─── 2. Quiz / Évaluations & Devoirs ──────────────────────────────────────
-
-    // Construire le filtre selon le rôle
     let quizWhere: any = {
-      published: true,
       OR: [
         { startDate: { gte: start, lte: end } },
         { endDate: { gte: start, lte: end } },
+        { startDate: { lte: start }, endDate: { gte: end } },
         { startDate: null, createdAt: { gte: start, lte: end } },
       ],
     };
 
-    if (termId) quizWhere.termId = String(termId);
-
     if (userRole === "APPRENANT") {
-      // Récupérer la classe et le niveau de l'élève
+      quizWhere.published = true;
       const enrollment = await prisma.enrollment.findFirst({
-        where: { studentId: userId, status: "ACTIVE" },
-        include: { class: { select: { id: true, niveauId: true } } },
+        where: { studentId: userId },
+        include: { class: { select: { id: true, niveauId: true, schoolId: true } } },
       });
 
       if (enrollment) {
@@ -111,33 +112,38 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
           ...quizWhere,
           OR: [
             { course: { classId } },
-            ...(niveauId ? [{ niveauId, isNiveauWide: true }] : []),
+            ...(niveauId ? [
+              { niveauId },
+              { course: { niveauId } }
+            ] : []),
+            { isNiveauWide: true },
           ],
         };
       }
-
     } else if (userRole === "ENSEIGNANT") {
-      // Enseignant: ses cours uniquement
-      quizWhere.course = { teacherId: userId };
-
-    } else if (userRole === "DIRECTEUR" || userRole === "EDUCATEUR") {
-      // Directeur/Éducateur: tous les cours de son école
-      if (req.user?.schoolId) {
-        quizWhere.OR = [
-          { course: { class: { schoolId: req.user.schoolId } } },
-          { niveauId: { not: null } }, // Devoirs de niveau
-        ];
-      }
+      quizWhere.OR = [
+        { createdById: userId },
+        { course: { teacherId: userId } },
+        { course: { class: { teacherClasses: { some: { teacherId: userId } } } } }
+      ];
+    } else if ((userRole === "DIRECTEUR" || userRole === "EDUCATEUR") && userSchoolId) {
+      quizWhere.OR = [
+        { schoolId: userSchoolId },
+        { course: { class: { schoolId: userSchoolId } } },
+        { niveauId: { not: null } },
+      ];
     }
-    // SUPER_ADMIN: tout voir, pas de filtre supplémentaire
+
+    if (termId) quizWhere.termId = String(termId);
 
     const quizzes = await prisma.quiz.findMany({
       where: quizWhere,
       include: {
         course: {
           select: {
+            id: true,
             subject: { select: { name: true } },
-            class: { select: { name: true } },
+            niveau: { select: { nom: true } },
           },
         },
         subject: { select: { name: true } },
@@ -149,8 +155,8 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
     for (const quiz of quizzes) {
       const isOpen = (!quiz.startDate || quiz.startDate <= now) && (!quiz.endDate || quiz.endDate >= now);
       const eventType: CalendarEventType =
-        quiz.type === "EVALUATION" ? "EVALUATION" :
-        quiz.type === "NIVEAU" ? "DEVOIR_NIVEAU" :
+        quiz.type === "COMPOSITION_NIVEAU" || quiz.type === "COMPO_NIVEAU" ? "EVALUATION" :
+        quiz.type === "DEVOIR_NIVEAU" ? "DEVOIR_NIVEAU" :
         quiz.type === "EXAMEN" ? "EXAMEN" : "DEVOIR";
 
       events.push({
@@ -162,19 +168,22 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
         color: TYPE_COLOR[eventType],
         description: quiz.description,
         subjectName: quiz.subject?.name ?? quiz.course?.subject?.name,
-        className: quiz.course?.class?.name ?? quiz.niveau?.nom,
+        className: quiz.niveau?.nom ?? quiz.course?.niveau?.nom,
         coefficient: quiz.coefficient,
-        link: `/evaluation/quizzes/${quiz.id}`,
+        link: `/quizzes/${quiz.id}`,
+        courseId: quiz.courseId,
+        quizId: quiz.id,
         isOpen,
       });
     }
 
-    // ─── 3. Devoirs (Assignments) ──────────────────────────────────────────────
+    // ─── 3. Devoirs & Compositions (Assignments) ───────────────────────────────
     let assignmentWhere: any = {
-      published: true,
+      syncCalendar: true,
       OR: [
         { startDate: { gte: start, lte: end } },
         { dueDate: { gte: start, lte: end } },
+        { startDate: { lte: start }, dueDate: { gte: end } },
         { startDate: null, dueDate: { gte: start, lte: end } },
       ],
     };
@@ -183,23 +192,37 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
 
     if (userRole === "APPRENANT") {
       const enrollment = await prisma.enrollment.findFirst({
-        where: { studentId: userId, status: "ACTIVE" },
-        include: { class: { select: { id: true, niveauId: true } } },
+        where: { studentId: userId },
+        include: { class: { select: { id: true, niveauId: true, schoolId: true } } },
       });
       if (enrollment) {
         const niveauId = enrollment.class?.niveauId;
         assignmentWhere = {
           ...assignmentWhere,
           OR: [
-            { course: { classId: enrollment.classId } },
-            ...(niveauId ? [{ niveauId, isNiveauWide: true }] : []),
+            ...(niveauId ? [
+              { niveauId },
+              { course: { niveauId } }
+            ] : []),
+            { isNiveauWide: true },
+            ...(enrollment.class.schoolId ? [{ schoolId: enrollment.class.schoolId }] : [])
           ],
         };
       }
     } else if (userRole === "ENSEIGNANT") {
-      assignmentWhere.course = { teacherId: userId };
-    } else if ((userRole === "DIRECTEUR" || userRole === "EDUCATEUR") && req.user?.schoolId) {
-      assignmentWhere.course = { class: { schoolId: req.user.schoolId } };
+      assignmentWhere.OR = [
+        { createdById: userId },
+        { correctorId: userId },
+        { subject: { teacherClasses: { some: { teacherId: userId } } } },
+        { niveau: { classes: { some: { teacherClasses: { some: { teacherId: userId } } } } } },
+        { course: { teacherId: userId } }
+      ];
+    } else if ((userRole === "DIRECTEUR" || userRole === "EDUCATEUR") && userSchoolId) {
+      assignmentWhere.OR = [
+        { schoolId: userSchoolId },
+        { niveauId: { not: null } },
+        { course: { niveau: { schoolId: userSchoolId } } }
+      ];
     }
 
     const assignments = await prisma.assignment.findMany({
@@ -207,8 +230,9 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
       include: {
         course: {
           select: {
+            id: true,
             subject: { select: { name: true } },
-            class: { select: { name: true } },
+            niveau: { select: { nom: true } },
           },
         },
         subject: { select: { name: true } },
@@ -217,9 +241,10 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
     });
 
     for (const asgn of assignments) {
+      const isCompo = asgn.type === "COMPOSITION_NIVEAU" || asgn.type === "COMPO_NIVEAU" || (asgn.type as any) === "COMPOSITION";
       const isNiveauWide = asgn.isNiveauWide || !!asgn.niveauId;
-      const eventType: CalendarEventType = isNiveauWide ? "DEVOIR_NIVEAU" :
-        asgn.type === "EVALUATION" ? "EVALUATION" :
+      const eventType: CalendarEventType = isCompo ? "COMPOSITION" :
+        asgn.type === "DEVOIR_NIVEAU" || isNiveauWide ? "DEVOIR_NIVEAU" :
         asgn.type === "EXAMEN" ? "EXAMEN" : "DEVOIR";
 
       const isOpen = (!asgn.startDate || asgn.startDate <= now) && asgn.dueDate >= now;
@@ -233,9 +258,12 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
         color: TYPE_COLOR[eventType],
         description: asgn.description,
         subjectName: asgn.subject?.name ?? asgn.course?.subject?.name,
-        className: asgn.course?.class?.name ?? asgn.niveau?.nom,
+        className: asgn.niveau?.nom ?? asgn.course?.niveau?.nom,
         coefficient: asgn.coefficient,
+        timeLimit: asgn.timeLimit,
         link: `/academic/assignments/${asgn.id}`,
+        courseId: asgn.courseId,
+        assignmentId: asgn.id,
         isOpen,
       });
     }
@@ -257,7 +285,7 @@ export const getCalendarEvents = async (req: AuthRequest, res: Response) => {
       meetingWhere.OR = [
         ...(meetingWhere.OR ?? []),
         { hostId: userId },
-        { class: { courses: { some: { teacherId: userId } } } },
+        { class: { teacherClasses: { some: { teacherId: userId } } } },
       ];
     } else if ((userRole === "DIRECTEUR" || userRole === "EDUCATEUR") && req.user?.schoolId) {
       meetingWhere.class = { schoolId: req.user.schoolId };

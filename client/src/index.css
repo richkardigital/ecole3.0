@@ -87,6 +87,10 @@
 @layer base {
   :root { color-scheme: light; }
   
+  html {
+    scroll-behavior: smooth;
+  }
+
   html, body {
     background-color: #F8FAFC;
     color: #0F172A;
@@ -359,7 +363,19 @@
   }
 }
 
-/* ── MOBILE TOUCH ── */
+/* ── MOBILE TOUCH & GLOBAL CLICKABLE AFFORDANCE ── */
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="checkbox"],
+input[type="radio"],
+select,
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
 @media (max-width: 768px) {
   input, button, select { min-height: 44px; }
   .overflow-y-auto { -webkit-overflow-scrolling: touch; }

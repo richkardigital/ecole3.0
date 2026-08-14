@@ -6,9 +6,29 @@ import type { AuthRequest } from "../middleware/auth.js";
 const createSubjectSchema = z.object({
   name: z.string().min(1, "Le nom de la matière est requis"),
   code: z.string().optional(),
+  imageUrl: z.string().optional().nullable(),
   coefficient: z.number().optional(),
   schoolId: z.string().optional(),
 });
+
+export const getDefaultSubjectImage = (subjectName: string): string => {
+  const s = (subjectName || "").toLowerCase().trim();
+  if (s.includes("sport") || s.includes("eps") || s.includes("éducation physique") || s.includes("education physique") || s.includes("gym")) return "eps";
+  if (s.includes("math")) return "math";
+  if (s.includes("franc") || s.includes("franç") || s.includes("dictée") || s.includes("grammaire") || s.includes("littérature")) return "french";
+  if (s.includes("anglais") || s.includes("angl") || s.includes("english")) return "english";
+  if (s.includes("physique") || s.includes("chimie") || s.includes("pc")) return "chemistry";
+  if (s.includes("svt") || s.includes("science") || s.includes("biologie") || s.includes("terre") || s.includes("nature")) return "svt";
+  if (s.includes("histoire") || s.includes("geo") || s.includes("géo") || s.includes("hg")) return "history";
+  if (s.includes("philo")) return "philosophy";
+  if (s.includes("musique") || s.includes("music") || s.includes("chant") || s.includes("solfege")) return "music";
+  if (s.includes("art") || s.includes("plastique") || s.includes("dessin") || s.includes("peinture")) return "arts";
+  if (s.includes("espagnol") || s.includes("esp") || s.includes("allemand") || s.includes("arabe")) return "spanish";
+  if (s.includes("edhc") || s.includes("civique") || s.includes("morale") || s.includes("droit") || s.includes("citoyen")) return "edhc";
+  if (s.includes("eco") || s.includes("éco") || s.includes("compta") || s.includes("gestion") || s.includes("finance") || s.includes("commerce")) return "economy";
+  if (s.includes("info") || s.includes("bureautique") || s.includes("tic") || s.includes("ordinateur") || s.includes("algo") || s.includes("programmation")) return "office";
+  return "default";
+};
 
 /**
  * Helper to resolve schoolId for an operation
@@ -28,7 +48,7 @@ const resolveSchoolId = async (req: AuthRequest, requestedSchoolId?: string): Pr
 
 export const createSubject = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, code, schoolId: bodySchoolId } = createSubjectSchema.parse(req.body);
+    const { name, code, imageUrl, coefficient, schoolId: bodySchoolId } = createSubjectSchema.parse(req.body);
     const schoolId = await resolveSchoolId(req, bodySchoolId);
 
     if (!schoolId) {
@@ -44,10 +64,14 @@ export const createSubject = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: "Cette matière existe déjà dans cet établissement." });
     }
 
+    const finalImageUrl = imageUrl && imageUrl.trim() !== "" ? imageUrl.trim() : getDefaultSubjectImage(trimmedName);
+
     const subject = await prisma.subject.create({
       data: {
         name: trimmedName,
         code: code?.trim() || null,
+        imageUrl: finalImageUrl,
+        coefficient: coefficient ?? 1,
         schoolId,
       },
       include: {
@@ -121,8 +145,8 @@ export const getSubject = async (req: AuthRequest, res: Response) => {
       where: whereClause,
       include: {
         school: { select: { id: true, name: true, ville: true, code: true } },
-        courses: { select: { id: true, name: true } },
-        _count: { select: { courses: true, grades: true } }
+        courses: { select: { id: true, coefficient: true, niveau: { select: { nom: true } } } },
+        _count: { select: { courses: true, teacherClasses: true } }
       }
     });
 
@@ -138,34 +162,41 @@ export const getSubject = async (req: AuthRequest, res: Response) => {
 
 export const updateSubject = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const { name, code, schoolId: bodySchoolId } = createSubjectSchema.parse(req.body);
+    const id = String(req.params.id);
+    const { name, code, imageUrl, coefficient, schoolId: bodySchoolId } = createSubjectSchema.parse(req.body);
 
     if (!id) return res.status(400).json({ message: "ID manquant" });
 
-    const existing = await prisma.subject.findUnique({ where: { id: String(id) } });
+    const existing = await prisma.subject.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ message: "Matière introuvable" });
 
     const targetSchoolId = bodySchoolId || existing.schoolId;
 
     const duplicate = await prisma.subject.findFirst({
-      where: { name: { equals: name.trim(), mode: 'insensitive' }, schoolId: targetSchoolId, NOT: { id: String(id) } }
+      where: { name: { equals: name.trim(), mode: 'insensitive' }, schoolId: targetSchoolId, NOT: { id } }
     });
 
     if (duplicate) {
       return res.status(400).json({ message: "Une matière avec ce nom existe déjà dans cet établissement." });
     }
 
+    const trimmedName = name.trim();
+    const finalImageUrl = imageUrl !== undefined 
+      ? (imageUrl && imageUrl.trim() !== "" ? imageUrl.trim() : getDefaultSubjectImage(trimmedName))
+      : (existing.imageUrl || getDefaultSubjectImage(trimmedName));
+
     const updatedSubject = await prisma.subject.update({
-      where: { id: String(id) },
+      where: { id },
       data: {
-        name: name.trim(),
+        name: trimmedName,
         code: code?.trim() || null,
+        imageUrl: finalImageUrl,
+        coefficient: coefficient ?? existing.coefficient,
         schoolId: targetSchoolId,
       },
       include: {
         school: { select: { id: true, name: true, ville: true, code: true } },
-        _count: { select: { courses: true, grades: true } }
+        _count: { select: { courses: true, teacherClasses: true } }
       }
     });
 
@@ -178,7 +209,7 @@ export const updateSubject = async (req: AuthRequest, res: Response) => {
 
 export const deleteSubject = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     if (!id) return res.status(400).json({ message: "ID manquant" });
 
     const courseCount = await prisma.course.count({ where: { subjectId: id } });

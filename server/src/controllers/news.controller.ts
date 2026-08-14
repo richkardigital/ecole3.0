@@ -43,7 +43,7 @@ export const getNews = async (req: AuthRequest, res: Response) => {
 
 export const getNewsById = async (req: AuthRequest, res: Response) => {
   try {
-    const news = await NewsService.findById(req.params.id);
+    const news = await NewsService.findById(String(req.params.id));
     if (!news) {
       return res.status(404).json({ message: "Annonce introuvable" });
     }
@@ -56,7 +56,7 @@ export const getNewsById = async (req: AuthRequest, res: Response) => {
 export const updateNews = async (req: AuthRequest, res: Response) => {
   try {
     const data = updateNewsSchema.parse(req.body);
-    const news = await NewsService.update(req.params.id, data);
+    const news = await NewsService.update(String(req.params.id), data);
     res.json(news);
   } catch (error: any) {
     res.status(400).json({ message: error.message || "Données invalides", error });
@@ -65,7 +65,7 @@ export const updateNews = async (req: AuthRequest, res: Response) => {
 
 export const toggleActiveNews = async (req: AuthRequest, res: Response) => {
   try {
-    const news = await NewsService.toggleActive(req.params.id);
+    const news = await NewsService.toggleActive(String(req.params.id));
     res.json({ message: `Annonce ${news.isActive ? 'activée' : 'désactivée'} avec succès`, news });
   } catch (error: any) {
     res.status(400).json({ message: error.message || "Erreur lors du changement de statut", error });
@@ -74,7 +74,7 @@ export const toggleActiveNews = async (req: AuthRequest, res: Response) => {
 
 export const deleteNews = async (req: AuthRequest, res: Response) => {
   try {
-    await NewsService.delete(req.params.id);
+    await NewsService.delete(String(req.params.id));
     res.json({ message: "Annonce supprimée avec succès" });
   } catch (error) {
     res.status(500).json({ message: "Erreur serveur", error });

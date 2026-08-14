@@ -27,7 +27,7 @@ const ROUTE_LABELS: Record<string, string> = {
   assignments: 'Devoirs',
   'report-cards': 'Bulletins',
   library: 'Bibliothèque',
-  agenda: 'Agenda',
+  agenda: 'Agenda Scolaire',
   chat: 'Messagerie',
   forum: 'Forum',
   settings: 'Paramètres',

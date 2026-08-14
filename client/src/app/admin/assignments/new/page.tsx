@@ -58,8 +58,16 @@ type FormData = {
 export default function NewGlobalAssignmentPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const canAccess = isSuperAdmin || user?.role === 'DIRECTEUR' || user?.role === 'ENSEIGNANT' || user?.role === 'EDUCATEUR';
   const navigate = useNavigate();
   const toast = useToast();
+
+  const getListPath = () => {
+    if (user?.role === 'SUPER_ADMIN') return '/admin/assignments';
+    if (user?.role === 'DIRECTEUR') return '/directeur/assignments';
+    if (user?.role === 'ENSEIGNANT') return '/enseignant/assignments';
+    return '/assignments';
+  };
 
   const [niveaux, setNiveaux] = useState<NiveauModel[]>([]);
   const [subjects, setSubjects] = useState<SubjectModel[]>([]);
@@ -90,7 +98,7 @@ export default function NewGlobalAssignmentPage() {
 
   // Load Niveaux on mount
   useEffect(() => {
-    if (isSuperAdmin) {
+    if (canAccess) {
       const fetchInitialData = async () => {
         try {
           const [niveauxRes, yearsRes] = await Promise.all([
@@ -107,7 +115,7 @@ export default function NewGlobalAssignmentPage() {
       };
       fetchInitialData();
     }
-  }, [isSuperAdmin]);
+  }, [canAccess]);
 
   // Load Subjects dynamically based on selected niveau
   useEffect(() => {
@@ -178,7 +186,7 @@ export default function NewGlobalAssignmentPage() {
       
       await api.post('/assignments', payload);
       toast.success("Évaluation créée et programmée avec succès !");
-      navigate('/admin/assignments');
+      navigate(getListPath());
     } catch (err: any) {
       setFormError(err.response?.data?.message || "Erreur lors de l'enregistrement.");
     } finally {
@@ -186,13 +194,13 @@ export default function NewGlobalAssignmentPage() {
     }
   };
 
-  if (!isSuperAdmin) {
+  if (!canAccess) {
     return <div className="p-8 text-center text-red-500">Accès non autorisé.</div>;
   }
 
   return (
     <div className="p-6 md:p-8 lg:p-10 max-w-5xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500 pb-32">
-      <Button variant="ghost" onClick={() => navigate('/admin/assignments')} className="mb-4 text-brand-text-muted hover:text-brand-text">
+      <Button variant="ghost" onClick={() => navigate(getListPath())} className="mb-4 text-brand-text-muted hover:text-brand-text">
         <ArrowLeft className="w-4 h-4 mr-2" /> Retour
       </Button>
 

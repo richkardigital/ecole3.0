@@ -145,7 +145,7 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
                                                         setIsPublishModalOpen(true);
                                                     }}
                                                     className="p-2 text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition"
-                                                    title="Publier (CNED)"
+                                                    title="Publier l'évaluation"
                                                 >
                                                     <Megaphone className="w-4 h-4" />
                                                 </button>
@@ -245,7 +245,7 @@ const QuizList = ({ courseId, isTeacher, quizzes, onUpdate }: QuizListProps) => 
                     <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6 shadow-xl">
                         <div className="flex items-center gap-3 text-brand-text mb-4">
                             <Megaphone className="w-6 h-6 text-brand-accent" />
-                            <h3 className="text-lg font-bold">Publier l'évaluation (CNED)</h3>
+                            <h3 className="text-lg font-bold">Publier l'évaluation</h3>
                         </div>
                         <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
                             La publication de cette évaluation va la propager automatiquement aux élèves selon la portée choisie. Cette action est irréversible.

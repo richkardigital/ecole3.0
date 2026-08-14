@@ -175,24 +175,11 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
               placeholder="Sans limite"
             />
           </div>
-          <div className="flex items-center gap-3 col-span-2">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" checked={isGraded} onChange={e => setIsGraded(e.target.checked)} />
-              <div className="w-11 h-6 bg-brand-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-accent"></div>
-            </label>
-            <span className="text-sm font-medium text-brand-text">Exercice noté</span>
-            {isGraded && (
-              <input
-                type="number"
-                value={coefficient}
-                onChange={e => setCoefficient(parseFloat(e.target.value) || 1)}
-                min={0.1}
-                step={0.1}
-                className="w-20 p-2 bg-brand-sidebar border border-brand-border/50 rounded-lg text-brand-text text-sm focus:outline-none focus:ring-1 focus:ring-brand-accent/50"
-                placeholder="Coeff."
-                title="Coefficient"
-              />
-            )}
+          <div className="col-span-2 p-3 bg-brand-accent/10 border border-brand-accent/30 rounded-xl flex items-center justify-between text-xs text-brand-text">
+            <span className="font-semibold text-brand-accent flex items-center gap-1.5">
+              <CheckCircle className="w-4 h-4" /> Exercice d'entraînement pédagogique (Non noté)
+            </span>
+            <span className="text-brand-text-muted">Évaluation formative et auto-correction</span>
           </div>
         </div>
 

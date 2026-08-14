@@ -2,13 +2,19 @@ import type { Request, Response } from "express";
 import prisma from "../utils/prisma.js";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import type { AuthRequest } from "../middleware/auth.js";
 
 const createSchoolSchema = z.object({
   name: z.string().min(3),
   address: z.string().optional(),
+  postalAddress: z.string().optional(),
   ville: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
+  logoUrl: z.string().optional(),
+  signatureUrl: z.string().optional(),
+  stampUrl: z.string().optional(),
+  description: z.string().optional(),
   isActive: z.boolean().optional(),
   teachingTypeId: z.string().optional(),
   schoolTypeId: z.string().optional(),
@@ -23,19 +29,25 @@ const createSchoolSchema = z.object({
 
 const updateSchoolSchema = z.object({
   name: z.string().min(3).optional(),
-  address: z.string().optional(),
-  ville: z.string().optional(),
-  phone: z.string().optional(),
-  managerId: z.string().optional(),
+  address: z.string().optional().nullable(),
+  postalAddress: z.string().optional().nullable(),
+  ville: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  email: z.string().email().optional().nullable().or(z.literal('')),
+  logoUrl: z.string().optional().nullable(),
+  signatureUrl: z.string().optional().nullable(),
+  stampUrl: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  managerId: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
-  teachingTypeId: z.string().optional(),
-  schoolTypeId: z.string().optional(),
+  teachingTypeId: z.string().optional().nullable(),
+  schoolTypeId: z.string().optional().nullable(),
 });
 
 export const createSchool = async (req: Request, res: Response) => {
   try {
     const { 
-      name, address, ville, phone, email, isActive, teachingTypeId, schoolTypeId,
+      name, address, postalAddress, ville, phone, email, logoUrl, signatureUrl, stampUrl, description, isActive, teachingTypeId, schoolTypeId,
       directorFirstName, directorLastName, directorEmail, directorPhone, directorPassword
     } = createSchoolSchema.parse(req.body);
 
@@ -67,21 +79,24 @@ export const createSchool = async (req: Request, res: Response) => {
       const newSchool = await prisma.school.create({
         data: {
           name,
-          code: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          code: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + '-' + Math.floor(1000 + Math.random() * 9000),
           address: address || null,
+          postalAddress: postalAddress || null,
           ville: ville || null,
           phone: phone || null,
           email: email || null,
+          logoUrl: logoUrl || null,
+          signatureUrl: signatureUrl || null,
+          stampUrl: stampUrl || null,
+          description: description || null,
           isActive: isActive !== undefined ? isActive : true,
           teachingTypeId: teachingTypeId || null,
           schoolTypeId: schoolTypeId || null,
-          manager: {
-            connect: { id: newDirector.id }
-          }
+          managerId: newDirector.id,
         },
       });
 
-      // 3. Update Director's schoolId (though technically managedSchool handles it, doing both is safe)
+      // 3. Update Director's schoolId
       await prisma.user.update({
         where: { id: newDirector.id },
         data: { schoolId: newSchool.id }
@@ -91,9 +106,9 @@ export const createSchool = async (req: Request, res: Response) => {
     });
 
     res.status(201).json(school);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: "Erreur de validation", errors: error.errors });
+      return res.status(400).json({ message: "Erreur de validation", errors: (error as any).issues || (error as any).errors });
     }
     console.error("Error creating school:", error);
     res.status(500).json({ message: "Erreur lors de la création de l'école", error });
@@ -110,6 +125,7 @@ export const getSchools = async (req: Request, res: Response) => {
             firstName: true,
             lastName: true,
             email: true,
+            phone: true,
           },
         },
         _count: {
@@ -143,6 +159,8 @@ export const getSchoolById = async (req: Request, res: Response) => {
             }
           }
         },
+        teachingType: true,
+        schoolType: true,
       },
     });
 
@@ -156,10 +174,137 @@ export const getSchoolById = async (req: Request, res: Response) => {
   }
 };
 
+export const getMySchool = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) return res.status(401).json({ message: "Non authentifié" });
+
+    let school = await prisma.school.findFirst({
+      where: {
+        OR: [
+          { managerId: user.id },
+          ...(user.schoolId ? [{ id: user.schoolId }] : [])
+        ]
+      },
+      include: {
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+          }
+        },
+        teachingType: true,
+        schoolType: true,
+        _count: {
+          select: { users: true, classes: true }
+        }
+      }
+    });
+
+    if (!school) {
+      return res.status(404).json({ message: "Établissement non trouvé pour cet utilisateur" });
+    }
+
+    res.json(school);
+  } catch (error) {
+    console.error("Error fetching my school:", error);
+    res.status(500).json({ message: "Erreur lors de la récupération de l'école", error });
+  }
+};
+
+export const updateMySchool = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) return res.status(401).json({ message: "Non authentifié" });
+
+    const currentSchool = await prisma.school.findFirst({
+      where: {
+        OR: [
+          { managerId: user.id },
+          ...(user.schoolId ? [{ id: user.schoolId }] : [])
+        ]
+      }
+    });
+
+    if (!currentSchool) {
+      return res.status(404).json({ message: "Établissement non trouvé pour cet utilisateur" });
+    }
+
+    const {
+      name,
+      address,
+      postalAddress,
+      ville,
+      phone,
+      email,
+      logoUrl,
+      signatureUrl,
+      stampUrl,
+      description
+    } = updateSchoolSchema.parse(req.body);
+
+    const updateData: any = {};
+    if (name) updateData.name = name;
+    if (address !== undefined) updateData.address = address;
+    if (postalAddress !== undefined) updateData.postalAddress = postalAddress;
+    if (ville !== undefined) updateData.ville = ville;
+    if (phone !== undefined) updateData.phone = phone;
+    if (email !== undefined) updateData.email = email;
+    if (logoUrl !== undefined) updateData.logoUrl = logoUrl;
+    if (signatureUrl !== undefined) updateData.signatureUrl = signatureUrl;
+    if (stampUrl !== undefined) updateData.stampUrl = stampUrl;
+    if (description !== undefined) updateData.description = description;
+
+    const updatedSchool = await prisma.school.update({
+      where: { id: currentSchool.id },
+      data: updateData,
+      include: {
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          }
+        },
+        teachingType: true,
+        schoolType: true,
+      }
+    });
+
+    res.json(updatedSchool);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Erreur de validation", errors: (error as any).issues || (error as any).errors });
+    }
+    console.error("Error updating my school:", error);
+    res.status(500).json({ message: "Erreur lors de la mise à jour de l'école", error });
+  }
+};
+
 export const updateSchool = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, address, ville, phone, managerId, isActive, teachingTypeId, schoolTypeId } = updateSchoolSchema.parse(req.body);
+    const {
+      name,
+      address,
+      postalAddress,
+      ville,
+      phone,
+      email,
+      logoUrl,
+      signatureUrl,
+      stampUrl,
+      description,
+      managerId,
+      isActive,
+      teachingTypeId,
+      schoolTypeId
+    } = updateSchoolSchema.parse(req.body);
 
     if (!id) return res.status(400).json({ message: "ID required" });
 
@@ -169,8 +314,14 @@ export const updateSchool = async (req: Request, res: Response) => {
     const updateData: any = {};
     if (name) updateData.name = name;
     if (address !== undefined) updateData.address = address;
+    if (postalAddress !== undefined) updateData.postalAddress = postalAddress;
     if (ville !== undefined) updateData.ville = ville;
     if (phone !== undefined) updateData.phone = phone;
+    if (email !== undefined) updateData.email = email;
+    if (logoUrl !== undefined) updateData.logoUrl = logoUrl;
+    if (signatureUrl !== undefined) updateData.signatureUrl = signatureUrl;
+    if (stampUrl !== undefined) updateData.stampUrl = stampUrl;
+    if (description !== undefined) updateData.description = description;
     if (isActive !== undefined) updateData.isActive = isActive;
     if (managerId !== undefined) updateData.managerId = managerId;
     if (teachingTypeId !== undefined) updateData.teachingTypeId = teachingTypeId;
@@ -179,21 +330,18 @@ export const updateSchool = async (req: Request, res: Response) => {
     const school = await prisma.$transaction(async (prisma) => {
       // If manager changes, handle User relations
       if (managerId && managerId !== currentSchool.managerId) {
-         // Verify new manager
          const newManager = await prisma.user.findUnique({ where: { id: managerId } });
          if (!newManager) throw new Error("New manager not found");
          if (newManager.schoolId && newManager.schoolId !== String(id)) {
              throw new Error("New manager already manages another school");
          }
 
-         // Unlink old manager
          if (currentSchool.managerId) {
              await prisma.user.update({
                  where: { id: currentSchool.managerId },
                  data: { schoolId: null }
              });
          }
-         // Link new manager
          await prisma.user.update({
              where: { id: managerId },
              data: { schoolId: String(id), role: 'DIRECTEUR' }
@@ -207,7 +355,10 @@ export const updateSchool = async (req: Request, res: Response) => {
     });
 
     res.json(school);
-  } catch (error) {
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Erreur de validation", errors: (error as any).issues || (error as any).errors });
+    }
     res.status(500).json({ message: "Error updating school", error });
   }
 };

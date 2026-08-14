@@ -127,7 +127,7 @@ export const createResource = async (req: AuthRequest, res: Response) => {
 // Delete a resource
 export const deleteResource = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     
     // In a full implementation, we should also delete the file from Supabase using its URL.
     await prisma.resource.delete({
@@ -144,7 +144,7 @@ export const deleteResource = async (req: AuthRequest, res: Response) => {
 // Toggle Publish status
 export const togglePublishResource = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { isPublished } = req.body;
 
     const resource = await prisma.resource.update({
@@ -179,8 +179,8 @@ export const togglePublishResource = async (req: AuthRequest, res: Response) => 
 // Update a resource
 export const updateResource = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const { title, description, niveauId, type: reqType, url, isActive } = req.body;
+    const id = String(req.params.id);
+    const { title, description, niveauId, type: reqType, url: linkUrl, isActive } = req.body;
     const file = req.file;
 
     const existingResource = await prisma.resource.findUnique({ where: { id } });

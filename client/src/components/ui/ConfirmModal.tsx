@@ -1,4 +1,6 @@
-import { AlertTriangle, CheckCircle, XCircle, Info } from 'lucide-react';
+import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { AlertTriangle, CheckCircle, XCircle, Info, X } from 'lucide-react';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -22,6 +24,16 @@ const ConfirmationModal = ({
   cancelText = 'Annuler',
   variant = 'warning',
 }: ConfirmationModalProps) => {
+  useEffect(() => {
+    if (isOpen) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') onClose();
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const getVariantStyles = () => {
@@ -29,42 +41,45 @@ const ConfirmationModal = ({
       case 'danger':
         return {
           icon: <XCircle className="w-6 h-6 text-red-600" />,
-          bg: 'bg-red-50 border border-red-200',
-          btn: 'bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/20',
+          bg: 'bg-red-50 border border-red-200 text-red-600',
+          btn: 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/25 active:scale-[0.98]',
         };
       case 'success':
         return {
           icon: <CheckCircle className="w-6 h-6 text-emerald-600" />,
-          bg: 'bg-emerald-50 border border-emerald-200',
-          btn: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20',
+          bg: 'bg-emerald-50 border border-emerald-200 text-emerald-600',
+          btn: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 active:scale-[0.98]',
         };
       case 'primary':
         return {
           icon: <Info className="w-6 h-6 text-sky-600" />,
-          bg: 'bg-sky-50 border border-sky-200',
-          btn: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20',
+          bg: 'bg-sky-50 border border-sky-200 text-sky-600',
+          btn: 'bg-sky-600 hover:bg-sky-700 text-white shadow-lg shadow-sky-600/25 active:scale-[0.98]',
         };
       default: // warning
         return {
           icon: <AlertTriangle className="w-6 h-6 text-amber-600" />,
-          bg: 'bg-amber-50 border border-amber-200',
-          btn: 'bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/20',
+          bg: 'bg-amber-50 border border-amber-200 text-amber-600',
+          btn: 'bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-600/25 active:scale-[0.98]',
         };
     }
   };
 
   const styles = getVariantStyles();
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      {/* Backdrop */}
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      {/* Full screen backdrop */}
       <div 
-        className="fixed inset-0 bg-slate-900/45 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
         onClick={onClose}
       />
       
-      {/* Modal */}
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up border border-slate-200 z-10">
+      {/* Centered Modal card */}
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 z-10 my-auto animate-in zoom-in-95 duration-200">
+        {/* Top accent bar */}
+        <div className={`h-1.5 w-full ${variant === 'danger' ? 'bg-red-500' : variant === 'success' ? 'bg-emerald-500' : variant === 'primary' ? 'bg-sky-500' : 'bg-amber-500'}`} />
+
         <div className="p-6 sm:p-7">
           <div className="flex items-start gap-4">
             <div className={`p-3 rounded-2xl shrink-0 ${styles.bg}`}>
@@ -79,22 +94,32 @@ const ConfirmationModal = ({
                 {message}
               </p>
             </div>
+
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              title="Fermer"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
         
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors"
+            className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 transition-colors cursor-pointer"
           >
             {cancelText}
           </button>
           <button
+            type="button"
             onClick={() => {
               onConfirm();
               onClose();
             }}
-            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${styles.btn}`}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${styles.btn}`}
           >
             {confirmText}
           </button>
@@ -102,6 +127,9 @@ const ConfirmationModal = ({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(modalContent, document.body);
 };
 
 export default ConfirmationModal;

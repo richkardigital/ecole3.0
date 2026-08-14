@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LogOut, School, BookOpen, GraduationCap, LayoutDashboard, 
   FileText, Megaphone, X, Calendar, MessageCircle, 
-  ClipboardList, Network, Settings, 
+  ClipboardList, Network, Settings, User,
   Plus, FolderOpen, Library as LibraryIcon, Layers,
   PenTool, Zap, Users, CheckSquare, BarChart3, Sparkles, CreditCard
 } from 'lucide-react';
@@ -20,16 +20,16 @@ const NavItem = ({ to, icon: Icon, children, isActive, badge }: {
 }) => (
   <Link
     to={to}
-    className="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200 group"
+    className="relative flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-[14px] font-bold tracking-tight transition-all duration-200 group select-none"
     style={isActive ? {
-      background: 'rgba(16, 185, 129, 0.1)',
-      border: '1px solid rgba(16, 185, 129, 0.25)',
-      color: '#047857',
-      fontWeight: 700,
+      background: 'rgba(16, 185, 129, 0.12)',
+      border: '1px solid rgba(16, 185, 129, 0.3)',
+      color: '#065f46',
+      fontWeight: 800,
     } : {
       background: 'transparent',
       border: '1px solid transparent',
-      color: '#475569',
+      color: '#334155',
     }}
     onMouseEnter={(e) => {
       if (!isActive) {
@@ -40,23 +40,19 @@ const NavItem = ({ to, icon: Icon, children, isActive, badge }: {
     onMouseLeave={(e) => {
       if (!isActive) {
         e.currentTarget.style.background = 'transparent';
-        e.currentTarget.style.color = '#475569';
+        e.currentTarget.style.color = '#334155';
       }
     }}
   >
     {isActive && (
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full"
-        style={{ background: '#10B981', boxShadow: '0 0 8px rgba(16,185,129,0.5)' }} />
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-r-full"
+        style={{ background: '#10B981', boxShadow: '0 0 10px rgba(16,185,129,0.6)' }} />
     )}
-    
-    <Icon className="w-4 h-4 shrink-0 transition-all duration-200"
-      style={isActive ? { color: '#059669' } : { color: '#64748B' }} />
-    
-    <span className="truncate">{children}</span>
-    
+    <Icon className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isActive ? 'text-emerald-700 stroke-[2.5]' : 'text-slate-500 group-hover:scale-110'}`} />
+    <span className="flex-1 truncate">{children}</span>
     {badge !== undefined && badge > 0 && (
-      <span className="ml-auto text-[10px] font-black px-2 py-0.5 rounded-full shrink-0"
-        style={{ background: 'rgba(16,185,129,0.12)', color: '#047857', border: '1px solid rgba(16,185,129,0.25)' }}>
+      <span className="ml-auto px-2 py-0.5 text-[11px] font-black rounded-full text-white shrink-0"
+        style={{ background: '#10B981' }}>
         {badge}
       </span>
     )}
@@ -64,90 +60,106 @@ const NavItem = ({ to, icon: Icon, children, isActive, badge }: {
 );
 
 const NavSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <div className="mb-5">
-    <p className="px-3 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-2">{title}</p>
-    <div className="space-y-0.5">{children}</div>
+  <div className="mb-4">
+    <div className="px-3.5 py-1.5 text-[10px] font-black tracking-widest text-slate-600 uppercase">
+      {title}
+    </div>
+    <div className="space-y-0.5 mt-1">
+      {children}
+    </div>
   </div>
 );
 
-const ROLE_CONFIG = {
-  SUPER_ADMIN: { label: 'Super Admin', from: '#ef4444', to: '#dc2626', textColor: 'text-red-600', prefix: '/admin' },
-  DIRECTEUR:   { label: 'Directeur', from: '#10b981', to: '#059669', textColor: 'text-emerald-700', prefix: '/directeur' },
-  EDUCATEUR:   { label: 'Éducateur', from: '#f59e0b', to: '#d97706', textColor: 'text-amber-700', prefix: '/educateur' },
-  ENSEIGNANT:  { label: 'Enseignant', from: '#06b6d4', to: '#0891b2', textColor: 'text-cyan-700', prefix: '/enseignant' },
-  APPRENANT:   { label: 'Apprenant', from: '#8b5cf6', to: '#7c3aed', textColor: 'text-violet-700', prefix: '' },
-  PARENT:      { label: 'Parent', from: '#ec4899', to: '#be185d', textColor: 'text-pink-700', prefix: '/parent' },
-} as const;
+const ROLE_CONFIG: Record<string, { label: string; prefix: string; from: string; to: string; textColor: string }> = {
+  SUPER_ADMIN: { label: 'Super Admin', prefix: '/admin', from: '#6366F1', to: '#4F46E5', textColor: 'text-indigo-700' },
+  DIRECTEUR:   { label: 'Directeur',   prefix: '/directeur', from: '#0EA5E9', to: '#0284C7', textColor: 'text-sky-700' },
+  EDUCATEUR:   { label: 'Éducateur',   prefix: '/educateur', from: '#F59E0B', to: '#D97706', textColor: 'text-amber-700' },
+  ENSEIGNANT:  { label: 'Enseignant',  prefix: '/enseignant', from: '#10B981', to: '#059669', textColor: 'text-emerald-700' },
+  APPRENANT:   { label: 'Élève',       prefix: '', from: '#8B5CF6', to: '#7C3AED', textColor: 'text-purple-700' },
+  PARENT:      { label: 'Parent',      prefix: '/parent', from: '#EC4899', to: '#DB2777', textColor: 'text-pink-700' },
+};
 
-const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-  useEffect(() => { onClose(); }, [location.pathname]);
-
-  const handleLogout = () => { logout(); navigate('/login'); };
+  useEffect(() => {
+    onClose();
+  }, [location.pathname]);
 
   if (!user) return null;
+
+  const roleConf = ROLE_CONFIG[user.role] ?? { label: user.role, prefix: '', from: '#10B981', to: '#059669', textColor: 'text-emerald-700' };
   const p = location.pathname;
-  const roleConf = ROLE_CONFIG[user.role as keyof typeof ROLE_CONFIG] || ROLE_CONFIG.DIRECTEUR;
-  const homePath = roleConf.prefix ? `${roleConf.prefix}/dashboard` : '/dashboard';
 
   return (
     <>
-      {/* Mobile overlay */}
+      <ConfirmationModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={logout}
+        title="Déconnexion"
+        message="Êtes-vous sûr de vouloir vous déconnecter de votre espace ?"
+        confirmText="Se déconnecter"
+        cancelText="Annuler"
+        variant="danger"
+      />
+
+      {/* Backdrop mobile */}
       {isOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 lg:hidden" onClick={onClose} />
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden animate-fade-in"
+          onClick={onClose}
+        />
       )}
 
+      {/* Sidebar panel */}
       <aside
-        className={`w-64 h-screen fixed left-0 top-0 flex flex-col z-50 transition-transform duration-300 ease-in-out custom-scrollbar ${
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col w-72 transition-transform duration-300 ease-out lg:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{
           background: '#FFFFFF',
           borderRight: '1px solid #E2E8F0',
-          boxShadow: '4px 0 24px rgba(15, 23, 42, 0.04)',
+          boxShadow: '4px 0 24px rgba(0,0,0,0.03)',
         }}
       >
-        {/* Top border accent */}
-        <div className="absolute top-0 left-0 right-0 h-[2px]"
-          style={{ background: 'linear-gradient(90deg, transparent, #10B981, #06B6D4, transparent)' }} />
-
-        {/* ── LOGO ── */}
-        <div className="px-5 py-4 shrink-0 relative flex items-center justify-between"
+        {/* ── HEADER ── */}
+        <div className="flex items-center justify-between px-6 py-5 shrink-0"
           style={{ borderBottom: '1px solid #F1F5F9' }}>
-          <Link to={homePath} className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105"
-              style={{
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
-              }}>
-              <GraduationCap className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white text-base shadow-md"
+              style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
+              É
             </div>
             <div>
-              <span className="text-lg font-black tracking-tight leading-none block text-slate-900">
-                ÉCOLE 3.0
-              </span>
-              <span className="text-[9px] font-bold tracking-[0.15em] uppercase flex items-center gap-1 text-emerald-600 mt-0.5">
-                <Sparkles className="w-2.5 h-2.5" /> SEEEC Platform
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-slate-900 text-lg tracking-tight">ÉCOLE 3.0</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase text-emerald-800"
+                  style={{ background: '#D1FAE5' }}>SEEEC</span>
+              </div>
+              <p className="text-[11px] font-bold text-slate-500">Plateforme Éducative</p>
             </div>
-          </Link>
-          <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
-            <X className="w-4 h-4" />
+          </div>
+
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 lg:hidden transition-colors"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* ── NAV ── */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto custom-scrollbar">
           
-          {/* SUPER_ADMIN (/admin/...) */}
+          {/* SUPER_ADMIN */}
           {user.role === 'SUPER_ADMIN' && (
             <>
               <NavSection title="Principal">
-                <NavItem to="/admin/dashboard" icon={LayoutDashboard} isActive={p === '/admin/dashboard' || p === '/dashboard'}>Accueil</NavItem>
+                <NavItem to="/admin/dashboard" icon={LayoutDashboard} isActive={p === '/admin/dashboard'}>Accueil</NavItem>
                 <NavItem to="/admin/agenda" icon={Calendar} isActive={p === '/admin/agenda'}>Agenda Scolaire</NavItem>
                 <NavItem to="/admin/broadcast" icon={Zap} isActive={p === '/admin/broadcast'}>Flash News</NavItem>
               </NavSection>
@@ -161,7 +173,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
               </NavSection>
               <NavSection title="Académique">
                 <NavItem to="/admin/courses" icon={BookOpen} isActive={p.startsWith('/admin/courses')}>Cours Académiques</NavItem>
-                <NavItem to="/admin/assignments" icon={PenTool} isActive={p === '/admin/assignments'}>Devoirs & Projets</NavItem>
                 <NavItem to="/admin/report-cards" icon={FileText} isActive={p === '/admin/report-cards'}>Bulletins Scolaires</NavItem>
                 <NavItem to="/admin/library" icon={FolderOpen} isActive={p === '/admin/library'}>Librairie 3.0</NavItem>
               </NavSection>
@@ -176,17 +187,18 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/admin/forum" icon={MessageCircle} isActive={p === '/admin/forum'}>Forum d'entraide</NavItem>
               </NavSection>
               <div className="pt-2 space-y-1" style={{ borderTop: '1px solid #F1F5F9' }}>
-                <NavItem to="/admin/settings" icon={Settings} isActive={p === '/admin/settings'}>Paramètres Système</NavItem>
+                <NavItem to="/admin/profile" icon={User} isActive={p === '/admin/profile'}>Mon Profil</NavItem>
+                <NavItem to="/admin/settings" icon={Settings} isActive={p === '/admin/settings'}>Paramètres</NavItem>
               </div>
             </>
           )}
 
-          {/* DIRECTEUR (/directeur/...) */}
+          {/* DIRECTEUR */}
           {user.role === 'DIRECTEUR' && (
             <>
               <NavSection title="Principal">
-                <NavItem to="/directeur/dashboard" icon={LayoutDashboard} isActive={p === '/directeur/dashboard' || p === '/dashboard'}>Accueil</NavItem>
-                <NavItem to="/directeur/agenda" icon={Calendar} isActive={p === '/directeur/agenda'}>Agenda Établissement</NavItem>
+                <NavItem to="/directeur/dashboard" icon={LayoutDashboard} isActive={p === '/directeur/dashboard'}>Accueil</NavItem>
+                <NavItem to="/directeur/agenda" icon={Calendar} isActive={p === '/directeur/agenda'}>Agenda Scolaire</NavItem>
               </NavSection>
               <NavSection title="Mon Établissement">
                 <NavItem to="/directeur/classes" icon={School} isActive={p === '/directeur/classes'}>Classes & Effectifs</NavItem>
@@ -207,18 +219,19 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/directeur/forum" icon={MessageCircle} isActive={p === '/directeur/forum'}>Forum Écoles</NavItem>
                 <NavItem to="/directeur/shared-resources" icon={Network} isActive={p.startsWith('/directeur/shared-resources')}>Réseau SEEEC</NavItem>
               </NavSection>
-              <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
-                <NavItem to="/directeur/settings" icon={Settings} isActive={p === '/directeur/settings'}>Paramètres École</NavItem>
+              <div className="pt-2 space-y-1" style={{ borderTop: '1px solid #F1F5F9' }}>
+                <NavItem to="/directeur/profile" icon={User} isActive={p === '/directeur/profile'}>Mon Profil</NavItem>
+                <NavItem to="/directeur/settings" icon={Settings} isActive={p === '/directeur/settings'}>Paramètres</NavItem>
               </div>
             </>
           )}
 
-          {/* EDUCATEUR (/educateur/...) */}
+          {/* EDUCATEUR */}
           {user.role === 'EDUCATEUR' && (
             <>
               <NavSection title="Principal">
-                <NavItem to="/educateur/dashboard" icon={LayoutDashboard} isActive={p === '/educateur/dashboard' || p === '/dashboard'}>Accueil</NavItem>
-                <NavItem to="/educateur/agenda" icon={Calendar} isActive={p === '/educateur/agenda'}>Agenda</NavItem>
+                <NavItem to="/educateur/dashboard" icon={LayoutDashboard} isActive={p === '/educateur/dashboard'}>Accueil</NavItem>
+                <NavItem to="/educateur/agenda" icon={Calendar} isActive={p === '/educateur/agenda'}>Agenda Scolaire</NavItem>
               </NavSection>
               <NavSection title="Vie Scolaire">
                 <NavItem to="/educateur/absences" icon={ClipboardList} isActive={p === '/educateur/absences'}>Absences Élèves</NavItem>
@@ -235,17 +248,17 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/educateur/broadcast" icon={Megaphone} isActive={p === '/educateur/broadcast'}>Annonces</NavItem>
               </NavSection>
               <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
-                <NavItem to="/educateur/settings" icon={Settings} isActive={p === '/educateur/settings'}>Mon Profil</NavItem>
+                <NavItem to="/educateur/profile" icon={User} isActive={p === '/educateur/profile' || p === '/educateur/settings'}>Mon Profil</NavItem>
               </div>
             </>
           )}
 
-          {/* ENSEIGNANT (/enseignant/...) */}
+          {/* ENSEIGNANT */}
           {user.role === 'ENSEIGNANT' && (
             <>
               <NavSection title="Principal">
-                <NavItem to="/enseignant/dashboard" icon={LayoutDashboard} isActive={p === '/enseignant/dashboard' || p === '/dashboard'}>Accueil</NavItem>
-                <NavItem to="/enseignant/agenda" icon={Calendar} isActive={p === '/enseignant/agenda'}>Agenda</NavItem>
+                <NavItem to="/enseignant/dashboard" icon={LayoutDashboard} isActive={p === '/enseignant/dashboard'}>Accueil</NavItem>
+                <NavItem to="/enseignant/agenda" icon={Calendar} isActive={p === '/enseignant/agenda'}>Agenda Scolaire</NavItem>
               </NavSection>
               <NavSection title="Pédagogie">
                 <NavItem to="/enseignant/courses" icon={BookOpen} isActive={p.startsWith('/enseignant/courses')}>Mes Cours</NavItem>
@@ -261,21 +274,20 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/enseignant/shared-resources" icon={Network} isActive={p.startsWith('/enseignant/shared-resources')}>Réseau SEEEC</NavItem>
               </NavSection>
               <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
-                <NavItem to="/enseignant/settings" icon={Settings} isActive={p === '/enseignant/settings'}>Mon Profil</NavItem>
+                <NavItem to="/enseignant/profile" icon={User} isActive={p === '/enseignant/profile' || p === '/enseignant/settings'}>Mon Profil</NavItem>
               </div>
             </>
           )}
 
-          {/* APPRENANT (Sans préfixe) */}
+          {/* APPRENANT */}
           {user.role === 'APPRENANT' && (
             <>
               <NavSection title="Mon Espace">
                 <NavItem to="/dashboard" icon={LayoutDashboard} isActive={p === '/dashboard'}>Accueil</NavItem>
-                <NavItem to="/agenda" icon={Calendar} isActive={p === '/agenda'}>Agenda & Devoirs</NavItem>
+                <NavItem to="/agenda" icon={Calendar} isActive={p === '/agenda'}>Agenda Scolaire</NavItem>
               </NavSection>
               <NavSection title="Cours & Exercices">
                 <NavItem to="/courses" icon={BookOpen} isActive={p.startsWith('/courses')}>Mes Cours</NavItem>
-                <NavItem to="/assignments" icon={PenTool} isActive={p === '/assignments'}>Devoirs à rendre</NavItem>
                 <NavItem to="/library" icon={FolderOpen} isActive={p === '/library'}>Librairie 3.0</NavItem>
               </NavSection>
               <NavSection title="Résultats">
@@ -287,19 +299,23 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                 <NavItem to="/shared-resources" icon={Network} isActive={p.startsWith('/shared-resources')}>Réseau SEEEC</NavItem>
               </NavSection>
               <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
-                <NavItem to="/settings" icon={Settings} isActive={p === '/settings'}>Mon Profil</NavItem>
+                <NavItem to="/profile" icon={User} isActive={p === '/profile' || p === '/settings'}>Mon Profil</NavItem>
               </div>
             </>
           )}
 
-          {/* PARENT (/parent/...) */}
+          {/* PARENT */}
           {user.role === 'PARENT' && (
             <>
               <NavSection title="Espace Parent">
-                <NavItem to="/parent/dashboard" icon={LayoutDashboard} isActive={p === '/parent/dashboard' || p === '/dashboard'}>Tableau de Bord</NavItem>
+                <NavItem to="/parent/dashboard" icon={LayoutDashboard} isActive={p === '/parent/dashboard'}>Suivi des Enfants</NavItem>
+              </NavSection>
+              <NavSection title="Communication">
+                <NavItem to="/chat" icon={MessageCircle} isActive={p === '/chat'}>Messagerie</NavItem>
+                <NavItem to="/news" icon={Megaphone} isActive={p === '/news'}>Actualités de l'École</NavItem>
               </NavSection>
               <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
-                <NavItem to="/parent/settings" icon={Settings} isActive={p === '/parent/settings'}>Mon Profil</NavItem>
+                <NavItem to="/parent/profile" icon={User} isActive={p === '/parent/profile' || p === '/parent/settings'}>Mon Profil</NavItem>
               </div>
             </>
           )}
@@ -312,7 +328,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           {/* User card */}
           <div className="flex items-center gap-3 p-3 rounded-2xl mb-3 transition-colors hover:bg-slate-100 cursor-pointer group"
             style={{ background: '#FFFFFF', border: '1px solid #E2E8F0' }}
-            onClick={() => navigate(roleConf.prefix ? `${roleConf.prefix}/settings` : '/settings')}>
+            onClick={() => navigate(roleConf.prefix ? `${roleConf.prefix}/profile` : '/profile')}>
             
             {/* Avatar */}
             <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-black text-white text-xs transition-transform duration-300 group-hover:scale-105"
@@ -329,27 +345,14 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
           {/* Logout */}
           <button
             onClick={() => setIsLogoutModalOpen(true)}
-            className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-xl text-[12px] font-bold transition-all duration-200 text-red-600 hover:bg-red-100"
+            className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-xl text-[12px] font-bold transition-all duration-200 text-red-600 hover:bg-red-100 cursor-pointer"
             style={{ background: '#FEF2F2', border: '1px solid #FECDD3' }}
           >
             <LogOut className="w-4 h-4" />
             Déconnexion
           </button>
         </div>
-
-        <ConfirmationModal
-          isOpen={isLogoutModalOpen}
-          onClose={() => setIsLogoutModalOpen(false)}
-          onConfirm={handleLogout}
-          title="Déconnexion"
-          message="Êtes-vous sûr de vouloir vous déconnecter de votre espace SEEEC ?"
-          confirmText="Me déconnecter"
-          cancelText="Annuler"
-          variant="danger"
-        />
       </aside>
     </>
   );
-};
-
-export default Sidebar;
+}

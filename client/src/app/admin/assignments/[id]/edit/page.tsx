@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { BookOpen, ArrowLeft, Plus, Trash2, Paperclip, X, CheckCircle2, FileText, LayoutList, Layers } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -58,9 +58,26 @@ type FormData = {
 export default function EditGlobalAssignmentPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const canAccess = isSuperAdmin || user?.role === 'DIRECTEUR' || user?.role === 'ENSEIGNANT' || user?.role === 'EDUCATEUR';
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const toast = useToast();
+
+  const getListPath = () => {
+    if (user?.role === 'SUPER_ADMIN') return '/admin/assignments';
+    if (user?.role === 'DIRECTEUR') return '/directeur/assignments';
+    if (user?.role === 'ENSEIGNANT') return '/enseignant/assignments';
+    return '/assignments';
+  };
+
+  const handleBack = () => {
+    if (location.state?.from) {
+      navigate(location.state.from);
+    } else {
+      navigate(getListPath());
+    }
+  };
 
   const [niveaux, setNiveaux] = useState<NiveauModel[]>([]);
   const [subjects, setSubjects] = useState<SubjectModel[]>([]);
@@ -91,7 +108,7 @@ export default function EditGlobalAssignmentPage() {
   const selectedNiveauId = watch("niveauId");
 
   useEffect(() => {
-    if (isSuperAdmin) {
+    if (canAccess) {
       const fetchData = async () => {
         try {
           const [niveauxRes, yearsRes, assignmentRes] = await Promise.all([
@@ -127,14 +144,14 @@ export default function EditGlobalAssignmentPage() {
 
         } catch (error) {
           toast.error("Impossible de charger les données.");
-          navigate('/admin/assignments');
+          navigate(getListPath());
         } finally {
           setLoading(false);
         }
       };
       fetchData();
     }
-  }, [isSuperAdmin, id, reset, navigate, toast]);
+  }, [canAccess, id, navigate, toast]);
 
   useEffect(() => {
     if (selectedNiveauId) {
@@ -209,7 +226,7 @@ export default function EditGlobalAssignmentPage() {
       
       await api.put(`/assignments/${id}`, payload);
       toast.success("Évaluation mise à jour avec succès !");
-      navigate('/admin/assignments');
+      handleBack();
     } catch (err: any) {
       setFormError(err.response?.data?.message || "Erreur lors de l'enregistrement.");
     } finally {
@@ -217,13 +234,13 @@ export default function EditGlobalAssignmentPage() {
     }
   };
 
-  if (!isSuperAdmin) {
+  if (!canAccess) {
     return <div className="p-8 text-center text-red-500">Accès non autorisé.</div>;
   }
 
   return (
     <div className="p-6 md:p-8 lg:p-10 max-w-5xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500 pb-32">
-      <Button variant="ghost" onClick={() => navigate('/admin/assignments')} className="mb-4 text-brand-text-muted hover:text-brand-text">
+      <Button variant="ghost" onClick={handleBack} className="mb-4 text-brand-text-muted hover:text-brand-text cursor-pointer">
         <ArrowLeft className="w-4 h-4 mr-2" /> Retour
       </Button>
 
@@ -290,7 +307,12 @@ export default function EditGlobalAssignmentPage() {
                 <div>
                   <label className="block text-sm font-medium text-brand-text-muted mb-1">Type *</label>
                   <select {...register('type', { required: true })} className="w-full p-3 bg-brand-surface border border-brand-border rounded-xl text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-primary transition-all">
+                    <option value="COMPOSITION_NIVEAU">Composition de Niveau (Harmonisée)</option>
                     <option value="DEVOIR_NIVEAU">Devoir de Niveau (Noté)</option>
+                    <option value="EXAMEN">Examen Blanc / National</option>
+                    <option value="DEVOIR_CLASSE">Devoir de Classe</option>
+                    <option value="DEVOIR_MAISON">Devoir Maison</option>
+                    <option value="DEVOIR">Devoir Standard</option>
                   </select>
                 </div>
                 <div>

@@ -19,7 +19,7 @@ export const getTeachingTypes = async (req: Request, res: Response) => {
 
 export const getTeachingType = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const teachingType = await prisma.teachingType.findUnique({
       where: { id },
       include: {
@@ -81,7 +81,7 @@ export const createTeachingType = async (req: Request, res: Response) => {
 
 export const updateTeachingType = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { name, isActive } = req.body;
     
     if (!name || name.trim() === '') {
@@ -119,7 +119,7 @@ export const updateTeachingType = async (req: Request, res: Response) => {
 
 export const toggleTeachingType = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     
     const current = await prisma.teachingType.findUnique({
       where: { id }
@@ -147,7 +147,7 @@ export const toggleTeachingType = async (req: Request, res: Response) => {
 
 export const deleteTeachingType = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     
     // Check if it's used by any school
     const inUseCount = await prisma.school.count({
@@ -169,3 +169,4 @@ export const deleteTeachingType = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Erreur lors de la suppression" });
   }
 };
+

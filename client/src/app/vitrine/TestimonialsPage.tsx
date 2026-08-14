@@ -81,22 +81,22 @@ export default function TestimonialsPage() {
     <div className="min-h-screen bg-[#F8FAFC] overflow-x-hidden">
       
       {/* ── HERO ── */}
-      <section className="relative pt-28 pb-20 overflow-hidden hero-bg">
+      <section className="relative pt-8 sm:pt-12 pb-6 sm:pb-8 overflow-hidden hero-bg">
         <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
-          <span className="chip chip-cyan mb-8 inline-flex">
+          <span className="chip chip-cyan mb-4 inline-flex">
             <MessageSquare className="w-3 h-3" />
             Retours d'Expérience du Terrain
           </span>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 mb-6 leading-[0.95]">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-slate-900 mb-4 leading-[1.02]">
             Ce que disent les<br />
             <span className="gradient-text">Chefs d'Établissement</span>
           </h1>
-          <p className="text-xl text-slate-600 leading-relaxed max-w-2xl mx-auto mb-10 font-medium">
-            Plus de 150 écoles font confiance au Système SEEEC pour piloter leur gestion au quotidien.
+          <p className="text-sm sm:text-base md:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto mb-6 font-medium">
+            Plus de 25 établissements scolaires font confiance au Système SEEEC pour piloter leur gestion au quotidien.
           </p>
 
           {/* Filter tabs */}
-          <div className="flex justify-center gap-3 flex-wrap">
+          <div className="flex justify-center gap-2 flex-wrap">
             {([
               { key: 'TOUS', label: 'Tous les témoignages' },
               { key: 'DIRECTEUR', label: 'Directeurs & Fondateurs' },
@@ -105,7 +105,7 @@ export default function TestimonialsPage() {
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${
                   filter === f.key
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                     : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-900'
@@ -119,7 +119,7 @@ export default function TestimonialsPage() {
       </section>
 
       {/* ── TESTIMONIALS GRID ── */}
-      <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-8 sm:py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((t, i) => (
             <div

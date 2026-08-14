@@ -1,8 +1,6 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
-import { AuthRequest } from "../middleware/auth";
-
-const prisma = new PrismaClient();
+import prisma from "../utils/prisma.js";
+import { AuthRequest } from "../middleware/auth.js";
 
 // Récupérer tous les abonnements (Public ou Admin)
 export const getSubscriptions = async (req: Request, res: Response) => {
@@ -32,7 +30,7 @@ export const getSubscriptions = async (req: Request, res: Response) => {
 // Récupérer un abonnement spécifique (Admin)
 export const getSubscriptionById = async (req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const subscription = await prisma.subscription.findUnique({
       where: { id },
       include: {
