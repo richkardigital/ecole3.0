@@ -18,8 +18,8 @@ export const StatCard: React.FC<StatCardProps> = ({
   count, 
   label, 
   icon, 
-  iconColor = 'text-emerald-600',
-  badgeColor = 'bg-emerald-50 border-emerald-200',
+  iconColor = 'text-[#189CD8]',
+  badgeColor = 'bg-[#189CD8]/10 border-[#189CD8]/25',
   onClick,
   trend,
   suffix,
@@ -43,7 +43,7 @@ export const StatCard: React.FC<StatCardProps> = ({
           {trend && (
             <div className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${
               trend.isPositive 
-                ? 'text-emerald-700 bg-emerald-50 border-emerald-200' 
+                ? 'text-[#1280B2] bg-[#189CD8]/10 border-[#189CD8]/25' 
                 : 'text-red-700 bg-red-50 border-red-200'
             }`}>
               {trend.isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}

@@ -44,7 +44,7 @@ export default function FaqPage() {
             <HelpCircle className="w-3 h-3" />
             Foire Aux Questions
           </span>
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-slate-900 mb-4 leading-[1.02]">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-[#4D3E90] mb-4 leading-[1.02]">
             Comment pouvons-nous<br />
             <span className="gradient-text">vous aider ?</span>
           </h1>
@@ -60,7 +60,7 @@ export default function FaqPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Rechercher une question (bulletins, inscription, sécurité...)"
-              className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none"
+              className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm focus:border-[#189CD8] focus:ring-4 focus:ring-[#189CD8]/10 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none"
             />
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function FaqPage() {
               onClick={() => setCat(c.key)}
               className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 cat === c.key
-                  ? 'bg-emerald-600 text-white shadow-sm'
+                  ? 'bg-[#189CD8] text-white shadow-sm'
                   : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
               }`}
             >
@@ -98,19 +98,19 @@ export default function FaqPage() {
                 key={i}
                 className="rounded-2xl overflow-hidden bg-white border transition-all duration-300"
                 style={{
-                  borderColor: open === i ? '#10B981' : '#E2E8F0',
-                  boxShadow: open === i ? '0 4px 20px -2px rgba(16,185,129,0.1)' : '0 1px 3px rgba(15,23,42,0.03)',
+                  borderColor: open === i ? '#189CD8' : '#E2E8F0',
+                  boxShadow: open === i ? '0 4px 20px -2px rgba(24,156,216,0.15)' : '0 1px 3px rgba(15,23,42,0.03)',
                 }}
               >
                 <button
                   className="w-full px-7 py-5 text-left flex justify-between items-center focus:outline-none gap-4 group"
                   onClick={() => setOpen(open === i ? null : i)}
                 >
-                  <span className={`font-bold text-base transition-colors ${open === i ? 'text-emerald-700' : 'text-slate-900 group-hover:text-emerald-600'}`}>
+                  <span className={`font-bold text-base transition-colors ${open === i ? 'text-[#1280B2]' : 'text-slate-900 group-hover:text-[#189CD8]'}`}>
                     {faq.q}
                   </span>
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300 ${
-                    open === i ? 'bg-emerald-50 text-emerald-600 rotate-180' : 'bg-slate-100 text-slate-500'
+                    open === i ? 'bg-[#189CD8]/10 text-[#189CD8] rotate-180' : 'bg-slate-100 text-slate-500'
                   }`}>
                     <ChevronDown className="w-4 h-4" />
                   </div>

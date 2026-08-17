@@ -5,12 +5,13 @@ import { Menu, ChevronRight, GraduationCap } from 'lucide-react';
 import NotificationCenter from '@/components/NotificationCenter';
 import { useAuth } from '@/context/AuthContext';
 import FlashNewsBanner from '@/components/layout/FlashNewsBanner';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 const ROLE_CONFIG = {
   SUPER_ADMIN: { label: 'Super Admin', accentFrom: '#ef4444', accentTo: '#dc2626', textColor: '#dc2626', bg: '#FEF2F2', border: '#FECDD3' },
-  DIRECTEUR:   { label: 'Directeur', accentFrom: '#10b981', accentTo: '#059669', textColor: '#047857', bg: '#ECFDF5', border: '#A7F3D0' },
+  DIRECTEUR:   { label: 'Directeur', accentFrom: '#189CD8', accentTo: '#1280B2', textColor: '#1280B2', bg: '#F0F9FF', border: '#BAE6FD' },
   EDUCATEUR:   { label: 'Éducateur', accentFrom: '#f59e0b', accentTo: '#d97706', textColor: '#b45309', bg: '#FFFBEB', border: '#FDE68A' },
-  ENSEIGNANT:  { label: 'Enseignant', accentFrom: '#06b6d4', accentTo: '#0891b2', textColor: '#0369a1', bg: '#ECFEFF', border: '#A5F3FC' },
+  ENSEIGNANT:  { label: 'Enseignant', accentFrom: '#4D3E90', accentTo: '#3C2F73', textColor: '#4D3E90', bg: '#F3F1FB', border: '#DDD6FE' },
   APPRENANT:   { label: 'Apprenant', accentFrom: '#8b5cf6', accentTo: '#7c3aed', textColor: '#6d28d9', bg: '#F5F3FF', border: '#DDD6FE' },
 } as const;
 
@@ -106,7 +107,7 @@ const MainLayout = () => {
 
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden lg:ml-64 relative z-10">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden lg:ml-72 relative z-10">
         
         <FlashNewsBanner />
 
@@ -139,13 +140,9 @@ const MainLayout = () => {
               </button>
 
               {/* Mobile logo */}
-              <Link to="/dashboard" className="lg:hidden flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 2px 8px rgba(16,185,129,0.3)' }}>
-                  <GraduationCap className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-sm font-black text-slate-900">ÉCOLE 3.0</span>
-              </Link>
+              <div className="lg:hidden">
+                <BrandLogo size="sm" to="/dashboard" subtitle="" />
+              </div>
 
               {/* Breadcrumb */}
               <nav className="hidden sm:flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider min-w-0">
@@ -154,7 +151,7 @@ const MainLayout = () => {
                     {idx > 0 && <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />}
                     <span
                       className="truncate transition-colors"
-                      style={idx === breadcrumbs.length - 1 ? { color: '#047857', fontWeight: 800 } : { color: '#64748B' }}
+                      style={idx === breadcrumbs.length - 1 ? { color: '#189CD8', fontWeight: 800 } : { color: '#64748B' }}
                     >
                       {crumb.name}
                     </span>
@@ -167,7 +164,7 @@ const MainLayout = () => {
             {/* Clock */}
             <div className="hidden md:flex items-center gap-2 text-xs font-bold text-slate-600 px-3 py-1.5 rounded-lg shadow-xs"
               style={{ background: '#FFFFFF', border: '1px solid #E2E8F0' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-bounce-gentle" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#189CD8] animate-bounce-gentle" />
               {clock}
             </div>
 
@@ -188,8 +185,8 @@ const MainLayout = () => {
                 <div
                   className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black text-white cursor-pointer transition-transform duration-200 hover:scale-105"
                   style={{
-                    background: roleConf ? `linear-gradient(135deg, ${roleConf.accentFrom}, ${roleConf.accentTo})` : 'linear-gradient(135deg, #10b981, #059669)',
-                    boxShadow: roleConf ? `0 2px 8px ${roleConf.accentFrom}30` : '0 2px 8px rgba(16,185,129,0.3)',
+                    background: roleConf ? `linear-gradient(135deg, ${roleConf.accentFrom}, ${roleConf.accentTo})` : 'linear-gradient(135deg, #189cd8, #1280b2)',
+                    boxShadow: roleConf ? `0 2px 8px ${roleConf.accentFrom}30` : '0 2px 8px rgba(24,156,216,0.3)',
                   }}
                 >
                   {user.firstName[0]}{user.lastName[0]}

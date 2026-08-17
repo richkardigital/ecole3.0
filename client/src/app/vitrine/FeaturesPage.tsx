@@ -11,12 +11,12 @@ import {
 
 const CATEGORIES = [
   { id: 'ALL', label: 'Toutes les fonctionnalités', icon: Sparkles },
-  { id: 'DIRECTEUR', label: 'Directeurs & Administration', icon: Building2 },
-  { id: 'ENSEIGNANT', label: 'Enseignants & Pédagogie', icon: BookOpen },
-  { id: 'EDUCATEUR', label: 'Éducateurs & Vie Scolaire', icon: ShieldCheck },
-  { id: 'PARENT', label: 'Parents d\'Élèves', icon: Users },
-  { id: 'APPRENANT', label: 'Élèves & Apprenants', icon: GraduationCap },
-  { id: 'SUPER_ADMIN', label: 'Super Admin & SEEEC', icon: Network },
+  { id: 'DIRECTEUR', label: 'Directeur', icon: Building2 },
+  { id: 'ENSEIGNANT', label: 'Enseignant', icon: BookOpen },
+  { id: 'EDUCATEUR', label: 'Éducateur', icon: ShieldCheck },
+  { id: 'PARENT', label: 'Parent d\'élève', icon: Users },
+  { id: 'APPRENANT', label: 'Apprenant', icon: GraduationCap },
+  { id: 'SUPER_ADMIN', label: 'Super Admin', icon: Network },
 ];
 
 const FEATURES = [
@@ -33,10 +33,10 @@ const FEATURES = [
       'Export PDF haute définition prêt à imprimer et archiver en 1 clic'
     ],
     icon: FileText,
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50 border-emerald-200',
+    color: 'text-[#189CD8]',
+    bg: 'bg-[#189CD8]/10 border-[#189CD8]/25',
     badge: '🏆 #1 Conforme MENA',
-    badgeClass: 'chip-green',
+    badgeClass: 'chip-brand',
   },
   {
     id: 'classes',
@@ -51,8 +51,8 @@ const FEATURES = [
       'Synchronisation immédiate avec les emplois du temps et registres'
     ],
     icon: GraduationCap,
-    color: 'text-purple-600',
-    bg: 'bg-purple-50 border-purple-200',
+    color: 'text-[#4D3E90]',
+    bg: 'bg-[#4D3E90]/10 border-[#4D3E90]/25',
     badge: 'Direction',
     badgeClass: 'chip-violet',
   },
@@ -69,8 +69,8 @@ const FEATURES = [
       'Historique complet des mouvements d\'élèves auditable'
     ],
     icon: ArrowRightLeft,
-    color: 'text-sky-600',
-    bg: 'bg-sky-50 border-sky-200',
+    color: 'text-[#189CD8]',
+    bg: 'bg-[#189CD8]/10 border-[#189CD8]/25',
     badge: 'Nouveau',
     badgeClass: 'chip-cyan',
   },
@@ -87,10 +87,10 @@ const FEATURES = [
       'Commentaires et appréciations individualisés par élève'
     ],
     icon: BarChart3,
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50 border-emerald-200',
+    color: 'text-[#189CD8]',
+    bg: 'bg-[#189CD8]/10 border-[#189CD8]/25',
     badge: 'Ultra Rapide',
-    badgeClass: 'chip-green',
+    badgeClass: 'chip-brand',
   },
   {
     id: 'cours-chapitres',
@@ -195,10 +195,10 @@ const FEATURES = [
       'Valorisation de l\'expertise pédagogique au sein du réseau'
     ],
     icon: Network,
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50 border-emerald-200',
+    color: 'text-[#189CD8]',
+    bg: 'bg-[#189CD8]/10 border-[#189CD8]/25',
     badge: 'Exclusif SEEEC',
-    badgeClass: 'chip-green',
+    badgeClass: 'chip-brand',
   },
   {
     id: 'messagerie-chat',
@@ -285,10 +285,10 @@ const FEATURES = [
       'Statistiques consolidées et surveillance de la performance réseau'
     ],
     icon: Building2,
-    color: 'text-purple-600',
-    bg: 'bg-purple-50 border-purple-200',
+    color: 'text-[#189CD8]',
+    bg: 'bg-[#189CD8]/10 border-[#189CD8]/25',
     badge: 'Super Admin',
-    badgeClass: 'chip-violet',
+    badgeClass: 'chip-brand',
   },
   {
     id: 'securite-roles',
@@ -303,10 +303,10 @@ const FEATURES = [
       'Conformité stricte aux exigences légales de protection des mineurs'
     ],
     icon: Lock,
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50 border-emerald-200',
+    color: 'text-[#189CD8]',
+    bg: 'bg-[#189CD8]/10 border-[#189CD8]/25',
     badge: 'Chiffrement 256-bit',
-    badgeClass: 'chip-green',
+    badgeClass: 'chip-brand',
   },
 ];
 
@@ -337,16 +337,15 @@ export default function FeaturesPage() {
       {/* ── HERO ── */}
       <section className="relative pt-8 sm:pt-12 pb-6 sm:pb-8 overflow-hidden hero-bg">
         <div className="max-w-5xl mx-auto px-4 text-center relative z-10">
-          <span className="chip chip-green mb-4 inline-flex">
+          <span className="chip chip-brand mb-4 inline-flex">
             <Sparkles className="w-3.5 h-3.5" />
             Catalogue Complet des Fonctionnalités
           </span>
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-slate-900 mb-4 leading-[1.02]">
-            Toutes les fonctionnalités de<br />
-            <span className="gradient-text">votre succès scolaire.</span>
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-[#4D3E90] mb-4 leading-[1.02]">
+            Fonctionnalités
           </h1>
           <p className="text-sm sm:text-base md:text-lg text-slate-600 leading-relaxed max-w-3xl mx-auto mb-6 font-medium">
-            Explorez l'ensemble des modules opérationnels conçus pour chaque acteur de votre communauté éducative : Directeurs, Enseignants, Éducateurs, Parents et Élèves.
+            Explorez l'ensemble des fonctionnalités pour chaque utilisateur de votre établissement : Directeurs d’étude, Enseignants, Éducateurs, Apprenants et Parents
           </p>
 
           {/* Search bar */}
@@ -357,7 +356,7 @@ export default function FeaturesPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Rechercher une fonctionnalité (bulletins, notes, absences, réseau...)"
-              className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none"
+              className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm focus:border-[#189CD8] focus:ring-4 focus:ring-[#189CD8]/10 transition-all text-sm font-medium text-slate-900 placeholder:text-slate-400 outline-none"
             />
             {searchQuery && (
               <button 
@@ -380,7 +379,7 @@ export default function FeaturesPage() {
                   onClick={() => setActiveCategory(cat.id)}
                   className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${
                     isActive
-                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 scale-[1.02]'
+                      ? 'bg-[#189CD8] text-white shadow-md shadow-[#189CD8]/30 scale-[1.02]'
                       : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-900 hover:bg-slate-50'
                   }`}
                 >
@@ -395,16 +394,13 @@ export default function FeaturesPage() {
 
       {/* ── GRID ── */}
       <section className="py-8 sm:py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-8">
-          <p className="text-sm font-bold text-slate-500">
-            Affichage de <span className="text-slate-900 font-black">{filteredFeatures.length}</span> module(s) disponible(s)
-          </p>
-          {searchQuery && (
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+        {searchQuery && (
+          <div className="flex items-center justify-between mb-8">
+            <span className="text-xs font-bold text-[#189CD8] bg-[#189CD8]/10 px-3 py-1 rounded-full border border-[#189CD8]/25">
               Résultats pour "{searchQuery}"
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {filteredFeatures.length === 0 ? (
           <div className="p-16 text-center bg-white rounded-3xl border border-slate-200 max-w-xl mx-auto my-8 shadow-sm">
@@ -435,7 +431,7 @@ export default function FeaturesPage() {
                     {f.badge && <span className={`chip ${f.badgeClass} text-xs font-bold`}>{f.badge}</span>}
                   </div>
 
-                  <h3 className="text-xl font-black text-slate-900 mb-2.5 tracking-tight group-hover:text-emerald-700 transition-colors">
+                  <h3 className="text-xl font-black text-slate-900 mb-2.5 tracking-tight group-hover:text-[#189CD8] transition-colors">
                     {f.title}
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium mb-6">
@@ -445,7 +441,7 @@ export default function FeaturesPage() {
                   <div className="space-y-2.5 pt-4 border-t border-slate-100 mb-6">
                     {f.details.map((detail, dIdx) => (
                       <div key={dIdx} className="flex items-start gap-2.5">
-                        <div className="w-4 h-4 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200">
+                        <div className="w-4 h-4 rounded-full bg-[#189CD8]/10 text-[#189CD8] flex items-center justify-center shrink-0 mt-0.5 border border-[#189CD8]/25">
                           <Check className="w-3 h-3 stroke-[3]" />
                         </div>
                         <span className="text-xs text-slate-700 font-medium leading-relaxed">{detail}</span>
@@ -457,7 +453,7 @@ export default function FeaturesPage() {
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                   <Link 
                     to="/inscription" 
-                    className="text-xs font-black text-emerald-600 hover:text-emerald-700 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+                    className="text-xs font-black text-[#189CD8] hover:text-[#1280B2] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
                   >
                     Activer pour mon école <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
@@ -472,12 +468,12 @@ export default function FeaturesPage() {
       <section className="py-20 bg-slate-900 text-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 mb-4 inline-flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-[#189CD8]/20 text-[#38bdf8] border border-[#189CD8]/30 mb-4 inline-flex items-center gap-2">
               <Shield className="w-3.5 h-3.5" />
               Espaces Utilisateurs Dédiés
             </span>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight text-white">
-              Une interface adaptée pour <span className="text-emerald-400">chaque métier</span>
+              Une interface adaptée pour <span className="text-[#38bdf8]">chaque utilisateur</span>
             </h2>
             <p className="text-slate-300 mt-4 text-base font-medium">
               Chaque utilisateur accède uniquement aux outils nécessaires à sa mission, avec une ergonomie pensée pour son confort.
@@ -499,7 +495,7 @@ export default function FeaturesPage() {
                 route: '/enseignant/dashboard',
                 badge: 'Corps Professoral',
                 icon: BookOpen,
-                color: 'text-emerald-400',
+                color: 'text-[#38bdf8]',
                 desc: 'Saisie ultra-rapide des notes, devoirs de niveau, suivi des cours et accès à la bibliothèque de ressources SEEEC.',
               },
               {
@@ -537,7 +533,7 @@ export default function FeaturesPage() {
             ].map((space, i) => (
               <div 
                 key={i} 
-                className="p-7 rounded-3xl bg-slate-800/80 border border-slate-700/80 hover:border-emerald-500/50 transition-all flex flex-col justify-between"
+                className="p-7 rounded-3xl bg-slate-800/80 border border-slate-700/80 hover:border-[#189CD8]/50 transition-all flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-5">
@@ -554,43 +550,13 @@ export default function FeaturesPage() {
                 <div className="pt-4 border-t border-slate-700/60">
                   <Link 
                     to="/inscription" 
-                    className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5"
+                    className="text-xs font-bold text-[#38bdf8] hover:text-[#7dd3fc] flex items-center gap-1.5"
                   >
                     Découvrir l'espace <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA ── */}
-      <section className="py-10 sm:py-14 max-w-5xl mx-auto px-4 text-center">
-        <div className="rounded-3xl p-8 sm:p-12 bg-white border border-slate-200/90 shadow-xl relative overflow-hidden">
-          <div className="relative z-10">
-            <span className="chip chip-green mb-4 inline-flex">
-              <Zap className="w-3 h-3" />
-              Déploiement Immédiat
-            </span>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 mb-3 tracking-tight">
-              Modernisez votre établissement dès aujourd'hui
-            </h2>
-            <p className="text-sm sm:text-base text-slate-600 mb-6 max-w-2xl mx-auto font-medium">
-              Rejoignez plus de 25+ écoles connectées et profitez de l'ensemble de ces fonctionnalités avec un accompagnement personnalisé.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link to="/inscription">
-                <Button variant="glow" size="lg" rightIcon={<ArrowRight className="w-4 h-4" />} className="shadow-lg shadow-emerald-500/20">
-                  Inscrire mon établissement
-                </Button>
-              </Link>
-              <Link to="/connexion">
-                <Button variant="outline" size="lg" className="bg-white hover:bg-slate-50">
-                  Se connecter à mon espace
-                </Button>
-              </Link>
-            </div>
           </div>
         </div>
       </section>

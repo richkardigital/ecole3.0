@@ -2,6 +2,7 @@ import { ROLES } from "../config/constants.js";
 import { Router } from "express";
 import { authenticate } from "../middleware/auth.js";
 import { requireRole } from "../middleware/rbac.js";
+import { upload } from "../middleware/upload.js";
 import {
   getChapterExercises,
   getExercise,
@@ -20,18 +21,18 @@ router.use(authenticate);
 // Exercices d'un chapitre
 router.get("/chapters/:chapterId/exercises", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getChapterExercises);
 
-// SUPER_ADMIN et ENSEIGNANT créent les exercices
-router.post("/chapters/:chapterId/exercises", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT]), createExercise);
+// SUPER_ADMIN, DIRECTEUR et ENSEIGNANT créent les exercices
+router.post("/chapters/:chapterId/exercises", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), upload.any(), createExercise);
 
 // Détail d'un exercice
 router.get("/exercises/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT]), getExercise);
 
-// Modifier / Supprimer un exercice (SUPER_ADMIN ou créateur ENSEIGNANT)
-router.put("/exercises/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT]), updateExercise);
-router.delete("/exercises/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT]), deleteExercise);
+// Modifier / Supprimer un exercice (SUPER_ADMIN, DIRECTEUR ou créateur ENSEIGNANT)
+router.put("/exercises/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), upload.any(), updateExercise);
+router.delete("/exercises/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT]), deleteExercise);
 
-// Soumission par un apprenant
-router.post("/exercises/:id/submit", requireRole([ROLES.APPRENANT]), submitExercise);
+// Soumission par un apprenant (ou test par enseignant / admin)
+router.post("/exercises/:id/submit", requireRole([ROLES.APPRENANT, ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR]), submitExercise);
 
 // Voir les soumissions (enseignant / admin)
 router.get("/exercises/:id/submissions", requireRole([ROLES.SUPER_ADMIN, ROLES.ENSEIGNANT, ROLES.DIRECTEUR]), getExerciseSubmissions);

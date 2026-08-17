@@ -2,13 +2,13 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Sparkles, ArrowRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 const NAV_LINKS = [
   { name: 'Accueil', path: '/' },
-  { name: 'À propos', path: '/a-propos' },
   { name: 'Fonctionnalités', path: '/fonctionnalites' },
+  { name: 'À propos de nous', path: '/a-propos' },
   { name: 'Tarifs', path: '/tarifs' },
-  { name: 'Témoignages', path: '/temoignages' },
   { name: 'FAQ', path: '/faq' },
 ];
 
@@ -41,27 +41,7 @@ export const VitrineNavbar = () => {
         <div className="flex items-center justify-between h-20" style={{ height: '5rem' }}>
           
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 group shrink-0">
-            <div className="relative flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
-              <img 
-                src="/logo.png" 
-                alt="Logo École 3.0" 
-                className="h-11 w-auto max-w-[140px] object-contain drop-shadow-xs"
-                onError={(e) => {
-                  // Fallback to text if needed
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            </div>
-            <div>
-              <span className="text-xl font-black tracking-tight leading-none block text-slate-900">
-                ÉCOLE 3.0
-              </span>
-              <span className="text-[10px] font-black tracking-[0.16em] text-emerald-600 uppercase flex items-center gap-1 mt-0.5">
-                <Sparkles className="w-2.5 h-2.5" /> SEEEC Platform
-              </span>
-            </div>
-          </Link>
+          <BrandLogo size="md" to="/" subtitle="SEEEC" />
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-1">
@@ -73,9 +53,9 @@ export const VitrineNavbar = () => {
                   to={link.path}
                   className="relative px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200"
                   style={{
-                    color: isActive ? '#047857' : '#64748B',
-                    background: isActive ? 'rgba(16,185,129,0.08)' : 'transparent',
-                    border: isActive ? '1px solid rgba(16,185,129,0.25)' : '1px solid transparent',
+                    color: isActive ? '#189CD8' : '#64748B',
+                    background: isActive ? 'rgba(24,156,216,0.08)' : 'transparent',
+                    border: isActive ? '1px solid rgba(24,156,216,0.25)' : '1px solid transparent',
                   }}
                   onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = '#0F172A'; }}
                   onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = '#64748B'; }}
@@ -84,7 +64,7 @@ export const VitrineNavbar = () => {
                   {isActive && (
                     <span
                       className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                      style={{ background: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.8)' }}
+                      style={{ background: '#189CD8', boxShadow: '0 0 6px rgba(24,156,216,0.8)' }}
                     />
                   )}
                 </Link>
@@ -131,9 +111,9 @@ export const VitrineNavbar = () => {
                 to={link.path}
                 className="flex items-center px-4 py-3 rounded-xl text-sm font-semibold transition-colors"
                 style={{
-                  color: isActive ? '#047857' : '#475569',
-                  background: isActive ? 'rgba(16,185,129,0.08)' : 'transparent',
-                  border: isActive ? '1px solid rgba(16,185,129,0.25)' : '1px solid transparent',
+                  color: isActive ? '#189CD8' : '#475569',
+                  background: isActive ? 'rgba(24,156,216,0.08)' : 'transparent',
+                  border: isActive ? '1px solid rgba(24,156,216,0.25)' : '1px solid transparent',
                 }}
                 onClick={() => setIsOpen(false)}
               >

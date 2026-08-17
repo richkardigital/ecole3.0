@@ -11,7 +11,7 @@ router.use(authenticate);
 // Accessible à tous les rôles connectés
 router.get(
   "/",
-  requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT]),
+  requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT, ROLES.PARENT]),
   getCalendarEvents
 );
 

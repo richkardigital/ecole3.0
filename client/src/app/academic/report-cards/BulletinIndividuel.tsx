@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Printer, Download, CheckCircle, XCircle, Clock, Award } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { useSystemSettings, formatAssetUrl } from '@/contexts/SystemSettingsContext';
 
 interface BulletinData {
   bulletin: {
@@ -105,6 +106,7 @@ interface Props {
 
 export default function BulletinIndividuel({ data, onClose }: Props) {
   const printRef = useRef<HTMLDivElement>(null);
+  const { settings } = useSystemSettings();
   const { bulletin, student, school, term, subjects, overallAverage, rangClasse, nombreEleves,
     conduct, totalAbsences, absencesJustifiees, termsSummary, annualAverage } = data;
 
@@ -117,6 +119,10 @@ export default function BulletinIndividuel({ data, onClose }: Props) {
   const anneeLabel = term?.academicYear?.name ?? (
     term ? `${new Date(term.startDate).getFullYear()}–${new Date(term.endDate).getFullYear()}` : ''
   );
+
+  const displayLogo = school?.logoUrl ? formatAssetUrl(school.logoUrl) : (settings?.logoUrl ? formatAssetUrl(settings.logoUrl) : null);
+  const displaySignature = school?.signatureUrl ? formatAssetUrl(school.signatureUrl) : (settings?.signatureUrl ? formatAssetUrl(settings.signatureUrl) : null);
+  const displayStamp = school?.stampUrl ? formatAssetUrl(school.stampUrl) : (settings?.stampUrl ? formatAssetUrl(settings.stampUrl) : null);
 
   return (
     <div className="bg-white min-h-screen">
@@ -158,10 +164,10 @@ export default function BulletinIndividuel({ data, onClose }: Props) {
         <div className="border-b-2 border-gray-800 pb-4 mb-6">
           <div className="flex justify-between items-start gap-4">
             <div className="max-w-[65%]">
-              {school?.logoUrl && (
-                <img src={school.logoUrl} alt="Logo école" className="h-16 max-w-[220px] mb-2 object-contain" />
+              {displayLogo && (
+                <img src={displayLogo} alt="Logo école" className="h-16 max-w-[220px] mb-2 object-contain" />
               )}
-              <h1 className="text-xl font-black text-gray-900 uppercase tracking-wide">{school?.name ?? 'École'}</h1>
+              <h1 className="text-xl font-black text-gray-900 uppercase tracking-wide">{school?.name ?? settings?.platformName ?? 'École'}</h1>
               {school?.address && (
                 <p className="text-xs text-gray-500 mt-0.5">
                   {school.address}{school?.ville ? `, ${school.ville}` : ''}
@@ -403,16 +409,16 @@ export default function BulletinIndividuel({ data, onClose }: Props) {
           </div>
           <div className="text-center">
             <div className="h-20 border-b border-gray-300 mb-2 flex items-center justify-center relative overflow-hidden">
-              {school?.signatureUrl && (
+              {displaySignature && (
                 <img
-                  src={school.signatureUrl}
+                  src={displaySignature}
                   alt="Signature Directeur"
                   className="max-h-16 max-w-[150px] object-contain z-10"
                 />
               )}
-              {school?.stampUrl && (
+              {displayStamp && (
                 <img
-                  src={school.stampUrl}
+                  src={displayStamp}
                   alt="Cachet de l'établissement"
                   className="max-h-16 max-w-[150px] object-contain absolute opacity-80 z-0 pointer-events-none"
                 />
@@ -430,7 +436,7 @@ export default function BulletinIndividuel({ data, onClose }: Props) {
         </div>
 
         <div className="text-center text-xs text-gray-400 mt-6">
-          Généré le {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} via Ecole Connectée
+          Généré le {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} via {settings?.platformName || 'École 3.0'}
           {bulletin?.statut === 'VALIDE_SUPER_ADMIN' && (
             <span className="ml-2 text-green-600 font-semibold">• Bulletin Officiel Validé</span>
           )}

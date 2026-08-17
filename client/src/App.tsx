@@ -37,6 +37,7 @@ import QuizAttemptsList from '@/app/evaluation/quizzes/attempts-list';
 import QuizAttemptDetail from '@/app/evaluation/quizzes/attempt-detail';
 import NewQuizPage from '@/app/evaluation/quizzes/new/page';
 import EditQuizPage from '@/app/evaluation/quizzes/edit/page';
+import TakeExercisePage from '@/app/academic/exercises/TakeExercisePage';
 import Broadcast from '@/app/communication/broadcast/page';
 import Forum from '@/app/communication/forum/page';
 import News from '@/app/communication/news/page';
@@ -73,13 +74,16 @@ import ReportCards from '@/app/academic/report-cards/page';
 import AcademicYearStatsPage from '@/app/admin/academic-years/[id]/stats/page';
 import ParentDashboard from '@/app/parent/dashboard/page';
 
+import { SystemSettingsProvider } from '@/contexts/SystemSettingsContext';
+
 function App() {
   return (
     <ThemeProvider>
-      <ToastProvider>
-      <AuthProvider>
-        <SocketProvider>
-          <BrowserRouter>
+      <SystemSettingsProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <SocketProvider>
+              <BrowserRouter>
             <Routes>
               {/* Public Vitrine */}
               <Route path="/" element={<VitrineLayout />}>
@@ -151,6 +155,7 @@ function App() {
                     <Route path="/admin/forum" element={<Forum />} />
                     <Route path="/admin/agenda" element={<Agenda />} />
                     <Route path="/admin/evaluations" element={<EvaluationHub />} />
+                    <Route path="/admin/exercises/:id" element={<TakeExercisePage />} />
                     <Route path="/admin/assignments" element={<GlobalAssignmentsPage />} />
                     <Route path="/admin/assignments/new" element={<NewGlobalAssignmentPage />} />
                     <Route path="/admin/assignments/:id" element={<GlobalAssignmentDetailsPage />} />
@@ -176,6 +181,7 @@ function App() {
                     <Route path="/directeur/courses/:id/edit" element={<EditCoursePage />} />
                     <Route path="/directeur/courses/:courseId/quizzes/new" element={<NewQuizPage />} />
                     <Route path="/directeur/courses/:courseId/quizzes/:quizId/edit" element={<EditQuizPage />} />
+                    <Route path="/directeur/exercises/:id" element={<TakeExercisePage />} />
                     <Route path="/directeur/assignments" element={<GlobalAssignmentsPage />} />
                     <Route path="/directeur/assignments/new" element={<NewGlobalAssignmentPage />} />
                     <Route path="/directeur/assignments/:id" element={<GlobalAssignmentDetailsPage />} />
@@ -206,6 +212,7 @@ function App() {
                     <Route path="/enseignant/evaluations" element={<EvaluationHub />} />
                     <Route path="/enseignant/courses" element={<Courses />} />
                     <Route path="/enseignant/courses/:id" element={<CourseDetails />} />
+                    <Route path="/enseignant/exercises/:id" element={<TakeExercisePage />} />
                     <Route path="/enseignant/assignments" element={<GlobalAssignmentsPage />} />
                     <Route path="/enseignant/assignments/new" element={<NewGlobalAssignmentPage />} />
                     <Route path="/enseignant/assignments/:id" element={<GlobalAssignmentDetailsPage />} />
@@ -272,6 +279,8 @@ function App() {
                     <Route path="courses" element={<Courses />} />
                     <Route path="courses/:id" element={<CourseDetails />} />
                     <Route path="academic/courses/:id" element={<CourseDetails />} />
+                    <Route path="exercises/:id" element={<TakeExercisePage />} />
+                    <Route path="academic/exercises/:id" element={<TakeExercisePage />} />
                     <Route path="assignments" element={<AssignmentsPage />} />
                     <Route path="assignments/:id" element={<AssignmentDetails />} />
                     <Route path="academic/assignments/:id" element={<AssignmentDetails />} />
@@ -281,7 +290,7 @@ function App() {
                     {/* Réseau */}
                     <Route path="seeec" element={<SeecPage />} />
 
-                    {/* Communication & Quiz */}
+                    {/* Communication, Exercices & Quiz */}
                     <Route path="chat" element={<Chat />} />
                     <Route path="forum" element={<Forum />} />
                     <Route path="meetings" element={<Meetings />} />
@@ -303,6 +312,7 @@ function App() {
         </SocketProvider>
       </AuthProvider>
       </ToastProvider>
+      </SystemSettingsProvider>
     </ThemeProvider>
   );
 }

@@ -46,15 +46,15 @@ const ConfirmationModal = ({
         };
       case 'success':
         return {
-          icon: <CheckCircle className="w-6 h-6 text-emerald-600" />,
-          bg: 'bg-emerald-50 border border-emerald-200 text-emerald-600',
-          btn: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 active:scale-[0.98]',
+          icon: <CheckCircle className="w-6 h-6 text-[#189CD8]" />,
+          bg: 'bg-[#189CD8]/10 border border-[#189CD8]/25 text-[#1280B2]',
+          btn: 'bg-[#189CD8] hover:bg-[#1280B2] text-white shadow-lg shadow-[#189CD8]/25 active:scale-[0.98]',
         };
       case 'primary':
         return {
-          icon: <Info className="w-6 h-6 text-sky-600" />,
-          bg: 'bg-sky-50 border border-sky-200 text-sky-600',
-          btn: 'bg-sky-600 hover:bg-sky-700 text-white shadow-lg shadow-sky-600/25 active:scale-[0.98]',
+          icon: <Info className="w-6 h-6 text-[#4D3E90]" />,
+          bg: 'bg-[#4D3E90]/10 border border-[#4D3E90]/25 text-[#4D3E90]',
+          btn: 'bg-[#4D3E90] hover:bg-[#3C2F73] text-white shadow-lg shadow-[#4D3E90]/25 active:scale-[0.98]',
         };
       default: // warning
         return {
@@ -78,7 +78,7 @@ const ConfirmationModal = ({
       {/* Centered Modal card */}
       <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 z-10 my-auto animate-in zoom-in-95 duration-200">
         {/* Top accent bar */}
-        <div className={`h-1.5 w-full ${variant === 'danger' ? 'bg-red-500' : variant === 'success' ? 'bg-emerald-500' : variant === 'primary' ? 'bg-sky-500' : 'bg-amber-500'}`} />
+        <div className={`h-1.5 w-full ${variant === 'danger' ? 'bg-red-500' : variant === 'success' ? 'bg-[#189CD8]' : variant === 'primary' ? 'bg-[#4D3E90]' : 'bg-amber-500'}`} />
 
         <div className="p-6 sm:p-7">
           <div className="flex items-start gap-4">

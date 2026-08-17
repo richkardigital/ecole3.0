@@ -16,6 +16,7 @@ interface Question {
     text: string;
     type: 'SINGLE' | 'MULTIPLE';
     points: number;
+    imageUrl?: string;
     options: Option[];
 }
 
@@ -105,11 +106,26 @@ const QuizAttemptDetail = () => {
                                 : 'bg-red-500/5 border-red-500/30'
                         }`}>
                             <div className="flex justify-between items-start mb-4">
-                                <div className="flex gap-3">
+                                <div className="flex gap-3 flex-1">
                                     <span className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center font-bold text-slate-900">
                                         {index + 1}
                                     </span>
-                                    <h3 className="text-lg font-bold text-slate-900 pt-0.5">{question.text}</h3>
+                                    <div className="space-y-3 flex-1">
+                                        <h3 className="text-lg font-bold text-slate-900 pt-0.5">{question.text}</h3>
+                                        {question.imageUrl && (
+                                            <img
+                                                src={question.imageUrl.startsWith('http') || question.imageUrl.startsWith('/uploads') ? question.imageUrl : `/uploads/${question.imageUrl}`}
+                                                alt={`Illustration Question ${index + 1}`}
+                                                className="max-h-60 max-w-full rounded-xl border border-slate-200 shadow-sm object-contain bg-slate-50"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    if (!target.src.includes('localhost:5000') && !target.src.startsWith('http')) {
+                                                        target.src = `http://localhost:5000${question.imageUrl}`;
+                                                    }
+                                                }}
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {isFullyCorrect ? (

@@ -255,7 +255,18 @@ export default function GlobalAssignmentsPage() {
                 {assignments.map((assignment) => (
                   <tr key={assignment.id} className="border-b border-brand-border/30 hover:bg-brand-surface/50 transition-colors">
                     <td className="py-4 px-4">
-                      <div className="font-semibold text-brand-text">{assignment.title}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-brand-text">{assignment.title}</span>
+                        {((assignment as any).questions?.length > 0 || (assignment._count as any)?.questions > 0) ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            QCM
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                            Document
+                          </span>
+                        )}
+                      </div>
                       <div className="text-sm text-brand-text-muted line-clamp-1">{assignment.description}</div>
                     </td>
                     <td className="py-4 px-4">

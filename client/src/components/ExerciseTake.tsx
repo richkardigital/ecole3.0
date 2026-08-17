@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Clock, CheckCircle, AlertCircle, BookOpen, Award } from 'lucide-react';
-import api from '@/lib/api';
+import api, { getFileUrl } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 
@@ -14,6 +14,7 @@ interface Question {
   text: string;
   type: 'QCM' | 'VRAI_FAUX' | 'TEXTE_LIBRE';
   points: number;
+  imageUrl?: string;
   options: Option[];
 }
 
@@ -236,9 +237,16 @@ export default function ExerciseTake({ exerciseId, onClose }: ExerciseTakeProps)
                 <span className="text-xs font-bold text-brand-text-muted bg-brand-sidebar border border-brand-border/50 px-2 py-1 rounded-lg min-w-[30px] text-center mt-0.5">
                   {idx + 1}
                 </span>
-                <div className="flex-1">
+                <div className="flex-1 space-y-2">
                   <p className="font-medium text-brand-text">{q.text}</p>
-                  <span className="text-xs text-brand-text-muted mt-1 inline-block">{q.points} pt(s)</span>
+                  {q.imageUrl && (
+                    <img
+                      src={getFileUrl(q.imageUrl)}
+                      alt={`Illustration Question ${idx + 1}`}
+                      className="max-h-60 max-w-full rounded-xl border border-brand-border/60 object-contain my-2"
+                    />
+                  )}
+                  <span className="text-xs text-brand-text-muted inline-block">{q.points} pt(s)</span>
                 </div>
                 {submitted && myAnswer && (
                   myAnswer.isCorrect === true

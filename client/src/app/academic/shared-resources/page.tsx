@@ -64,7 +64,7 @@ interface CourseModel {
 const SUBJECT_IMAGES: Record<string, string> = {
   'Mathématiques': mathCover,
   'Maths': mathCover,
-  'Physique': 'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=800&q=80',
+  'Physique': chemistryCover,
   'Physique-Chimie': chemistryCover,
   'Chimie': chemistryCover,
   'SVT': svtCover,

@@ -328,12 +328,17 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const updateUserPassword = async (req: Request, res: Response) => {
+export const updateUserPassword = async (req: AuthRequest, res: Response) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id || req.user?.id;
         const { password } = req.body;
 
-        if (!id || !password) return res.status(400).json({ message: "Missing id or password" });
+        if (!id || !password) return res.status(400).json({ message: "Identifiant ou mot de passe manquant" });
+
+        // If not super admin/director/educateur, ensure user can only change their own password
+        if (req.user?.id !== id && !['SUPER_ADMIN', 'DIRECTEUR', 'EDUCATEUR'].includes(req.user?.role || '')) {
+            return res.status(403).json({ message: "Action non autorisée" });
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -342,9 +347,10 @@ export const updateUserPassword = async (req: Request, res: Response) => {
             data: { password: hashedPassword }
         });
 
-        res.json({ message: "Password updated successfully" });
+        res.json({ message: "Mot de passe mis à jour avec succès" });
     } catch (error) {
-        res.status(500).json({ message: "Error updating password", error });
+        console.error("Error updating password:", error);
+        res.status(500).json({ message: "Erreur lors de la modification du mot de passe", error });
     }
 };
 
@@ -387,24 +393,56 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
 export const updateMyProfile = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    if (!userId) return res.status(401).json({ message: "Non authentifié" });
 
     const { firstName, lastName, phone, parentPhone, birthDate, birthPlace, address, gender } = req.body;
     const file = req.file;
 
     const updateData: any = {};
-    if (firstName) updateData.firstName = firstName;
-    if (lastName) updateData.lastName = lastName;
-    if (phone !== undefined) updateData.phone = phone;
-    if (parentPhone !== undefined) updateData.parentPhone = parentPhone;
-    if (birthDate !== undefined) updateData.birthDate = birthDate ? new Date(birthDate) : null;
-    if (birthPlace !== undefined) updateData.birthPlace = birthPlace;
-    if (address !== undefined) updateData.address = address;
-    if (gender !== undefined) updateData.gender = gender || null;
+    if (firstName && typeof firstName === 'string') updateData.firstName = firstName.trim();
+    if (lastName && typeof lastName === 'string') updateData.lastName = lastName.trim();
+    if (phone !== undefined) updateData.phone = phone && typeof phone === 'string' && phone.trim() ? phone.trim() : null;
+    if (parentPhone !== undefined) updateData.parentPhone = parentPhone && typeof parentPhone === 'string' && parentPhone.trim() ? parentPhone.trim() : null;
+    
+    // birthDate validation
+    if (birthDate !== undefined) {
+      if (!birthDate || birthDate === '' || birthDate === 'null') {
+        updateData.birthDate = null;
+      } else {
+        const d = new Date(birthDate);
+        if (!isNaN(d.getTime())) {
+          updateData.birthDate = d;
+        }
+      }
+    }
+
+    if (birthPlace !== undefined) updateData.birthPlace = birthPlace && typeof birthPlace === 'string' && birthPlace.trim() ? birthPlace.trim() : null;
+    if (address !== undefined) updateData.address = address && typeof address === 'string' && address.trim() ? address.trim() : null;
+    
+    // gender enum validation
+    if (gender !== undefined) {
+      const g = typeof gender === 'string' ? gender.toUpperCase().trim() : '';
+      if (g === 'M' || g === 'MASCULIN' || g === 'HOMME') {
+        updateData.gender = 'MASCULIN';
+      } else if (g === 'F' || g === 'FEMININ' || g === 'FEMME') {
+        updateData.gender = 'FEMININ';
+      } else if (g === 'AUTRE') {
+        updateData.gender = 'AUTRE';
+      } else {
+        updateData.gender = null;
+      }
+    }
 
     if (file) {
-      const { uploadToSupabase } = await import("../utils/supabase.js");
-      updateData.avatarUrl = await uploadToSupabase(file, 'avatars');
+      try {
+        const { uploadToSupabase } = await import("../utils/supabase.js");
+        const publicUrl = await uploadToSupabase(file, 'avatars');
+        if (publicUrl) {
+          updateData.avatarUrl = publicUrl;
+        }
+      } catch (uploadErr) {
+        console.error("Avatar upload fallback/error:", uploadErr);
+      }
     }
 
     const updatedUser = await prisma.user.update({
@@ -433,8 +471,9 @@ export const updateMyProfile = async (req: AuthRequest, res: Response) => {
     });
 
     res.json(updatedUser);
-  } catch (error) {
-    res.status(500).json({ message: "Error updating profile", error });
+  } catch (error: any) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Erreur lors de la mise à jour du profil", error: error?.message || error });
   }
 };
 
@@ -486,5 +525,32 @@ export const deleteUserDocument = async (req: AuthRequest, res: Response) => {
     res.json({ message: "Document supprimé avec succès" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting document", error });
+  }
+};
+
+export const getUserById = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "ID manquant" });
+
+    const user = await prisma.user.findUnique({
+      where: { id: String(id) },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        avatarUrl: true,
+        phone: true,
+        school: { select: { id: true, name: true } }
+      }
+    });
+
+    if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
+    res.json(user);
+  } catch (error) {
+    console.error("Get User By ID Error:", error);
+    res.status(500).json({ message: "Erreur lors de la récupération de l'utilisateur" });
   }
 };

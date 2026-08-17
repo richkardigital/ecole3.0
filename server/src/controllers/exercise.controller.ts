@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import prisma from "../utils/prisma.js";
 import type { AuthRequest } from "../middleware/auth.js";
+import { uploadToSupabase } from "../utils/supabase.js";
 
 // ============================================================
 // GET /chapters/:chapterId/exercises
@@ -44,6 +45,20 @@ export const getExercise = async (req: AuthRequest, res: Response) => {
     const exercise = await prisma.chapterExercise.findUnique({
       where: { id },
       include: {
+        chapter: {
+          select: {
+            id: true,
+            title: true,
+            courseId: true,
+            course: {
+              select: {
+                id: true,
+                subject: { select: { id: true, name: true, code: true } },
+                niveau: { select: { id: true, nom: true } }
+              }
+            }
+          }
+        },
         questions: {
           orderBy: { position: "asc" },
           include: {
@@ -51,25 +66,25 @@ export const getExercise = async (req: AuthRequest, res: Response) => {
           }
         },
         createdBy: { select: { firstName: true, lastName: true } },
-        submissions: role === "APPRENANT" ? {
+        submissions: {
           where: { studentId: userId },
           include: {
             answers: {
               include: { question: true, option: true }
             }
           }
-        } : undefined,
+        },
       }
     });
 
     if (!exercise) return res.status(404).json({ message: "Exercice introuvable" });
 
-    // Pour les apprenants qui ont déjà soumis, on retourne la correction
-    // Pour les apprenants qui n'ont pas encore soumis, on masque isCorrect des options
+    // Pour les apprenants qui ont déjà soumis, on retourne la correction complète avec réponses et score
+    // Pour les apprenants qui n'ont pas encore soumis, on masque isCorrect des options et correctAnswer
     if (role === "APPRENANT") {
       const hasSubmitted = exercise.submissions && exercise.submissions.length > 0;
       if (!hasSubmitted) {
-        // Masquer les bonnes réponses
+        // Masquer les bonnes réponses avant la 1ère soumission
         const sanitized = {
           ...exercise,
           questions: exercise.questions.map(q => ({
@@ -91,12 +106,12 @@ export const getExercise = async (req: AuthRequest, res: Response) => {
 
 // ============================================================
 // POST /chapters/:chapterId/exercises
-// Créer un exercice dans un chapitre (SUPER_ADMIN ou ENSEIGNANT)
+// Créer un exercice dans un chapitre (SUPER_ADMIN, DIRECTEUR ou ENSEIGNANT)
 // ============================================================
 export const createExercise = async (req: AuthRequest, res: Response) => {
   try {
     const chapterId = String(req.params.chapterId);
-    const { title, description, type, isGraded, coefficient, timeLimit, questions } = req.body;
+    let { title, description, type, isGraded, coefficient, timeLimit, questions } = req.body;
     const userId = req.user?.id!;
 
     if (!title) return res.status(400).json({ message: "Le titre est requis" });
@@ -113,30 +128,67 @@ export const createExercise = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: "Accès refusé" });
     }
 
+    // Helper pour trouver les fichiers uploadés
+    const getFile = (fieldname: string): Express.Multer.File | undefined => {
+      if (req.files && Array.isArray(req.files)) {
+        return (req.files as Express.Multer.File[]).find((f) => f.fieldname === fieldname);
+      }
+      return undefined;
+    };
+
+    // Parser les questions si passées en string (FormData)
+    let parsedQuestions = questions;
+    if (typeof parsedQuestions === "string") {
+      try {
+        parsedQuestions = JSON.parse(parsedQuestions);
+      } catch (e) {
+        parsedQuestions = [];
+      }
+    }
+
+    // Traiter les images des questions
+    const processedQuestions = [];
+    if (Array.isArray(parsedQuestions) && parsedQuestions.length > 0) {
+      for (let idx = 0; idx < parsedQuestions.length; idx++) {
+        const q = parsedQuestions[idx];
+        let qImgUrl = q.imageUrl || null;
+
+        // Vérifier si un fichier image est uploadé pour cette question
+        const qImgFile = getFile(`questionImage_${idx}`) || getFile(`questions[${idx}][image]`) || getFile(`file_${idx}`);
+        if (qImgFile) {
+          const uploaded = await uploadToSupabase(qImgFile);
+          if (uploaded) qImgUrl = uploaded;
+        }
+
+        processedQuestions.push({
+          text: q.text,
+          type: q.type || type || "QCM",
+          position: idx,
+          points: q.points !== undefined ? Number(q.points) : 1,
+          correctAnswer: q.correctAnswer || null,
+          imageUrl: qImgUrl,
+          options: q.options ? {
+            create: q.options.map((o: any) => ({
+              text: o.text,
+              isCorrect: String(o.isCorrect) === 'true' || o.isCorrect === true,
+            }))
+          } : undefined,
+        });
+      }
+    }
+
     const exercise = await prisma.chapterExercise.create({
       data: {
         title,
         description: description || null,
         type: type || "QCM",
-        isGraded: isGraded ?? false,
-        coefficient: coefficient ?? 1,
-        timeLimit: timeLimit || null,
+        isGraded: String(isGraded) === 'true' || isGraded === true,
+        coefficient: coefficient !== undefined ? Number(coefficient) : 1,
+        timeLimit: timeLimit ? Number(timeLimit) : null,
         chapterId,
         createdById: userId,
-        questions: questions ? {
-          create: questions.map((q: any, idx: number) => ({
-            text: q.text,
-            type: q.type || type || "QCM",
-            position: idx,
-            points: q.points ?? 1,
-            correctAnswer: q.correctAnswer || null,
-            options: q.options ? {
-              create: q.options.map((o: any) => ({
-                text: o.text,
-                isCorrect: o.isCorrect ?? false,
-              }))
-            } : undefined,
-          }))
+        questions: processedQuestions.length > 0 ? {
+          create: processedQuestions
         } : undefined,
       },
       include: {
@@ -159,7 +211,7 @@ export const createExercise = async (req: AuthRequest, res: Response) => {
 export const updateExercise = async (req: AuthRequest, res: Response) => {
   try {
     const id = String(req.params.id);
-    const { title, description, type, isGraded, coefficient, timeLimit, questions, chapterId } = req.body;
+    let { title, description, type, isGraded, coefficient, timeLimit, questions, chapterId } = req.body;
     const userId = req.user?.id;
     const role = req.user?.role;
 
@@ -171,28 +223,56 @@ export const updateExercise = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: "Accès refusé : vous n'avez pas la permission de modifier cet exercice" });
     }
 
+    // Helper pour trouver les fichiers uploadés
+    const getFile = (fieldname: string): Express.Multer.File | undefined => {
+      if (req.files && Array.isArray(req.files)) {
+        return (req.files as Express.Multer.File[]).find((f) => f.fieldname === fieldname);
+      }
+      return undefined;
+    };
+
+    // Parser les questions si passées en string (FormData)
+    let parsedQuestions = questions;
+    if (typeof parsedQuestions === "string") {
+      try {
+        parsedQuestions = JSON.parse(parsedQuestions);
+      } catch (e) {
+        parsedQuestions = undefined;
+      }
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
-      if (questions && Array.isArray(questions)) {
+      if (parsedQuestions && Array.isArray(parsedQuestions)) {
         // Supprimer les questions existantes (cascade supprime options)
         await tx.exerciseQuestion.deleteMany({
           where: { exerciseId: id }
         });
 
-        // Recréer les questions avec options
-        for (let idx = 0; idx < questions.length; idx++) {
-          const q = questions[idx];
+        // Recréer les questions avec options et imageUrl
+        for (let idx = 0; idx < parsedQuestions.length; idx++) {
+          const q = parsedQuestions[idx];
+          let qImgUrl = q.imageUrl || null;
+
+          // Vérifier si un fichier image est uploadé pour cette question
+          const qImgFile = getFile(`questionImage_${idx}`) || getFile(`questions[${idx}][image]`) || getFile(`file_${idx}`);
+          if (qImgFile) {
+            const uploaded = await uploadToSupabase(qImgFile);
+            if (uploaded) qImgUrl = uploaded;
+          }
+
           await tx.exerciseQuestion.create({
             data: {
               exerciseId: id,
               text: q.text,
               type: q.type || type || "QCM",
               position: idx,
-              points: q.points ?? 1,
+              points: q.points !== undefined ? Number(q.points) : 1,
               correctAnswer: q.correctAnswer || null,
+              imageUrl: qImgUrl,
               options: q.options ? {
                 create: q.options.map((o: any) => ({
                   text: o.text,
-                  isCorrect: o.isCorrect ?? false,
+                  isCorrect: String(o.isCorrect) === 'true' || o.isCorrect === true,
                 }))
               } : undefined,
             }
@@ -206,9 +286,9 @@ export const updateExercise = async (req: AuthRequest, res: Response) => {
           ...(title && { title }),
           ...(description !== undefined && { description }),
           ...(type && { type }),
-          ...(isGraded !== undefined && { isGraded }),
-          ...(coefficient !== undefined && { coefficient }),
-          ...(timeLimit !== undefined && { timeLimit }),
+          ...(isGraded !== undefined && { isGraded: String(isGraded) === 'true' || isGraded === true }),
+          ...(coefficient !== undefined && { coefficient: Number(coefficient) }),
+          ...(timeLimit !== undefined && { timeLimit: timeLimit ? Number(timeLimit) : null }),
           ...(chapterId && { chapterId }),
         },
         include: {
@@ -265,12 +345,17 @@ export const submitExercise = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: "Réponses invalides" });
     }
 
-    // Vérifier si déjà soumis
+    // Vérifier si déjà soumis : si oui, on nettoie les anciennes réponses pour permettre le réentraînement
     const existing = await prisma.exerciseSubmission.findUnique({
       where: { studentId_exerciseId: { studentId, exerciseId: id } }
     });
     if (existing) {
-      return res.status(400).json({ message: "Vous avez déjà soumis cet exercice" });
+      await prisma.exerciseAnswer.deleteMany({
+        where: { submissionId: existing.id }
+      });
+      await prisma.exerciseSubmission.delete({
+        where: { id: existing.id }
+      });
     }
 
     // Récupérer l'exercice avec les questions et les bonnes réponses

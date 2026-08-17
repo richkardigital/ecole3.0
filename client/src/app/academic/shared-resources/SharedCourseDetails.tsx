@@ -52,7 +52,7 @@ interface CourseModel {
 const SUBJECT_IMAGES: Record<string, string> = {
   'Mathématiques': mathCover,
   'Maths': mathCover,
-  'Physique': 'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=800&q=80',
+  'Physique': chemistryCover,
   'Physique-Chimie': chemistryCover,
   'Chimie': chemistryCover,
   'SVT': svtCover,
@@ -308,8 +308,8 @@ const SharedCourseDetails = () => {
 
                                     {isStudent ? (
                                       <button
-                                        onClick={() => setTakingExerciseId(exercise.id)}
-                                        className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+                                        onClick={() => navigate(`/exercises/${exercise.id}`, { state: { courseId: id } })}
+                                        className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                                       >
                                         <PlayCircle className="w-3.5 h-3.5" />
                                         {hasSubmitted ? 'Refaire' : "S'entraîner"}
@@ -394,16 +394,7 @@ const SharedCourseDetails = () => {
         </div>
       </div>
 
-      {/* ── MODAL : ENTRAÎNEMENT INTERACTIF ÉLÈVE ── */}
-      {takingExerciseId && (
-        <ExerciseTake
-          exerciseId={takingExerciseId}
-          onClose={() => {
-            setTakingExerciseId(null);
-            fetchCourseData();
-          }}
-        />
-      )}
+
 
       {/* ── MODAL : APERÇU CONSULTATION ENSEIGNANT / DIRECTEUR ── */}
       {previewExercise && (
@@ -437,6 +428,13 @@ const SharedCourseDetails = () => {
                   <div className="font-bold text-brand-text">
                     Question {qIdx + 1} : {q.text} ({q.points} pt)
                   </div>
+                  {q.imageUrl && (
+                    <img
+                      src={getFileUrl(q.imageUrl)}
+                      alt={`Illustration Q${qIdx + 1}`}
+                      className="max-h-48 max-w-full rounded-lg border border-brand-border object-contain my-1.5"
+                    />
+                  )}
                   {q.options?.length > 0 && (
                     <div className="space-y-1.5 pl-3">
                       {q.options.map((opt: any) => (

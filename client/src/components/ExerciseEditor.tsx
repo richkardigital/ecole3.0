@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, CheckCircle, X } from 'lucide-react';
+import { Plus, Trash2, CheckCircle, X, Image as ImageIcon } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -15,6 +15,9 @@ interface ExerciseQuestion {
   type: 'QCM' | 'VRAI_FAUX' | 'TEXTE_LIBRE';
   points: number;
   correctAnswer?: string;
+  imageUrl?: string;
+  imageFile?: File | null;
+  imagePreview?: string | null;
   options: ExerciseOption[];
 }
 
@@ -29,9 +32,25 @@ const defaultOption = (): ExerciseOption => ({ text: '', isCorrect: false });
 
 const defaultQuestion = (type: 'QCM' | 'VRAI_FAUX' | 'TEXTE_LIBRE'): ExerciseQuestion => {
   if (type === 'VRAI_FAUX') {
-    return { text: '', type, points: 1, options: [{ text: 'Vrai', isCorrect: true }, { text: 'Faux', isCorrect: false }] };
+    return { 
+      text: '', 
+      type, 
+      points: 1, 
+      imageUrl: '', 
+      imageFile: null, 
+      imagePreview: null, 
+      options: [{ text: 'Vrai', isCorrect: true }, { text: 'Faux', isCorrect: false }] 
+    };
   }
-  return { text: '', type, points: 1, options: type === 'QCM' ? [defaultOption(), defaultOption()] : [] };
+  return { 
+    text: '', 
+    type, 
+    points: 1, 
+    imageUrl: '', 
+    imageFile: null, 
+    imagePreview: null, 
+    options: type === 'QCM' ? [defaultOption(), defaultOption()] : [] 
+  };
 };
 
 export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }: ExerciseEditorProps) {
@@ -62,6 +81,25 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
 
   const updateQuestion = (idx: number, field: keyof ExerciseQuestion, value: any) => {
     setQuestions(prev => prev.map((q, i) => i === idx ? { ...q, [field]: value } : q));
+  };
+
+  const handleQuestionImage = (qIdx: number, file: File | null) => {
+    setQuestions(prev => prev.map((q, i) => {
+      if (i !== qIdx) return q;
+      if (file) {
+        return {
+          ...q,
+          imageFile: file,
+          imagePreview: URL.createObjectURL(file)
+        };
+      }
+      return {
+        ...q,
+        imageFile: null,
+        imagePreview: null,
+        imageUrl: ''
+      };
+    }));
   };
 
   const addOption = (qIdx: number) => {
@@ -105,9 +143,41 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
     try {
       setIsSubmitting(true);
       setError(null);
-      await api.post(`/chapters/${chapterId}/exercises`, {
-        title, description, type, isGraded, coefficient, timeLimit: timeLimit || null, questions
+
+      const formData = new FormData();
+      formData.append('title', title.trim());
+      if (description.trim()) formData.append('description', description.trim());
+      formData.append('type', type);
+      formData.append('isGraded', String(isGraded));
+      formData.append('coefficient', String(isGraded ? coefficient : 0));
+      if (timeLimit) formData.append('timeLimit', String(timeLimit));
+      formData.append('chapterId', chapterId);
+
+      const questionsJson = questions.map((q, idx) => ({
+        text: q.text,
+        type: q.type,
+        points: q.points,
+        position: idx,
+        correctAnswer: q.correctAnswer || null,
+        imageUrl: q.imageUrl || null,
+        options: q.options.map(o => ({
+          text: o.text,
+          isCorrect: o.isCorrect
+        }))
+      }));
+
+      formData.append('questions', JSON.stringify(questionsJson));
+
+      questions.forEach((q, idx) => {
+        if (q.imageFile) {
+          formData.append(`questionImage_${idx}`, q.imageFile);
+        }
       });
+
+      await api.post(`/chapters/${chapterId}/exercises`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
       success('Exercice créé avec succès !');
       onSuccess();
       handleClose();
@@ -177,7 +247,7 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
           </div>
           <div className="col-span-2 p-3 bg-brand-accent/10 border border-brand-accent/30 rounded-xl flex items-center justify-between text-xs text-brand-text">
             <span className="font-semibold text-brand-accent flex items-center gap-1.5">
-              <CheckCircle className="w-4 h-4" /> Exercice d'entraînement pédagogique (Non noté)
+              <CheckCircle className="w-4 h-4" /> Exercice d'entraînement pédagogique
             </span>
             <span className="text-brand-text-muted">Évaluation formative et auto-correction</span>
           </div>
@@ -189,7 +259,7 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
             <h3 className="font-bold text-brand-text">Questions</h3>
             <button
               onClick={addQuestion}
-              className="flex items-center gap-1 text-sm text-brand-accent hover:bg-brand-accent/10 px-3 py-1.5 rounded-lg transition"
+              className="flex items-center gap-1 text-sm text-brand-accent hover:bg-brand-accent/10 px-3 py-1.5 rounded-lg transition cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Ajouter une question
             </button>
@@ -202,7 +272,7 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
                   <span className="text-xs font-bold text-brand-text-muted bg-brand-card border border-brand-border/50 px-2 py-1 rounded-lg min-w-[30px] text-center mt-1">
                     {qIdx + 1}
                   </span>
-                  <div className="flex-1">
+                  <div className="flex-1 space-y-2">
                     <textarea
                       value={q.text}
                       onChange={e => updateQuestion(qIdx, 'text', e.target.value)}
@@ -210,7 +280,56 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
                       rows={2}
                       placeholder="Texte de la question..."
                     />
-                    <div className="flex items-center gap-3 mt-2">
+
+                    {/* Question Image Attachment */}
+                    <div>
+                      {q.imagePreview || q.imageUrl ? (
+                        <div className="flex items-center gap-3 p-2 bg-brand-card rounded-lg border border-brand-border/60">
+                          <img
+                            src={
+                              q.imagePreview ||
+                              (q.imageUrl?.startsWith('http') || q.imageUrl?.startsWith('/uploads')
+                                ? q.imageUrl
+                                : `/uploads/${q.imageUrl}`)
+                            }
+                            alt={`Illustration ${qIdx + 1}`}
+                            className="w-16 h-12 object-cover rounded border border-brand-border/40"
+                          />
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs font-bold text-brand-accent hover:underline cursor-pointer">
+                              <span>Modifier</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={e => handleQuestionImage(qIdx, e.target.files?.[0] || null)}
+                              />
+                            </label>
+                            <span className="text-brand-border">•</span>
+                            <button
+                              type="button"
+                              onClick={() => handleQuestionImage(qIdx, null)}
+                              className="text-xs font-bold text-red-400 hover:text-red-300 flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" /> Supprimer
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-card hover:bg-brand-border/30 border border-dashed border-brand-border/70 text-xs font-semibold text-brand-text-muted hover:text-brand-accent cursor-pointer transition">
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          <span>Ajouter une image / schéma</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={e => handleQuestionImage(qIdx, e.target.files?.[0] || null)}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
                       <span className="text-xs text-brand-text-muted">Points:</span>
                       <input
                         type="number"
@@ -223,7 +342,7 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
                     </div>
                   </div>
                   {questions.length > 1 && (
-                    <button onClick={() => removeQuestion(qIdx)} className="text-red-400 hover:text-red-600 p-1 transition">
+                    <button onClick={() => removeQuestion(qIdx)} className="text-brand-text-muted hover:text-red-400 p-1 transition cursor-pointer">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
@@ -235,8 +354,9 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
                     {q.options.map((opt, oIdx) => (
                       <div key={oIdx} className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={() => updateOption(qIdx, oIdx, 'isCorrect', !opt.isCorrect)}
-                          className={`p-1 rounded-full transition ${opt.isCorrect ? 'text-emerald-500' : 'text-brand-border hover:text-brand-text-muted'}`}
+                          className={`p-1 rounded-full transition cursor-pointer ${opt.isCorrect ? 'text-emerald-500' : 'text-brand-border hover:text-brand-text-muted'}`}
                           title="Marquer comme bonne réponse"
                         >
                           <CheckCircle className="w-4 h-4" />
@@ -249,7 +369,7 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
                           disabled={type === 'VRAI_FAUX'}
                         />
                         {type === 'QCM' && q.options.length > 2 && (
-                          <button onClick={() => removeOption(qIdx, oIdx)} className="text-red-400 hover:text-red-600 p-1 transition">
+                          <button type="button" onClick={() => removeOption(qIdx, oIdx)} className="text-brand-text-muted hover:text-red-400 p-1 transition cursor-pointer">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         )}
@@ -257,8 +377,9 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
                     ))}
                     {type === 'QCM' && (
                       <button
+                        type="button"
                         onClick={() => addOption(qIdx)}
-                        className="text-xs text-brand-accent hover:underline flex items-center gap-1 ml-6 mt-1"
+                        className="text-xs text-brand-accent hover:underline flex items-center gap-1 ml-6 mt-1 cursor-pointer"
                       >
                         <Plus className="w-3 h-3" /> Ajouter une option
                       </button>
@@ -291,8 +412,8 @@ export default function ExerciseEditor({ chapterId, isOpen, onClose, onSuccess }
         )}
 
         <div className="flex justify-end gap-3 pt-4 border-t border-brand-border/30">
-          <Button variant="secondary" onClick={handleClose} disabled={isSubmitting}>Annuler</Button>
-          <Button variant="primary" onClick={handleSubmit} isLoading={isSubmitting}>
+          <Button variant="secondary" onClick={handleClose} disabled={isSubmitting} className="cursor-pointer">Annuler</Button>
+          <Button variant="primary" onClick={handleSubmit} isLoading={isSubmitting} className="cursor-pointer">
             Créer l'exercice
           </Button>
         </div>

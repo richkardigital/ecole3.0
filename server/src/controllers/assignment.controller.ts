@@ -436,6 +436,12 @@ export const getAssignmentById = async (req: AuthRequest, res: Response) => {
             niveau: { select: { nom: true } }
           }
         },
+        questions: {
+          include: {
+            options: true
+          },
+          orderBy: { position: 'asc' }
+        },
         submissions: {
             ...((req.user?.role as string) === 'APPRENANT' ? { where: { studentId: req.user.id } } : {}),
             include: { grade: true }
@@ -445,6 +451,24 @@ export const getAssignmentById = async (req: AuthRequest, res: Response) => {
 
     if (!assignment) {
       return res.status(404).json({ message: "Assignment not found" });
+    }
+
+    // For APPRENANT who hasn't submitted and the assignment is not auto-graded or corrected,
+    // hide isCorrect from options to prevent cheating via browser devtools
+    if ((req.user?.role as string) === 'APPRENANT') {
+      const hasSubmitted = assignment.submissions && assignment.submissions.length > 0;
+      if (!hasSubmitted && assignment.questions) {
+        (assignment as any).questions = assignment.questions.map(q => ({
+          ...q,
+          expectedAnswer: null,
+          options: q.options.map(opt => ({
+            id: opt.id,
+            text: opt.text,
+            imageUrl: opt.imageUrl,
+            questionId: opt.questionId
+          }))
+        }));
+      }
     }
 
     res.json(assignment);
@@ -527,9 +551,12 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
             include: {
                 subject: true,
                 niveau: true,
-                _count: { select: { submissions: true } },
+                questions: {
+                    select: { id: true }
+                },
+                _count: { select: { submissions: true, questions: true } },
                 submissions: {
-                    select: { id: true, grade: { select: { id: true } } }
+                    select: { id: true, studentId: true, grade: { select: { id: true } } }
                 }
             },
             orderBy: { dueDate: 'desc' }
@@ -582,7 +609,7 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
           orderBy: { position: 'asc' }
         },
         _count: {
-          select: { submissions: true },
+          select: { submissions: true, questions: true },
         },
         submissions: {
             where: {
@@ -606,7 +633,13 @@ export const getAssignments = async (req: AuthRequest, res: Response) => {
 export const submitAssignment = async (req: AuthRequest, res: Response) => {
   try {
     const id = String(req.params.id); // assignmentId
-    const { content, answers } = req.body;
+    const { content } = req.body;
+    let answers = req.body.answers;
+    if (typeof answers === 'string') {
+      try {
+        answers = JSON.parse(answers);
+      } catch (_) {}
+    }
     let fileUrl = req.body.fileUrl;
 
     if (req.file) {
@@ -651,20 +684,23 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
         const parsedAnswers = answers;
 
         for (const question of (assignment as any).questions) {
-            totalPoints += question.points;
+            totalPoints += (question.points || 1);
             if (question.type === "MULTIPLE_CHOICE" || question.type === "SINGLE_CHOICE") {
-                const userSelectedOptions = parsedAnswers[question.id] || [];
-                const correctOptionIds = question.options.filter(o => o.isCorrect).map(o => o.id);
+                const rawSelection = parsedAnswers[question.id];
+                const userSelectedOptions = Array.isArray(rawSelection) 
+                  ? rawSelection 
+                  : (rawSelection ? [rawSelection] : []);
+                const correctOptionIds = question.options.filter((o: any) => o.isCorrect).map((o: any) => o.id);
                 
                 const isCorrect = userSelectedOptions.length === correctOptionIds.length && 
                                   userSelectedOptions.every((oid: string) => correctOptionIds.includes(oid));
                 
-                if (isCorrect) earnedPoints += question.points;
+                if (isCorrect) earnedPoints += (question.points || 1);
             } else if (question.type === "FILL_IN_BLANK") {
                 const userText = (parsedAnswers[question.id] as string) || "";
                 const correct = question.expectedAnswer || "";
                 if (userText.trim().toLowerCase() === correct.trim().toLowerCase()) {
-                    earnedPoints += question.points;
+                    earnedPoints += (question.points || 1);
                 }
             } else {
                 hasManualQuestions = true;
@@ -675,7 +711,7 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
         
         if (totalPoints > 0) {
             autoScore = (earnedPoints / totalPoints) * 20;
-            if (!hasManualQuestions && assignment.autoGrade) {
+            if (!hasManualQuestions || assignment.autoGrade) {
                 isFullyAutoGraded = true;
             }
         }
@@ -928,6 +964,8 @@ export const updateAssignment = async (req: AuthRequest, res: Response) => {
         timeLimit: parsedTimeLimit,
         autoGrade: req.body.autoGrade !== undefined ? Boolean(req.body.autoGrade) : existing.autoGrade,
         isNiveauWide: req.body.isNiveauWide !== undefined ? Boolean(req.body.isNiveauWide) : existing.isNiveauWide,
+        syncCalendar: req.body.syncCalendar !== undefined ? String(req.body.syncCalendar) === 'true' : existing.syncCalendar,
+        published: req.body.published !== undefined ? String(req.body.published) === 'true' : existing.published,
         imageUrl: req.body.imageUrl || existing.imageUrl,
         correctionUrl,
         attachments,

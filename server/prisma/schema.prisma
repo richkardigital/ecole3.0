@@ -480,6 +480,7 @@ model Subject {
   assignments    Assignment[]
   teacherClasses TeacherClass[]
   quizzes        Quiz[]
+  resources      Resource[]
 
   @@unique([name, schoolId])
   @@index([isActive])
@@ -621,6 +622,9 @@ model Resource {
   niveauId String?
   niveau   Niveau? @relation(fields: [niveauId], references: [id], onDelete: SetNull)
 
+  subjectId String?
+  subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+
   createdById String?
   createdBy   User?  @relation("ResourceCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
@@ -628,6 +632,7 @@ model Resource {
 
   @@index([courseId])
   @@index([niveauId])
+  @@index([subjectId])
   @@index([isGlobal])
   @@index([scope])
 }
@@ -1358,6 +1363,7 @@ model ExerciseQuestion {
   position   Int          @default(0)
   points     Float        @default(1)
   correctAnswer String?   @db.Text // Pour TEXTE_LIBRE : réponse attendue (optionnel)
+  imageUrl   String?      // Image d'illustration de la question
 
   exerciseId String
   exercise   ChapterExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
@@ -1376,6 +1382,7 @@ model ExerciseOption {
   id        String @id @default(uuid())
   text      String
   isCorrect Boolean @default(false)
+  imageUrl  String? // Image d'illustration de l'option (optionnel)
 
   questionId String
   question   ExerciseQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)

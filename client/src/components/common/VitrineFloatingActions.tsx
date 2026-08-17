@@ -42,7 +42,7 @@ export const VitrineFloatingActions: React.FC<VitrineFloatingActionsProps> = ({
       <button
         onClick={scrollToTop}
         aria-label="Retourner en haut de la page"
-        className={`pointer-events-auto w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 bg-white/95 backdrop-blur-md border border-slate-200 text-slate-700 hover:text-emerald-600 hover:border-emerald-300 hover:bg-emerald-50 shadow-lg hover:shadow-xl group hover:-translate-y-1 ${
+        className={`pointer-events-auto w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 bg-white/95 backdrop-blur-md border border-slate-200 text-slate-700 hover:text-[#189CD8] hover:border-[#189CD8]/40 hover:bg-[#189CD8]/10 shadow-lg hover:shadow-xl group hover:-translate-y-1 ${
           showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
         }`}
         title="Retourner en haut"

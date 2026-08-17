@@ -16,6 +16,7 @@ interface Question {
     text: string;
     type: 'SINGLE' | 'MULTIPLE';
     points: number;
+    imageUrl?: string;
     options: Option[];
 }
 
@@ -158,8 +159,25 @@ const QuizTake = () => {
                 ></div>
             </div>
 
-            <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                <h2 className="text-xl font-bold text-slate-900 mb-6">{currentQuestion.text}</h2>
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 space-y-6">
+                <div>
+                    <h2 className="text-xl font-bold text-slate-900 mb-4">{currentQuestion.text}</h2>
+                    {currentQuestion.imageUrl && (
+                        <div className="mb-6">
+                            <img
+                                src={currentQuestion.imageUrl.startsWith('http') || currentQuestion.imageUrl.startsWith('/uploads') ? currentQuestion.imageUrl : `/uploads/${currentQuestion.imageUrl}`}
+                                alt={`Illustration Question ${currentStep}`}
+                                className="max-h-72 max-w-full rounded-xl border border-slate-200 shadow-sm object-contain bg-slate-50"
+                                onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    if (!target.src.includes('localhost:5000') && !target.src.startsWith('http')) {
+                                        target.src = `http://localhost:5000${currentQuestion.imageUrl}`;
+                                    }
+                                }}
+                            />
+                        </div>
+                    )}
+                </div>
                 
                 <div className="space-y-3">
                     {currentQuestion.options.map(option => {

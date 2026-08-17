@@ -4,30 +4,41 @@ import type { AuthRequest } from "../middleware/auth.js";
 import { uploadToSupabase } from "../utils/supabase.js";
 import type { ResourceType } from "@prisma/client";
 
-// Get all resources, optionally filtered by niveauId
+// Get all resources, optionally filtered by niveauId and subjectId
 export const getResources = async (req: AuthRequest, res: Response) => {
   try {
-    const { niveauId } = req.query;
+    const { niveauId, subjectId } = req.query;
     
     let whereClause: any = {};
 
     // Filter by student level if APPRENANT
     if (req.user?.role === "APPRENANT") {
-      const enrollment = await prisma.enrollment.findFirst({
+      const enrollments = await prisma.enrollment.findMany({
         where: { studentId: req.user.id },
         include: { class: true }
       });
-      if (enrollment && enrollment.class.niveauId) {
-        whereClause.niveauId = enrollment.class.niveauId;
-      } else {
-        // If student has no class, return empty
+      const studentNiveauIds = Array.from(
+        new Set(enrollments.map(e => e.class?.niveauId).filter((n): n is string => Boolean(n)))
+      );
+      
+      if (studentNiveauIds.length === 0) {
+        // If student has no enrolled class with niveau, return empty
         return res.json([]);
+      }
+      whereClause.niveauId = { in: studentNiveauIds };
+
+      if (subjectId && subjectId !== "ALL") {
+        whereClause.subjectId = String(subjectId);
       }
     } else {
       if (niveauId && niveauId !== "ALL") {
         whereClause.niveauId = String(niveauId);
       } else {
         whereClause.niveauId = { not: null };
+      }
+
+      if (subjectId && subjectId !== "ALL") {
+        whereClause.subjectId = String(subjectId);
       }
     }
 
@@ -44,6 +55,9 @@ export const getResources = async (req: AuthRequest, res: Response) => {
       where: whereClause,
       include: {
         niveau: true,
+        subject: {
+          select: { id: true, name: true, code: true, imageUrl: true }
+        },
         createdBy: {
           select: { id: true, firstName: true, lastName: true }
         }
@@ -61,7 +75,7 @@ export const getResources = async (req: AuthRequest, res: Response) => {
 // Upload a new resource
 export const createResource = async (req: AuthRequest, res: Response) => {
   try {
-    const { title, niveauId, linkUrl } = req.body;
+    const { title, niveauId, subjectId, linkUrl } = req.body;
     const file = req.file;
 
     if (!title) {
@@ -105,12 +119,16 @@ export const createResource = async (req: AuthRequest, res: Response) => {
         url: fileUrl,
         type,
         niveauId,
+        subjectId: subjectId && String(subjectId).trim() !== "" && String(subjectId) !== "ALL" ? String(subjectId).trim() : null,
         isGlobal: true, 
         isPublished: req.user?.role === "SUPER_ADMIN", // Auto-publish for SUPER_ADMIN only
         createdById: req.user?.id,
       },
       include: {
         niveau: true,
+        subject: {
+          select: { id: true, name: true, code: true, imageUrl: true }
+        },
         createdBy: {
           select: { id: true, firstName: true, lastName: true }
         }
@@ -152,6 +170,9 @@ export const togglePublishResource = async (req: AuthRequest, res: Response) => 
       data: { isPublished },
       include: {
         niveau: true,
+        subject: {
+          select: { id: true, name: true, code: true, imageUrl: true }
+        },
         createdBy: {
           select: { id: true, firstName: true, lastName: true }
         }
@@ -180,7 +201,7 @@ export const togglePublishResource = async (req: AuthRequest, res: Response) => 
 export const updateResource = async (req: AuthRequest, res: Response) => {
   try {
     const id = String(req.params.id);
-    const { title, description, niveauId, type: reqType, url: linkUrl, isActive } = req.body;
+    const { title, description, niveauId, subjectId, type: reqType, url: linkUrl, isActive } = req.body;
     const file = req.file;
 
     const existingResource = await prisma.resource.findUnique({ where: { id } });
@@ -215,9 +236,18 @@ export const updateResource = async (req: AuthRequest, res: Response) => {
 
     const resource = await prisma.resource.update({
       where: { id },
-      data: { title, niveauId, url: fileUrl, type },
+      data: {
+        title,
+        niveauId,
+        ...(subjectId !== undefined ? { subjectId: subjectId && String(subjectId).trim() !== "" && String(subjectId) !== "ALL" ? String(subjectId).trim() : null } : {}),
+        url: fileUrl,
+        type
+      },
       include: {
         niveau: true,
+        subject: {
+          select: { id: true, name: true, code: true, imageUrl: true }
+        },
         createdBy: {
           select: { id: true, firstName: true, lastName: true }
         }

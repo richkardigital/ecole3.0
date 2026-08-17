@@ -113,14 +113,14 @@ const NotificationCenter = () => {
             <div className="flex items-center gap-2.5">
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Notifications</h3>
               {unreadCount > 0 && (
-                <span className="chip chip-green text-[9px] px-2 py-0.5">{unreadCount} nouvelles</span>
+                <span className="chip chip-brand text-[9px] px-2 py-0.5">{unreadCount} nouvelles</span>
               )}
             </div>
             <div className="flex items-center gap-1">
               {unreadCount > 0 && (
                 <button
                   onClick={markAllRead}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 transition-colors"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-[#189CD8] transition-colors"
                   title="Tout marquer comme lu"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
@@ -155,18 +155,18 @@ const NotificationCenter = () => {
                     key={n.id}
                     className="group cursor-pointer transition-colors"
                     style={{
-                      background: !n.read ? '#ECFDF5' : '#FFFFFF',
+                      background: !n.read ? 'rgba(24,156,216,0.06)' : '#FFFFFF',
                       borderBottom: idx < notifications.length - 1 ? '1px solid #F1F5F9' : 'none',
                     }}
                     onClick={() => !n.read && markAsRead(n.id)}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#F8FAFC'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = !n.read ? '#ECFDF5' : '#FFFFFF'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = !n.read ? 'rgba(24,156,216,0.06)' : '#FFFFFF'; }}
                   >
                     <div className="px-5 py-4">
                       <div className="flex items-start justify-between gap-3 mb-1">
                         <div className="flex items-center gap-2 min-w-0">
                           {!n.read && (
-                            <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500"
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#189CD8]"
                               style={{ marginTop: '0.4rem' }} />
                           )}
                           <span className={`text-sm font-bold truncate ${!n.read ? 'text-slate-900' : 'text-slate-700'}`}>

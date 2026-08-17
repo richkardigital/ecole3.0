@@ -142,6 +142,23 @@ const Agenda = () => {
   const filteredEvents = useMemo(() => filterList(events), [events, selectedLevel, selectedType]);
   const filteredAllEvents = useMemo(() => filterList(allUpcomingEvents), [allUpcomingEvents, selectedLevel, selectedType]);
 
+  // Dynamic school months (current and surrounding months)
+  const dynamicMonths = useMemo(() => {
+    const months = [];
+    const base = new Date();
+    for (let offset = -1; offset <= 5; offset++) {
+      const d = new Date(base.getFullYear(), base.getMonth() + offset, 1);
+      const isCurrentMonth = d.getMonth() === base.getMonth() && d.getFullYear() === base.getFullYear();
+      const monthLabel = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      months.push({
+        label: `${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}${isCurrentMonth ? ' (En cours)' : ''}`,
+        month: d.getMonth(),
+        year: d.getFullYear()
+      });
+    }
+    return months;
+  }, []);
+
   // Today's events
   const todayEvents = useMemo(() => {
     const now = new Date();
@@ -325,19 +342,13 @@ const Agenda = () => {
               <CalendarIcon className="w-3.5 h-3.5 text-brand-accent" />
               Mois scolaires :
             </span>
-            {[
-              { label: 'Août 2026 (En cours)', month: 7, year: 2026 },
-              { label: 'Septembre 2026', month: 8, year: 2026 },
-              { label: 'Octobre 2026', month: 9, year: 2026 },
-              { label: 'Novembre 2026', month: 10, year: 2026 },
-              { label: 'Février 2027', month: 1, year: 2027 },
-            ].map(p => {
+            {dynamicMonths.map(p => {
               const isSelected = currentDate.getMonth() === p.month && currentDate.getFullYear() === p.year;
               return (
                 <button
-                  key={p.label}
+                  key={`${p.year}-${p.month}`}
                   onClick={() => jumpToMonth(p.month, p.year)}
-                  className={`px-3 py-1.5 rounded-lg border transition-all ${
+                  className={`px-3 py-1.5 rounded-lg border transition-all shrink-0 ${
                     isSelected 
                       ? 'bg-brand-accent text-white border-brand-accent shadow-sm font-black' 
                       : 'bg-brand-sidebar hover:bg-brand-border text-brand-text border-brand-border/60'
@@ -450,21 +461,27 @@ const Agenda = () => {
                   const isToday = new Date().toDateString() === dateObj.toDateString();
                   
                   const dayEvents = filteredEvents.filter(e => {
-                    if (e.endDate) {
-                      const dEnd = new Date(e.endDate);
-                      if (dEnd.getDate() === day && 
-                          dEnd.getMonth() === currentDate.getMonth() && 
-                          dEnd.getFullYear() === currentDate.getFullYear()) {
-                        return true;
-                      }
+                    const dEnd = e.endDate ? new Date(e.endDate) : null;
+                    const dStart = e.startDate ? new Date(e.startDate) : null;
+
+                    // Match if due date is this day
+                    if (dEnd && 
+                        dEnd.getDate() === day && 
+                        dEnd.getMonth() === currentDate.getMonth() && 
+                        dEnd.getFullYear() === currentDate.getFullYear()) {
+                      return true;
                     }
-                    if (e.startDate) {
-                      const dStart = new Date(e.startDate);
-                      if (dStart.getDate() === day && 
-                          dStart.getMonth() === currentDate.getMonth() && 
-                          dStart.getFullYear() === currentDate.getFullYear()) {
-                        return true;
-                      }
+                    // Or if start date is this day (and no end date, or start date differs from end date)
+                    if (dStart && 
+                        dStart.getDate() === day && 
+                        dStart.getMonth() === currentDate.getMonth() && 
+                        dStart.getFullYear() === currentDate.getFullYear()) {
+                      return true;
+                    }
+                    // For period events like TRIMESTRE
+                    if (e.type === 'TRIMESTRE' && dStart && dEnd) {
+                      const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day, 12, 0, 0);
+                      return cellDate >= dStart && cellDate <= dEnd;
                     }
                     return false;
                   });

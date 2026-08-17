@@ -4,8 +4,11 @@ import { Link } from 'react-router-dom';
 import api from '@/lib/api';
 import { Mail, ArrowLeft, CheckCircle2, ArrowRight, Key, Sparkles, Lock, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { BrandLogo } from '@/components/common/BrandLogo';
+import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 
 const ForgotPassword = () => {
+  const { settings } = useSystemSettings();
   const { register, handleSubmit, formState: { errors } } = useForm();
   const [step, setStep] = useState<'email' | 'sent' | 'reset-success'>('email');
   const [isLoading, setIsLoading] = useState(false);
@@ -71,35 +74,25 @@ const ForgotPassword = () => {
 
         <div className="rounded-3xl overflow-hidden bg-white border border-slate-200 shadow-xl">
           {/* Gradient top line */}
-          <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-sky-500 to-emerald-600" />
+          <div className="h-1 w-full bg-gradient-to-r from-[#4D3E90] via-[#189CD8] to-[#4D3E90]" />
 
           <div className="p-8 sm:p-10">
             {/* Logo Header */}
-            <div className="flex items-center gap-3.5 mb-8 pb-6 border-b border-slate-100">
-              <img 
-                src="/logo.png" 
-                alt="Logo École 3.0" 
-                className="h-12 w-auto max-w-[140px] object-contain" 
-              />
-              <div>
-                <span className="text-2xl font-black text-slate-900 tracking-tight leading-none block">ÉCOLE 3.0</span>
-                <span className="text-[10px] font-bold tracking-[0.22em] text-emerald-600 uppercase flex items-center gap-1.5 mt-1">
-                  <Sparkles className="w-3 h-3 text-emerald-500" /> SEEEC Platform
-                </span>
-              </div>
+            <div className="mb-8 pb-6 border-b border-slate-100 flex justify-center sm:justify-start">
+              <BrandLogo size="md" to="/" subtitle="SEEEC" />
             </div>
 
             {step === 'email' && (
               <>
                 <div className="mb-7">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-emerald-50 border border-emerald-200">
-                    <Key className="w-6 h-6 text-emerald-600" />
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-[#189CD8]/10 border border-[#189CD8]/25">
+                    <Key className="w-6 h-6 text-[#189CD8]" />
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mb-2">
+                  <h1 className="text-2xl sm:text-3xl font-black text-[#4D3E90] tracking-tight mb-2">
                     Mot de passe oublié
                   </h1>
                   <p className="text-slate-600 text-sm leading-relaxed font-medium">
-                    Saisissez votre adresse email associée à votre compte SEEEC pour recevoir les instructions de réinitialisation.
+                    Saisissez votre adresse email associée à votre compte {settings?.platformName || 'École 3.0'} pour recevoir les instructions de réinitialisation.
                   </p>
                 </div>
 
@@ -116,7 +109,7 @@ const ForgotPassword = () => {
                       Adresse Email
                     </label>
                     <div className="relative">
-                      <Mail className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 transition-colors ${focusedField === 'email' ? 'text-emerald-600' : 'text-slate-400'}`} style={{ width: '1.125rem', height: '1.125rem' }} />
+                      <Mail className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 transition-colors ${focusedField === 'email' ? 'text-[#189CD8]' : 'text-slate-400'}`} style={{ width: '1.125rem', height: '1.125rem' }} />
                       <input
                         {...register('email', { required: 'Email requis', pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Format email invalide' } })}
                         type="email"
@@ -124,7 +117,7 @@ const ForgotPassword = () => {
                         onFocus={() => setFocusedField('email')}
                         onBlur={() => setFocusedField(null)}
                         placeholder="nom@domaine.ci"
-                        className="w-full pl-11 pr-4 py-3.5 text-sm text-slate-900 outline-none transition-all rounded-xl bg-slate-50 border border-slate-250 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                        className="w-full pl-11 pr-4 py-3.5 text-sm text-slate-900 outline-none transition-all rounded-xl bg-slate-50 border border-slate-250 focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/10"
                       />
                     </div>
                     {errors.email && <p className="mt-1.5 text-xs text-red-600 font-medium">{String(errors.email.message)}</p>}
@@ -142,16 +135,16 @@ const ForgotPassword = () => {
             {step === 'sent' && (
               <div className="py-2">
                 <div className="text-center mb-6">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-emerald-50 border-2 border-emerald-200">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-[#189CD8]/10 border-2 border-[#189CD8]/25">
+                    <CheckCircle2 className="w-8 h-8 text-[#189CD8]" />
                   </div>
                   
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-2">
+                  <h2 className="text-2xl font-black text-[#4D3E90] tracking-tight mb-2">
                     Instructions envoyées !
                   </h2>
                   <p className="text-slate-600 text-sm leading-relaxed font-medium">
                     Un email a été envoyé à{' '}
-                    <span className="font-bold text-emerald-700">{submittedEmail}</span>.
+                    <span className="font-bold text-[#189CD8]">{submittedEmail}</span>.
                   </p>
                 </div>
 
@@ -165,7 +158,7 @@ const ForgotPassword = () => {
                 {/* Quick direct password update card */}
                 <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 mb-6">
                   <div className="flex items-center gap-2 mb-3">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <ShieldCheck className="w-4 h-4 text-[#189CD8]" />
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">Définir un nouveau mot de passe</span>
                   </div>
                   <form onSubmit={onResetPassword} className="space-y-3">
@@ -176,7 +169,7 @@ const ForgotPassword = () => {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="Nouveau mot de passe (min. 6 car.)"
-                        className="w-full pl-10 pr-10 py-2.5 text-sm text-slate-900 rounded-xl bg-white border border-slate-250 focus:border-emerald-500 focus:outline-none"
+                        className="w-full pl-10 pr-10 py-2.5 text-sm text-slate-900 rounded-xl bg-white border border-slate-250 focus:border-[#189CD8] focus:outline-none"
                       />
                       <button
                         type="button"
@@ -212,11 +205,11 @@ const ForgotPassword = () => {
 
             {step === 'reset-success' && (
               <div className="text-center py-4">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-emerald-50 border-2 border-emerald-200">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-[#189CD8]/10 border-2 border-[#189CD8]/25">
+                  <CheckCircle2 className="w-8 h-8 text-[#189CD8]" />
                 </div>
                 
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-2">
+                <h2 className="text-2xl font-black text-[#4D3E90] tracking-tight mb-2">
                   Mot de passe mis à jour !
                 </h2>
                 <p className="text-slate-600 text-sm leading-relaxed mb-6 font-medium">

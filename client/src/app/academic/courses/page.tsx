@@ -677,44 +677,10 @@ const Courses = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* Body Content */}
-                  <div className="p-4 space-y-3">
-                    {/* Corps professoral */}
-                    <div className="space-y-1.5">
-                      <span className="block font-bold text-brand-muted text-[10px] uppercase tracking-wider">
-                        Corps professoral assigné :
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openTeachersModal(course);
-                        }}
-                        title="Afficher la liste des professeurs assignés"
-                        className={`w-full inline-flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          teacherCount > 0
-                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 hover:bg-emerald-600 hover:text-white"
-                            : "bg-brand-surface text-brand-muted border border-brand-border/40 hover:border-brand-accent/40"
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          <span>
-                            {teacherCount}{" "}
-                            {teacherCount > 1 ? "professeurs" : "professeur"}
-                          </span>
-                        </span>
-                        <span className="text-[10px] opacity-80 underline font-semibold">
-                          Détails &rarr;
-                        </span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Card Footer Actions */}
-                <div className="p-4 pt-3 bg-brand-surface/50 border-t border-brand-border/60 flex items-center justify-between">
+                <div className="p-4 bg-brand-surface/50 border-t border-brand-border/60 flex items-center justify-between">
                   <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Programme Officiel

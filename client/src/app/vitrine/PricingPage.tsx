@@ -78,16 +78,15 @@ export default function PricingPage() {
       {/* ── HERO ── */}
       <section className="relative pt-10 sm:pt-14 pb-8 sm:pb-10 overflow-hidden hero-bg">
         <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
-          <span className="chip chip-green mb-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold shadow-2xs">
-            <Zap className="w-3.5 h-3.5 text-emerald-600" />
-            Tarification 100% Transparente & Structurée
+          <span className="chip chip-brand mb-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold shadow-2xs">
+            <Zap className="w-3.5 h-3.5 text-[#189CD8]" />
+            Tarifs & Formules LMS École 3.0
           </span>
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-slate-900 mb-4 leading-[1.08]">
-            Un pack adapté à chaque<br />
-            <span className="gradient-text">établissement d'excellence.</span>
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-[#4D3E90] mb-6 leading-[1.08]">
+            Choisissez votre formule et <span className="gradient-text">commencez immédiatement.</span>
           </h1>
-          <p className="text-sm sm:text-base md:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto mb-6 font-medium">
-            Découvrez nos 3 offres d'abonnement professionnelles pour digitaliser la gestion scolaire, les bulletins certifiés, la vie scolaire et les cours en ligne.
+          <p className="text-sm sm:text-base md:text-lg text-slate-600 leading-relaxed max-w-3xl mx-auto mb-6 font-medium">
+            Profitez du meilleur rapport qualité-prix ! Toutes les formules sont dotées des fonctionnalités LMS standard. Personnalisez votre formule en fonction de votre école et enrichissez-la d'options supplémentaires pour simplifier votre quotidien. Profitez d'un tarif fixe qui vous permet de mieux contrôler votre budget.
           </p>
 
           {/* Unified Annual Billing Badge */}
@@ -112,7 +111,7 @@ export default function PricingPage() {
             const displayPeriod = 'par an (année scolaire complète)';
 
             // Styling variants per plan
-            let cardClasses = 'bg-white text-slate-900 border-2 border-slate-200 shadow-md hover:shadow-xl hover:border-emerald-500/40';
+            let cardClasses = 'bg-white text-slate-900 border-2 border-slate-200 shadow-md hover:shadow-xl hover:border-[#189CD8]/40';
             let badgeComponent = (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-300 mb-3">
                 <Building2 className="w-3.5 h-3.5 text-slate-600" />
@@ -121,29 +120,29 @@ export default function PricingPage() {
             );
             let priceBoxClasses = 'bg-slate-100/80 border border-slate-200 text-slate-900';
             let priceTextColor = 'text-slate-950';
-            let currencyColor = 'text-emerald-700 font-extrabold';
-            let buttonClasses = 'bg-slate-900 hover:bg-emerald-600 text-white font-black shadow-md';
-            let checkIconColor = 'text-emerald-600';
+            let currencyColor = 'text-[#189CD8] font-extrabold';
+            let buttonClasses = 'bg-slate-900 hover:bg-[#189CD8] text-white font-black shadow-md';
+            let checkIconColor = 'text-[#189CD8]';
             let featureTextColor = 'text-slate-800 font-semibold';
             let featureHeaderColor = 'text-slate-500 font-black';
 
             if (isPro) {
-              cardClasses = 'bg-slate-950 text-white border-2 border-emerald-500 shadow-2xl scale-[1.03] z-10 ring-4 ring-emerald-500/20';
+              cardClasses = 'bg-slate-950 text-white border-2 border-[#189CD8] shadow-2xl scale-[1.03] z-10 ring-4 ring-[#189CD8]/20';
               badgeComponent = (
                 <div className="absolute -top-3.5 left-0 right-0 flex justify-center">
-                  <span className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[11px] font-black uppercase tracking-wider px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+                  <span className="bg-gradient-to-r from-[#4D3E90] to-[#189CD8] text-white text-[11px] font-black uppercase tracking-wider px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5" />
                     Recommandé Établissements
                   </span>
                 </div>
               );
-              priceBoxClasses = 'bg-slate-900/90 border border-emerald-500/40 text-white shadow-inner';
+              priceBoxClasses = 'bg-slate-900/90 border border-[#189CD8]/40 text-white shadow-inner';
               priceTextColor = 'text-white';
-              currencyColor = 'text-emerald-400 font-black';
-              buttonClasses = 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black shadow-lg shadow-emerald-500/30';
-              checkIconColor = 'text-emerald-400';
+              currencyColor = 'text-[#38bdf8] font-black';
+              buttonClasses = 'bg-gradient-to-r from-[#4D3E90] to-[#189CD8] hover:from-[#3C2F73] hover:to-[#1280B2] text-white font-black shadow-lg shadow-[#189CD8]/30';
+              checkIconColor = 'text-[#38bdf8]';
               featureTextColor = 'text-slate-100 font-semibold';
-              featureHeaderColor = 'text-emerald-400 font-black';
+              featureHeaderColor = 'text-[#38bdf8] font-black';
             } else if (isElite) {
               cardClasses = 'bg-gradient-to-b from-indigo-50/40 via-white to-white text-slate-900 border-2 border-indigo-200 shadow-md hover:shadow-xl hover:border-indigo-400';
               badgeComponent = (
@@ -222,28 +221,6 @@ export default function PricingPage() {
               </div>
             );
           })}
-        </div>
-      </section>
-
-      {/* ── SECURITY & SUPPORT BANNER ── */}
-      <section className="py-8 sm:py-12 max-w-5xl mx-auto px-4">
-        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white rounded-3xl p-6 sm:p-10 shadow-2xl border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="space-y-2 max-w-lg text-center md:text-left">
-            <span className="chip chip-green inline-flex text-xs bg-emerald-950/80 text-emerald-300 border border-emerald-700/50">
-              <HeartHandshake className="w-3.5 h-3.5" />
-              Accompagnement Dédié
-            </span>
-            <h3 className="text-xl sm:text-2xl font-black text-white">Besoin d'un accompagnement personnalisé ?</h3>
-            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed font-medium">
-              Nos conseillers pédagogiques et ingénieurs sont à votre disposition pour une démonstration complète et le paramétrage sur-mesure de votre établissement.
-            </p>
-          </div>
-          <Link to="/inscription" className="shrink-0 w-full sm:w-auto">
-            <button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-white font-black text-sm sm:text-base px-7 py-4 rounded-2xl shadow-xl shadow-emerald-500/20 border border-emerald-400/40 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
-              <span>Inscrire mon Établissement</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </Link>
         </div>
       </section>
     </div>

@@ -1,10 +1,22 @@
 import { Outlet, Link } from 'react-router-dom';
 import { VitrineNavbar } from './VitrineNavbar';
 import { VitrineFloatingActions } from '../common/VitrineFloatingActions';
-import { GraduationCap, Mail, Phone, MapPin, Sparkles, Shield, Heart, ArrowRight } from 'lucide-react';
+import { Mail, Phone, MapPin, Shield, Heart, ArrowRight, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { BrandLogo } from '@/components/common/BrandLogo';
+import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 
 export const VitrineLayout = () => {
+  const { settings } = useSystemSettings();
+
+  const platformName = settings?.platformName || 'ÉCOLE 3.0';
+  const description = settings?.description || 'La plateforme de référence pour la transformation numérique des établissements scolaires d\'Afrique de l\'Ouest.';
+  const email = settings?.email || 'contact@seeec-ecole30.ci';
+  const phone = settings?.phone || '+225 07 00 00 00 00';
+  const address = settings?.address || 'Abidjan, Côte d\'Ivoire';
+  const postalAddress = settings?.postalAddress || 'Plateau, Imm. SEEEC';
+  const websiteUrl = settings?.websiteUrl || 'https://ecole3-seeec.ci';
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans flex flex-col relative overflow-x-hidden">
 
@@ -23,20 +35,20 @@ export const VitrineLayout = () => {
         {/* Footer ambient light */}
         <div 
           className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[250px] pointer-events-none opacity-40"
-          style={{ background: 'radial-gradient(ellipse, rgba(16,185,129,0.18) 0%, transparent 70%)', filter: 'blur(50px)' }} 
+          style={{ background: 'radial-gradient(ellipse, rgba(24,156,216,0.18) 0%, transparent 70%)', filter: 'blur(50px)' }} 
         />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           
           {/* CTA Banner inside footer */}
-          <div className="rounded-3xl p-8 sm:p-10 mb-14 text-center relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950 border border-slate-800 shadow-2xl">
+          <div className="rounded-3xl p-8 sm:p-10 mb-14 text-center relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-900 to-[#189CD8]/20 border border-slate-800 shadow-2xl">
             <div className="relative z-10">
-              <p className="text-xs font-black uppercase tracking-widest text-emerald-400 mb-2">Rejoignez le réseau SEEEC</p>
+              <p className="text-xs font-black uppercase tracking-widest text-[#38bdf8] mb-2">Rejoignez le réseau {platformName}</p>
               <h3 className="text-2xl md:text-3xl font-black text-white mb-6 tracking-tight">
-                Votre école mérite le meilleur.
+                Votre établissement mérite l'excellence numérique.
               </h3>
               <Link to="/inscription">
-                <Button variant="glow" size="md" rightIcon={<ArrowRight className="w-4 h-4" />} className="shadow-lg shadow-emerald-500/25">
+                <Button variant="glow" size="md" rightIcon={<ArrowRight className="w-4 h-4" />}>
                   Inscrire mon établissement
                 </Button>
               </Link>
@@ -48,23 +60,11 @@ export const VitrineLayout = () => {
             
             {/* Brand */}
             <div className="lg:col-span-1 space-y-5">
-              <Link to="/" className="flex items-center gap-3 group w-fit">
-                <img 
-                  src="/logo.png" 
-                  alt="Logo École 3.0" 
-                  className="h-10 w-auto max-w-[130px] object-contain drop-shadow-xs" 
-                />
-                <div>
-                  <span className="text-lg font-black text-white leading-none block">ÉCOLE 3.0</span>
-                  <span className="text-[10px] font-black tracking-[0.16em] text-emerald-400 uppercase flex items-center gap-1 mt-0.5">
-                    <Sparkles className="w-2.5 h-2.5 text-emerald-400" /> SEEEC Platform
-                  </span>
-                </div>
-              </Link>
+              <BrandLogo size="md" to="/" theme="light" />
               <p className="text-sm text-slate-400 leading-relaxed font-medium">
-                La plateforme de référence pour la transformation numérique des établissements scolaires d'Afrique de l'Ouest.
+                {description}
               </p>
-              <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
+              <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-xl bg-sky-950/80 text-[#38bdf8] border border-sky-800/60">
                 <Shield className="w-3.5 h-3.5" />
                 Données Sécurisées & MENA Compliant
               </div>
@@ -76,13 +76,13 @@ export const VitrineLayout = () => {
               <ul className="space-y-3">
                 {[
                   { label: 'Accueil', path: '/' },
-                  { label: 'À propos', path: '/a-propos' },
                   { label: 'Fonctionnalités', path: '/fonctionnalites' },
+                  { label: 'À propos de nous', path: '/a-propos' },
                   { label: 'Tarifs & Abonnements', path: '/tarifs' },
-                  { label: 'Témoignages', path: '/temoignages' },
+                  { label: 'FAQ', path: '/faq' },
                 ].map((l) => (
                   <li key={l.path}>
-                    <Link to={l.path} className="text-sm text-slate-300 hover:text-emerald-400 transition-colors font-medium">
+                    <Link to={l.path} className="text-sm text-slate-300 hover:text-[#38bdf8] transition-colors font-medium">
                       {l.label}
                     </Link>
                   </li>
@@ -101,7 +101,7 @@ export const VitrineLayout = () => {
                   { label: 'FAQ', path: '/faq' },
                 ].map((l) => (
                   <li key={l.path}>
-                    <Link to={l.path} className="text-sm text-slate-300 hover:text-emerald-400 transition-colors font-medium">
+                    <Link to={l.path} className="text-sm text-slate-300 hover:text-[#38bdf8] transition-colors font-medium">
                       {l.label}
                     </Link>
                   </li>
@@ -111,29 +111,45 @@ export const VitrineLayout = () => {
 
             {/* Contact */}
             <div>
-              <h4 className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 mb-5">Contact SEEEC</h4>
+              <h4 className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 mb-5">Coordonnées Officielles</h4>
               <ul className="space-y-3.5 text-sm text-slate-300 font-medium">
                 <li className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <span>Abidjan, Côte d'Ivoire<br /><span className="text-slate-400 text-xs">Plateau, Imm. SEEEC</span></span>
+                  <MapPin className="w-4 h-4 text-[#38bdf8] shrink-0 mt-0.5" />
+                  <span>{address}{postalAddress ? <><br /><span className="text-slate-400 text-xs">{postalAddress}</span></> : null}</span>
                 </li>
-                <li className="flex items-center gap-3">
-                  <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span className="font-semibold text-slate-200">+225 07 00 00 00 00</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span className="text-slate-200">contact@seeec-ecole30.ci</span>
-                </li>
+                {phone && (
+                  <li className="flex items-center gap-3">
+                    <Phone className="w-4 h-4 text-[#38bdf8] shrink-0" />
+                    <a href={`tel:${phone.replace(/\s+/g, '')}`} className="font-semibold text-slate-200 hover:text-[#38bdf8] transition-colors">
+                      {phone}
+                    </a>
+                  </li>
+                )}
+                {email && (
+                  <li className="flex items-center gap-3">
+                    <Mail className="w-4 h-4 text-[#38bdf8] shrink-0" />
+                    <a href={`mailto:${email}`} className="text-slate-200 hover:text-[#38bdf8] transition-colors">
+                      {email}
+                    </a>
+                  </li>
+                )}
+                {websiteUrl && (
+                  <li className="flex items-center gap-3">
+                    <Globe className="w-4 h-4 text-[#38bdf8] shrink-0" />
+                    <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-[#38bdf8] transition-colors text-xs">
+                      {websiteUrl.replace(/^https?:\/\//, '')}
+                    </a>
+                  </li>
+                )}
               </ul>
             </div>
           </div>
 
           {/* Bottom row / Copyright */}
           <div className="pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-400">
-            <span className="font-medium">© {new Date().getFullYear()} SEEEC — Stimuler l'Excellence et l'Entrepreneuriat à l'Ecole Connectée. Tous droits réservés.</span>
+            <span className="font-medium">© {new Date().getFullYear()} {platformName} — Tous droits réservés.</span>
             <span className="flex items-center gap-1.5 font-medium text-slate-400">
-              Conçu avec <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" /> pour l'Éducation Africaine
+              Conçu avec <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" /> pour l'Éducation
             </span>
           </div>
         </div>
@@ -141,4 +157,3 @@ export const VitrineLayout = () => {
     </div>
   );
 };
-

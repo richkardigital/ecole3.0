@@ -18,8 +18,10 @@ import {
   Sliders
 } from 'lucide-react';
 import api from '@/lib/api';
+import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 
 export default function AdminSystemSettingsPage() {
+  const { refreshSettings } = useSystemSettings();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -128,9 +130,10 @@ export default function AdminSystemSettingsPage() {
       };
 
       await api.put('/system-settings', payload);
+      await refreshSettings();
       setMessage({
         type: 'success',
-        text: 'Paramètres globaux de la plateforme mis à jour avec succès !'
+        text: 'Paramètres globaux de la plateforme mis à jour et synchronisés sur toute la plateforme !'
       });
       fetchSystemSettings();
     } catch (err: any) {
@@ -199,15 +202,11 @@ export default function AdminSystemSettingsPage() {
                 <p className="font-bold text-xs text-slate-700 uppercase tracking-wider">Logo Plateforme en Ligne</p>
                 
                 <div className="w-32 h-24 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-2 overflow-hidden shadow-inner">
-                  {logoUrl ? (
-                    <img
-                      src={formatUrl(logoUrl)!}
-                      alt="Logo Plateforme"
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  ) : (
-                    <Globe className="w-10 h-10 text-slate-300" />
-                  )}
+                  <img
+                    src={logoUrl ? formatUrl(logoUrl)! : "/logo.png"}
+                    alt="Logo Plateforme"
+                    className="max-h-full max-w-full object-contain"
+                  />
                 </div>
 
                 <p className="text-[11px] text-slate-500 leading-tight">

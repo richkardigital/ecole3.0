@@ -20,7 +20,9 @@ interface Question {
     text: string;
     type: 'SINGLE' | 'MULTIPLE' | 'FILL_IN_BLANK';
     points: number;
-    options: Option[];
+    options?: Option[];
+    expectedAnswer?: string;
+    imageUrl?: string;
 }
 
 interface QuizForm {
@@ -34,11 +36,31 @@ interface QuizForm {
     questions: Question[];
 }
 
-const QuestionField = ({ qIndex, control, register, onRemove }: any) => {
+const QuestionField = ({ qIndex, control, register, onRemove, watch, setValue }: any) => {
     const { fields: options, append: appendOption, remove: removeOption } = useFieldArray({
         control,
         name: `questions.${qIndex}.options`
     });
+
+    const questionType = watch(`questions.${qIndex}.type`);
+    const imageUrl = watch(`questions.${qIndex}.imageUrl`);
+    const [uploading, setUploading] = useState(false);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setUploading(true);
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await api.post('/upload', formData);
+            setValue(`questions.${qIndex}.imageUrl`, res.data.fileUrl);
+        } catch (err) {
+            console.error('Erreur lors du téléversement de l\'image', err);
+        } finally {
+            setUploading(false);
+        }
+    };
 
     return (
         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-4">
@@ -84,45 +106,113 @@ const QuestionField = ({ qIndex, control, register, onRemove }: any) => {
                 </button>
             </div>
 
-            <div className="space-y-3">
-                <label className="block text-sm font-medium text-slate-500">Options de réponse</label>
-                {options.map((option, oIndex) => (
-                    <div key={option.id} className="flex items-center gap-3">
-                        <input
-                            type="checkbox"
-                            {...register(`questions.${qIndex}.options.${oIndex}.isCorrect`)}
-                            className="w-5 h-5 text-indigo-600 rounded border-slate-200 focus:ring-indigo-600"
+            {/* Section Image de la question */}
+            <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                        Image / Schéma d'illustration (Optionnel)
+                    </label>
+                    {uploading && <span className="text-xs text-indigo-600 font-semibold animate-pulse">Téléversement en cours...</span>}
+                </div>
+
+                {imageUrl ? (
+                    <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
+                        <img 
+                            src={imageUrl.startsWith('http') || imageUrl.startsWith('/uploads') ? imageUrl : `/uploads/${imageUrl}`} 
+                            alt={`Illustration Q${qIndex + 1}`}
+                            className="w-20 h-16 object-cover rounded-lg border border-slate-300"
+                            onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (!target.src.includes('localhost:5000') && !target.src.startsWith('http')) {
+                                    target.src = `http://localhost:5000${imageUrl}`;
+                                }
+                            }}
                         />
-                        <div className="flex-1 space-y-2">
-                            <input
-                                {...register(`questions.${qIndex}.options.${oIndex}.text`, { required: 'Option requise' })}
-                                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-slate-900"
-                                placeholder={`Option ${oIndex + 1}`}
-                            />
-                            <input
-                                {...register(`questions.${qIndex}.options.${oIndex}.imageUrl`)}
-                                className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-slate-900 text-sm"
-                                placeholder="URL de l'image de l'option (optionnel)"
-                            />
+                        <div className="flex-1 space-y-1">
+                            <p className="text-xs text-slate-600 font-medium truncate max-w-xs">{imageUrl}</p>
+                            <div className="flex items-center gap-3">
+                                <label className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer">
+                                    <span>Changer l'image</span>
+                                    <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setValue(`questions.${qIndex}.imageUrl`, '')}
+                                    className="text-xs text-red-500 hover:text-red-700 font-semibold"
+                                >
+                                    Supprimer l'image
+                                </button>
+                            </div>
                         </div>
-                        {options.length > 2 && (
-                            <button
-                                type="button"
-                                onClick={() => removeOption(oIndex)}
-                                className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        )}
                     </div>
-                ))}
-                <button
-                    type="button"
-                    onClick={() => appendOption({ text: '', isCorrect: false })}
-                    className="text-indigo-600 text-sm font-medium flex items-center gap-1 hover:underline"
-                >
-                    <Plus className="w-4 h-4" /> Ajouter une option
-                </button>
+                ) : (
+                    <div className="flex items-center gap-3">
+                        <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold transition cursor-pointer">
+                            <span>Choisir une image depuis l'ordinateur</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                        </label>
+                        <span className="text-xs text-slate-400">ou</span>
+                        <input
+                            {...register(`questions.${qIndex}.imageUrl`)}
+                            className="flex-1 p-2 border border-slate-200 rounded-lg text-xs outline-none bg-white text-slate-900"
+                            placeholder="Coller l'URL d'une image..."
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="space-y-3">
+                <label className="block text-sm font-medium text-slate-500">Réponse(s) attendue(s)</label>
+
+                {questionType === 'FILL_IN_BLANK' ? (
+                    <div>
+                        <input
+                            {...register(`questions.${qIndex}.expectedAnswer`, { required: 'La réponse attendue est requise' })}
+                            className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-slate-900"
+                            placeholder="Entrez la réponse exacte attendue"
+                        />
+                    </div>
+                ) : (
+                    <>
+                        {options.map((option, oIndex) => (
+                            <div key={option.id} className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    {...register(`questions.${qIndex}.options.${oIndex}.isCorrect`)}
+                                    className="w-5 h-5 text-indigo-600 rounded border-slate-200 focus:ring-indigo-600"
+                                />
+                                <div className="flex-1 space-y-2">
+                                    <input
+                                        {...register(`questions.${qIndex}.options.${oIndex}.text`, { required: 'Option requise' })}
+                                        className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-slate-900"
+                                        placeholder={`Option ${oIndex + 1}`}
+                                    />
+                                    <input
+                                        {...register(`questions.${qIndex}.options.${oIndex}.imageUrl`)}
+                                        className="w-full p-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none bg-white text-slate-900 text-sm"
+                                        placeholder="URL de l'image de l'option (optionnel)"
+                                    />
+                                </div>
+                                {options.length > 2 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeOption(oIndex)}
+                                        className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => appendOption({ text: '', isCorrect: false })}
+                            className="text-indigo-600 text-sm font-medium flex items-center gap-1 hover:underline"
+                        >
+                            <Plus className="w-4 h-4" /> Ajouter une option
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     );
@@ -139,7 +229,7 @@ export default function EditQuizPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const { register, control, handleSubmit, reset, formState: { errors } } = useForm<QuizForm>();
+    const { register, control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<QuizForm>();
 
     const { fields: questions, append: appendQuestion, remove: removeQuestion } = useFieldArray({
         control,
@@ -162,6 +252,8 @@ export default function EditQuizPage() {
                         text: q.text,
                         type: q.type,
                         points: q.points,
+                        imageUrl: q.imageUrl || '',
+                        expectedAnswer: q.expectedAnswer || '',
                         options: q.options
                     }))
                 });
@@ -309,6 +401,8 @@ export default function EditQuizPage() {
                                 qIndex={qIndex} 
                                 control={control} 
                                 register={register} 
+                                watch={watch}
+                                setValue={setValue}
                                 onRemove={() => removeQuestion(qIndex)}
                             />
                         ))}
@@ -332,7 +426,7 @@ export default function EditQuizPage() {
                     <Button
                         type="button"
                         variant="secondary"
-                        onClick={() => navigate(`/enseignant/courses/${courseId}`)}
+                        onClick={() => navigate(`${rolePrefix}/courses/${courseId}?tab=QUIZZES`)}
                         disabled={isSubmitting}
                     >
                         Annuler

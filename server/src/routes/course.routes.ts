@@ -47,7 +47,7 @@ router.get("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIG
 router.put("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), updateCourse);
 router.get("/:id/schools", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), getCourseSchools);
 router.get("/:id/students", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), getCourseStudents);
-router.get("/:id/teachers", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), getCourseTeachers);
+router.get("/:id/teachers", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR, ROLES.APPRENANT, ROLES.PARENT]), getCourseTeachers);
 router.delete("/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), deleteCourse);
 
 // Chapitres — SUPER_ADMIN, DIRECTEUR et ENSEIGNANT

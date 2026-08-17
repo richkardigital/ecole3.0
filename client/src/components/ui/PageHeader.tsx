@@ -8,14 +8,15 @@ export interface PageHeaderProps {
   children?: React.ReactNode;
   icon?: React.ReactNode;
   badge?: string;
-  badgeVariant?: 'green' | 'cyan' | 'violet' | 'amber' | 'rose';
+  badgeVariant?: 'brand' | 'green' | 'cyan' | 'violet' | 'amber' | 'rose';
 }
 
-export function PageHeader({ title, description, subtitle, action, children, icon, badge, badgeVariant = 'green' }: PageHeaderProps) {
+export function PageHeader({ title, description, subtitle, action, children, icon, badge, badgeVariant = 'brand' }: PageHeaderProps) {
   const desc = description || subtitle;
   
   const badgeColors = {
-    green: 'chip-green',
+    brand: 'chip-brand',
+    green: 'chip-brand',
     cyan: 'chip-cyan',
     violet: 'chip-violet',
     amber: 'chip-amber',
@@ -26,7 +27,7 @@ export function PageHeader({ title, description, subtitle, action, children, ico
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-5 mb-8">
       <div className="flex items-center gap-4">
         {icon && (
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-brand-accent/10 border border-brand-accent/20 shadow-[0_0_20px_rgba(34,197,94,0.1)] text-brand-accent shrink-0">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-brand-accent/10 border border-brand-accent/20 shadow-[0_0_20px_rgba(24,156,216,0.15)] text-brand-accent shrink-0">
             {icon}
           </div>
         )}

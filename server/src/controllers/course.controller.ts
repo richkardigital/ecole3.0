@@ -44,7 +44,22 @@ export const getLibrary = async (req: AuthRequest, res: Response) => {
                 }
             }
         },
-        niveau: true
+        subject: {
+            select: {
+                id: true,
+                name: true,
+                code: true,
+                imageUrl: true
+            }
+        },
+        niveau: true,
+        createdBy: {
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true
+            }
+        }
     };
 
     if ((role as string) === "ENSEIGNANT") {
@@ -611,6 +626,8 @@ export const addMaterial = async (req: AuthRequest, res: Response) => {
         source: source || null,
         chapterId: chapterId || null,
         courseId: id as string,
+        niveauId: course.niveauId || null,
+        subjectId: course.subjectId || null,
         createdById: req.user?.id || null,
       },
     });
@@ -1325,15 +1342,51 @@ export const getCourseTeachers = async (req: AuthRequest, res: Response) => {
     const course = await prisma.course.findUnique({ where: { id: String(id) } });
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    // Fetch teachers assigned to this niveau and subject
-    const teacherClasses = await prisma.teacherClass.findMany({
-      where: {
-        subjectId: course.subjectId,
-        class: {
-          niveauId: course.niveauId,
-          ...(req.user?.role === 'DIRECTEUR' && req.user.schoolId ? { schoolId: req.user.schoolId } : {})
+    // 1. If APPRENANT, first check teacher assigned directly to their enrolled class
+    if (req.user?.role === 'APPRENANT') {
+      const studentEnrollment = await prisma.enrollment.findFirst({
+        where: { studentId: req.user.id, status: 'ACTIVE' },
+        include: { class: { include: { school: true } } }
+      });
+
+      if (studentEnrollment?.classId) {
+        const myClassTeacher = await prisma.teacherClass.findFirst({
+          where: {
+            subjectId: course.subjectId,
+            classId: studentEnrollment.classId
+          },
+          include: {
+            teacher: {
+              select: { id: true, firstName: true, lastName: true, email: true, phone: true, matricule: true, avatarUrl: true }
+            },
+            class: {
+              select: { id: true, name: true, school: { select: { id: true, name: true, code: true, ville: true } } }
+            }
+          }
+        });
+
+        if (myClassTeacher?.teacher) {
+          return res.json([{
+            ...myClassTeacher.teacher,
+            isMyTeacher: true,
+            classes: [myClassTeacher.class?.name || studentEnrollment.class?.name].filter(Boolean),
+            schools: myClassTeacher.class?.school ? [myClassTeacher.class.school] : (studentEnrollment.class?.school ? [studentEnrollment.class.school] : [])
+          }]);
         }
-      },
+      }
+    }
+
+    // 2. Fetch teachers assigned to this niveau and subject
+    const whereClause: any = {
+      subjectId: course.subjectId,
+      class: {
+        niveauId: course.niveauId,
+        ...(req.user?.schoolId ? { schoolId: req.user.schoolId } : {})
+      }
+    };
+
+    let teacherClasses = await prisma.teacherClass.findMany({
+      where: whereClause,
       include: {
         teacher: {
           select: { id: true, firstName: true, lastName: true, email: true, phone: true, matricule: true, avatarUrl: true }
@@ -1343,6 +1396,64 @@ export const getCourseTeachers = async (req: AuthRequest, res: Response) => {
         }
       }
     });
+
+    // 3. Fallback: Check without school restriction for this subject & niveau
+    if (teacherClasses.length === 0) {
+      teacherClasses = await prisma.teacherClass.findMany({
+        where: {
+          subjectId: course.subjectId,
+          class: { niveauId: course.niveauId }
+        },
+        include: {
+          teacher: {
+            select: { id: true, firstName: true, lastName: true, email: true, phone: true, matricule: true, avatarUrl: true }
+          },
+          class: {
+            select: { id: true, name: true, school: { select: { id: true, name: true, code: true, ville: true } } }
+          }
+        }
+      });
+    }
+
+    // 4. Fallback: If still no teacher assigned via TeacherClass, find any active teacher in user school or system
+    if (teacherClasses.length === 0) {
+      const fallbackTeacher = await prisma.user.findFirst({
+        where: {
+          role: 'ENSEIGNANT',
+          ...(req.user?.schoolId ? { schoolId: req.user.schoolId } : {})
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          matricule: true,
+          avatarUrl: true,
+          school: { select: { id: true, name: true, code: true, ville: true } }
+        }
+      }) || await prisma.user.findFirst({
+        where: { role: 'ENSEIGNANT' },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          matricule: true,
+          avatarUrl: true,
+          school: { select: { id: true, name: true, code: true, ville: true } }
+        }
+      });
+
+      if (fallbackTeacher) {
+        return res.json([{
+          ...fallbackTeacher,
+          classes: [],
+          schools: fallbackTeacher.school ? [fallbackTeacher.school] : []
+        }]);
+      }
+    }
 
     // Group by teacher
     const teachersMap = new Map<string, any>();

@@ -5,6 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { Eye, EyeOff, GraduationCap, ArrowRight, ArrowLeft, ShieldCheck, Sparkles, Mail, Lock, Users, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { BrandLogo } from '@/components/common/BrandLogo';
+import { useSystemSettings } from '@/contexts/SystemSettingsContext';
 
 const DEMO_ACCOUNTS = [
   { label: 'Super Admin', email: 'superadmin@example.com', color: 'text-red-600', bg: 'bg-red-50 border-red-200 hover:border-red-300', dot: '#ef4444', initial: 'SA' },
@@ -18,10 +20,11 @@ const DEMO_ACCOUNTS = [
 const BRAND_POINTS = [
   { icon: BookOpen, label: 'Bulletins automatisés en 1 clic', color: 'text-emerald-600' },
   { icon: Users, label: 'Gestion multi-rôles & classes', color: 'text-sky-600' },
-  { icon: ShieldCheck, label: 'Réseau inter-écoles SEEEC certifié', color: 'text-violet-600' },
+  { icon: ShieldCheck, label: 'Réseau inter-écoles certifié', color: 'text-violet-600' },
 ];
 
 const Login = () => {
+  const { settings } = useSystemSettings();
   const { register, handleSubmit, setValue, formState: { errors } } = useForm();
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -62,19 +65,7 @@ const Login = () => {
         
         <div className="relative z-10 flex flex-col justify-between h-full px-12 xl:px-16 py-12">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3.5 group w-fit">
-            <img 
-              src="/logo.png" 
-              alt="Logo École 3.0" 
-              className="h-16 w-auto max-w-[190px] object-contain drop-shadow-xs transition-transform duration-200 group-hover:scale-[1.02]" 
-            />
-            <div>
-              <span className="text-3xl font-black text-slate-900 tracking-tight leading-none block">ÉCOLE 3.0</span>
-              <span className="text-[10px] font-bold tracking-[0.22em] text-emerald-600 uppercase flex items-center gap-1.5 mt-1">
-                <Sparkles className="w-3 h-3 text-emerald-500" /> SEEEC Platform
-              </span>
-            </div>
-          </Link>
+          <BrandLogo size="lg" to="/" subtitle="SEEEC" />
 
           {/* Headline & Features */}
           <div className="my-auto py-10">
@@ -85,7 +76,7 @@ const Login = () => {
             </h1>
             
             <p className="text-slate-600 text-lg leading-relaxed mb-10 max-w-md font-medium">
-              La plateforme SEEEC unifie la gestion pédagogique, administrative et communicationnelle de votre établissement.
+              {settings?.description || "La plateforme unifie la gestion pédagogique, administrative et communicationnelle de votre établissement."}
             </p>
 
             {/* Feature points */}
@@ -103,7 +94,7 @@ const Login = () => {
 
           {/* Footer note */}
           <div className="text-xs text-slate-400 font-medium">
-            © {new Date().getFullYear()} SEEEC Platform — Système Intégré de Gestion Scolaire 3.0
+            © {new Date().getFullYear()} {settings?.platformName || 'École 3.0'} — Système Intégré de Gestion Scolaire
           </div>
         </div>
       </div>
@@ -112,19 +103,9 @@ const Login = () => {
       <div className="flex-1 flex flex-col items-center justify-center px-6 sm:px-10 py-12 relative bg-[#F8FAFC]">
         
         {/* Mobile logo */}
-        <Link to="/" className="flex lg:hidden items-center gap-3.5 mb-8 group">
-          <img 
-            src="/logo.png" 
-            alt="Logo École 3.0" 
-            className="h-12 w-auto max-w-[140px] object-contain" 
-          />
-          <div>
-            <span className="text-2xl font-black text-slate-900 leading-none block">ÉCOLE 3.0</span>
-            <span className="text-[9px] font-bold tracking-[0.2em] text-emerald-600 uppercase flex items-center gap-1">
-              <Sparkles className="w-2.5 h-2.5" /> SEEEC Platform
-            </span>
-          </div>
-        </Link>
+        <div className="lg:hidden mb-8">
+          <BrandLogo size="md" to="/" subtitle="SEEEC" />
+        </div>
 
         {/* Back link */}
         <div className="w-full max-w-lg mb-4">
@@ -140,7 +121,7 @@ const Login = () => {
         <div className="w-full max-w-lg bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-xl">
           {/* Form header */}
           <div className="mb-7">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Bon retour 👋</h2>
+            <h2 className="text-3xl font-black text-[#4D3E90] tracking-tight mb-2">Connexion</h2>
             <p className="text-slate-600 text-sm font-medium">Connectez-vous à votre espace SEEEC.</p>
           </div>
 
@@ -181,7 +162,7 @@ const Login = () => {
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Adresse Email</label>
               <div className="relative">
-                <Mail className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 transition-colors ${focusedField === 'email' ? 'text-emerald-600' : 'text-slate-400'}`} style={{ width: '1.125rem', height: '1.125rem' }} />
+                <Mail className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 transition-colors ${focusedField === 'email' ? 'text-[#189CD8]' : 'text-slate-400'}`} style={{ width: '1.125rem', height: '1.125rem' }} />
                 <input
                   {...register('email', { required: 'Email requis' })}
                   type="email"
@@ -189,7 +170,7 @@ const Login = () => {
                   onFocus={() => setFocusedField('email')}
                   onBlur={() => setFocusedField(null)}
                   placeholder="vous@exemple.ci"
-                  className="w-full pl-11 pr-4 py-3.5 text-sm text-slate-900 outline-none transition-all rounded-xl bg-slate-50 border border-slate-250 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                  className="w-full pl-11 pr-4 py-3.5 text-sm text-slate-900 outline-none transition-all rounded-xl bg-slate-50 border border-slate-250 focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/15"
                 />
               </div>
               {errors.email && <p className="mt-1.5 text-xs text-red-600 font-medium">{String(errors.email.message)}</p>}
@@ -199,12 +180,12 @@ const Login = () => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Mot de passe</label>
-                <Link to="/mot-de-passe-oublie" className="text-xs text-emerald-600 hover:text-emerald-700 font-bold transition-colors">
+                <Link to="/mot-de-passe-oublie" className="text-xs text-[#189CD8] hover:text-[#1280B2] font-bold transition-colors">
                   Oublié ?
                 </Link>
               </div>
               <div className="relative">
-                <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 transition-colors ${focusedField === 'password' ? 'text-emerald-600' : 'text-slate-400'}`} style={{ width: '1.125rem', height: '1.125rem' }} />
+                <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 transition-colors ${focusedField === 'password' ? 'text-[#189CD8]' : 'text-slate-400'}`} style={{ width: '1.125rem', height: '1.125rem' }} />
                 <input
                   {...register('password', { required: 'Mot de passe requis' })}
                   type={showPassword ? 'text' : 'password'}
@@ -212,7 +193,7 @@ const Login = () => {
                   onFocus={() => setFocusedField('password')}
                   onBlur={() => setFocusedField(null)}
                   placeholder="••••••••"
-                  className="w-full pl-11 pr-11 py-3.5 text-sm text-slate-900 outline-none transition-all rounded-xl bg-slate-50 border border-slate-250 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                  className="w-full pl-11 pr-11 py-3.5 text-sm text-slate-900 outline-none transition-all rounded-xl bg-slate-50 border border-slate-250 focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/15"
                 />
                 <button
                   type="button"
@@ -235,7 +216,7 @@ const Login = () => {
           <div className="mt-7 pt-5 border-t border-slate-100 text-center">
             <p className="text-sm text-slate-600 font-medium">
               Votre école n'est pas encore inscrite ?{' '}
-              <Link to="/inscription" className="text-emerald-600 font-bold hover:text-emerald-700 hover:underline transition-colors whitespace-nowrap">
+              <Link to="/inscription" className="text-[#189CD8] font-bold hover:text-[#1280B2] hover:underline transition-colors whitespace-nowrap">
                 Inscrire mon établissement →
               </Link>
             </p>

@@ -42,6 +42,7 @@ interface QuestionModel {
   type: string;
   points: number;
   expectedAnswer?: string;
+  imageUrl?: string;
   options?: QuestionOption[];
 }
 
@@ -404,6 +405,19 @@ const AssignmentDetails = () => {
                   {assignment.points} pts
                 </span>
               )}
+              {hasQuestions && ((assignment.attachments && assignment.attachments.length > 0) || getAssignmentFile(assignment.description)) ? (
+                <span className="bg-purple-500/15 text-purple-300 border border-purple-500/30 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> Mixte : QCM + Document
+                </span>
+              ) : hasQuestions ? (
+                <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> Devoir QCM en ligne
+                </span>
+              ) : (
+                <span className="bg-blue-500/15 text-blue-300 border border-blue-500/30 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5" /> Devoir sur Document / Vocal
+                </span>
+              )}
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-black text-brand-text tracking-tight">
@@ -499,17 +513,113 @@ const AssignmentDetails = () => {
                 </div>
               )}
 
+              {/* Submitted document if file upload */}
               {mySubmission.fileUrl && (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 pt-2">
                   <span className="text-xs text-brand-text-muted font-bold">Copie soumise :</span>
-                  <a
-                    href={getFileUrl(mySubmission.fileUrl)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-xs font-bold text-brand-accent bg-brand-accent/10 hover:bg-brand-accent/20 px-3 py-1.5 rounded-lg transition"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Télécharger mon document
-                  </a>
+                  {mySubmission.fileUrl.endsWith('.mp3') || mySubmission.fileUrl.endsWith('.wav') || mySubmission.fileUrl.endsWith('.webm') ? (
+                    <audio controls src={getFileUrl(mySubmission.fileUrl)} className="h-8" />
+                  ) : (
+                    <a
+                      href={getFileUrl(mySubmission.fileUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-xs font-bold text-brand-accent bg-brand-accent/10 hover:bg-brand-accent/20 px-3 py-1.5 rounded-lg transition"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Télécharger mon document
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Submitted QCM Answers Review */}
+              {hasQuestions && mySubmission.content && mySubmission.content.startsWith('{') && (
+                <div className="pt-4 border-t border-brand-border/60 space-y-4">
+                  <h4 className="text-sm font-bold text-brand-text flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-brand-accent" />
+                    Récapitulatif de vos réponses QCM
+                  </h4>
+                  
+                  {(() => {
+                    let parsed: Record<string, any> = {};
+                    try {
+                      parsed = JSON.parse(mySubmission.content || '{}');
+                    } catch (_) {}
+
+                    return (
+                      <div className="space-y-4">
+                        {assignment.questions!.map((q, idx) => {
+                          const userAns = parsed[q.id];
+                          return (
+                            <div key={q.id || idx} className="p-4 bg-brand-sidebar rounded-xl border border-brand-border/70 space-y-3">
+                              <div className="flex items-center justify-between text-xs font-bold">
+                                <span className="text-brand-accent font-black">Question {idx + 1}</span>
+                                <span className="text-brand-text-muted">{q.points} pt{q.points > 1 ? 's' : ''}</span>
+                              </div>
+                              <div 
+                                className="text-sm font-medium text-brand-text" 
+                                dangerouslySetInnerHTML={{ __html: q.text }}
+                              />
+                              {q.imageUrl && (
+                                <img
+                                  src={getFileUrl(q.imageUrl)}
+                                  alt={`Illustration Question ${idx + 1}`}
+                                  className="max-h-56 max-w-full rounded-xl border border-brand-border/60 object-contain my-2"
+                                />
+                              )}
+
+                              {q.options && q.options.length > 0 ? (
+                                <div className="space-y-1.5 pt-1">
+                                  {q.options.map(opt => {
+                                    const isSelected = Array.isArray(userAns) ? userAns.includes(opt.id) : userAns === opt.id;
+                                    const showCorrect = opt.isCorrect !== undefined;
+
+                                    return (
+                                      <div
+                                        key={opt.id}
+                                        className={`p-2.5 rounded-lg text-xs font-medium border flex items-center justify-between transition-all ${
+                                          isSelected
+                                            ? 'bg-brand-accent/20 border-brand-accent text-brand-text font-bold'
+                                            : 'bg-brand-card/50 border-brand-border/40 text-brand-text-muted'
+                                        }`}
+                                      >
+                                        <span className="flex items-center gap-2">
+                                          <input
+                                            type={q.type === 'MULTIPLE_CHOICE' ? 'checkbox' : 'radio'}
+                                            checked={isSelected}
+                                            disabled
+                                            className="w-3.5 h-3.5 text-brand-accent"
+                                          />
+                                          <span>{opt.text}</span>
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                          {isSelected && (
+                                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-accent text-white">
+                                              Votre choix
+                                            </span>
+                                          )}
+                                          {showCorrect && opt.isCorrect && (
+                                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                              Bonne réponse
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="p-3 bg-brand-card rounded-lg text-xs text-brand-text border border-brand-border/60">
+                                  <span className="text-brand-text-muted font-bold block mb-1">Votre réponse rédigée :</span>
+                                  {userAns || <span className="italic text-brand-text-muted">Aucune réponse renseignée.</span>}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -522,9 +632,10 @@ const AssignmentDetails = () => {
                   <FileText className="w-5 h-5 text-brand-accent" />
                   Consignes du Devoir
                 </h3>
-                <div className="p-4 bg-brand-sidebar rounded-xl border border-brand-border/60 text-sm text-brand-text leading-relaxed whitespace-pre-wrap">
-                  {cleanDescription(assignment.description)}
-                </div>
+                <div 
+                  className="p-4 bg-brand-sidebar rounded-xl border border-brand-border/60 text-sm text-brand-text leading-relaxed whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{ __html: cleanDescription(assignment.description) }}
+                />
 
                 {/* Attached subject file */}
                 {(getAssignmentFile(assignment.description) || (assignment.attachments && assignment.attachments.length > 0)) && (
@@ -557,27 +668,60 @@ const AssignmentDetails = () => {
               {/* Composition Mode: Interactive Questionnaire vs File Upload */}
               {hasQuestions ? (
                 <div className="bg-brand-card p-6 rounded-2xl border border-brand-border/80 shadow-sm space-y-6">
-                  <div className="flex items-center justify-between pb-4 border-b border-brand-border/60">
-                    <h3 className="text-lg font-bold text-brand-text flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-brand-accent" />
-                      Questionnaire Interactif ({assignment.questions!.length} questions)
-                    </h3>
-                    <span className="text-xs font-bold text-brand-text-muted">
-                      {Object.keys(studentAnswers).length} / {assignment.questions!.length} répondues
-                    </span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-brand-border/60">
+                    <div>
+                      <h3 className="text-lg font-bold text-brand-text flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-brand-accent" />
+                        Questionnaire QCM Interactif ({assignment.questions!.length} questions)
+                      </h3>
+                      <p className="text-xs text-brand-text-muted mt-1">
+                        Sélectionnez les bonnes réponses ci-dessous puis validez votre devoir.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-xs font-bold text-brand-text">
+                          {Object.keys(studentAnswers).filter(k => studentAnswers[k] && (Array.isArray(studentAnswers[k]) ? studentAnswers[k].length > 0 : String(studentAnswers[k]).trim().length > 0)).length} / {assignment.questions!.length}
+                        </span>
+                        <span className="text-[11px] text-brand-text-muted block">répondues</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="w-full bg-brand-sidebar h-2 rounded-full overflow-hidden border border-brand-border/40">
+                    <div 
+                      className="bg-brand-accent h-full transition-all duration-300 rounded-full"
+                      style={{ 
+                        width: `${Math.round((Object.keys(studentAnswers).filter(k => studentAnswers[k] && (Array.isArray(studentAnswers[k]) ? studentAnswers[k].length > 0 : String(studentAnswers[k]).trim().length > 0)).length / (assignment.questions!.length || 1)) * 100)}%` 
+                      }}
+                    />
                   </div>
 
                   <div className="space-y-6">
                     {assignment.questions!.map((q, idx) => (
-                      <div key={q.id || idx} className="p-5 bg-brand-sidebar rounded-xl border border-brand-border/70 space-y-4">
+                      <div key={q.id || idx} className="p-5 bg-brand-sidebar rounded-xl border border-brand-border/70 space-y-4 hover:border-brand-accent/40 transition-colors">
                         <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black px-2 py-0.5 rounded-md bg-brand-accent/20 text-brand-accent">
-                              Q{idx + 1}
+                          <div className="flex items-start gap-2.5">
+                            <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-brand-accent/20 text-brand-accent shrink-0 mt-0.5">
+                              Question {idx + 1}
                             </span>
-                            <h4 className="text-sm font-bold text-brand-text">{q.text}</h4>
+                            <div className="space-y-3">
+                              <div 
+                                className="text-sm font-bold text-brand-text prose prose-sm max-w-none [&_p]:m-0"
+                                dangerouslySetInnerHTML={{ __html: q.text }}
+                              />
+                              {q.imageUrl && (
+                                <img
+                                  src={getFileUrl(q.imageUrl)}
+                                  alt={`Illustration Question ${idx + 1}`}
+                                  className="max-h-64 max-w-full rounded-xl border border-brand-border/60 object-contain shadow-sm"
+                                />
+                              )}
+                            </div>
                           </div>
-                          <span className="text-xs font-bold text-brand-text-muted shrink-0">
+                          <span className="text-xs font-bold text-brand-text-muted shrink-0 bg-brand-card px-2.5 py-1 rounded-lg border border-brand-border/60">
                             {q.points} pt{q.points > 1 ? 's' : ''}
                           </span>
                         </div>
@@ -588,22 +732,23 @@ const AssignmentDetails = () => {
                             {q.options.map(opt => {
                               const isChecked = Array.isArray(studentAnswers[q.id])
                                 ? studentAnswers[q.id].includes(opt.id)
-                                : false;
+                                : studentAnswers[q.id] === opt.id;
+
                               return (
                                 <label
                                   key={opt.id}
                                   onClick={() => handleOptionSelect(q.id, opt.id, q.type === 'MULTIPLE_CHOICE')}
-                                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                                  className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all cursor-pointer select-none ${
                                     isChecked
-                                      ? 'bg-brand-accent/15 border-brand-accent ring-1 ring-brand-accent text-brand-text'
-                                      : 'bg-brand-card hover:bg-slate-900 border-brand-border/60 text-brand-text-muted'
+                                      ? 'bg-brand-accent/15 border-brand-accent ring-1 ring-brand-accent text-brand-text font-bold shadow-sm'
+                                      : 'bg-brand-card hover:bg-slate-800/80 border-brand-border/60 text-brand-text-muted'
                                   }`}
                                 >
                                   <input
                                     type={q.type === 'MULTIPLE_CHOICE' ? 'checkbox' : 'radio'}
                                     checked={isChecked}
                                     onChange={() => {}}
-                                    className="w-4 h-4 text-brand-accent"
+                                    className="w-4 h-4 text-brand-accent focus:ring-brand-accent rounded"
                                   />
                                   <span className="text-sm font-medium">{opt.text}</span>
                                 </label>
@@ -625,13 +770,20 @@ const AssignmentDetails = () => {
                     ))}
                   </div>
 
-                  <div className="pt-4 border-t border-brand-border/60 flex justify-end">
+                  <div className="pt-4 border-t border-brand-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <span className="text-xs font-semibold text-brand-text-muted">
+                      {Object.keys(studentAnswers).filter(k => studentAnswers[k] && (Array.isArray(studentAnswers[k]) ? studentAnswers[k].length > 0 : String(studentAnswers[k]).trim().length > 0)).length === assignment.questions!.length 
+                        ? "✓ Toutes les questions sont renseignées" 
+                        : `Il vous reste ${assignment.questions!.length - Object.keys(studentAnswers).filter(k => studentAnswers[k] && (Array.isArray(studentAnswers[k]) ? studentAnswers[k].length > 0 : String(studentAnswers[k]).trim().length > 0)).length} question(s) non renseignée(s)`}
+                    </span>
+
                     <Button
                       type="button"
                       variant="primary"
                       onClick={onSubmitQuestionnaire}
                       isLoading={isSubmittingWork}
-                      className="shadow-lg shadow-brand-accent/20 cursor-pointer"
+                      leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                      className="shadow-lg shadow-brand-accent/20 cursor-pointer w-full sm:w-auto"
                     >
                       Valider et Soumettre le Devoir
                     </Button>
@@ -641,10 +793,15 @@ const AssignmentDetails = () => {
                 /* Free response / Document submission */
                 <div className="bg-brand-card p-6 rounded-2xl border border-brand-border/80 shadow-sm space-y-6">
                   <div className="flex items-center justify-between pb-4 border-b border-brand-border/60">
-                    <h3 className="text-lg font-bold text-brand-text flex items-center gap-2">
-                      <Upload className="w-5 h-5 text-brand-accent" />
-                      Rendre votre Devoir
-                    </h3>
+                    <div>
+                      <h3 className="text-lg font-bold text-brand-text flex items-center gap-2">
+                        <Upload className="w-5 h-5 text-brand-accent" />
+                        Rendre votre Devoir sur Document
+                      </h3>
+                      <p className="text-xs text-brand-text-muted mt-1">
+                        Rédigez votre travail ci-dessous, joignez un fichier ou un enregistrement audio.
+                      </p>
+                    </div>
                   </div>
 
                   <form onSubmit={handleSubmitSubmit(onSubmitWork)} className="space-y-5">
@@ -925,6 +1082,13 @@ const AssignmentDetails = () => {
                       <span className="text-brand-text-muted">{q.points} pt{q.points > 1 ? 's' : ''}</span>
                     </div>
                     <p className="text-sm font-semibold text-brand-text">{q.text}</p>
+                    {q.imageUrl && (
+                      <img
+                        src={getFileUrl(q.imageUrl)}
+                        alt={`Illustration Question ${idx + 1}`}
+                        className="max-h-48 max-w-full rounded-xl border border-brand-border/60 object-contain my-2"
+                      />
+                    )}
                     
                     {q.options && q.options.length > 0 ? (
                       <div className="space-y-1.5 pt-1">

@@ -151,12 +151,37 @@ const Chat = () => {
     }, []);
 
     useEffect(() => {
-        const userId = searchParams.get('userId');
-        if (userId && contacts.length > 0 && !selectedContact) {
-            const contact = contacts.find(c => c.id === userId);
+        const targetUserId = searchParams.get('userId') || searchParams.get('recipientId');
+        if (!targetUserId) return;
+
+        if (contacts.length > 0) {
+            const contact = contacts.find(c => c.id === targetUserId);
             if (contact) {
                 setSelectedContact(contact);
+                return;
             }
+        }
+
+        // If not yet found in contacts list, fetch directly
+        if (!selectedContact) {
+            api.get(`/users/${targetUserId}`)
+                .then(res => {
+                    if (res.data) {
+                        const directContact: Contact = {
+                            id: res.data.id,
+                            firstName: res.data.firstName,
+                            lastName: res.data.lastName,
+                            role: res.data.role,
+                            type: 'user'
+                        };
+                        setContacts(prev => {
+                            if (prev.some(c => c.id === directContact.id)) return prev;
+                            return [directContact, ...prev];
+                        });
+                        setSelectedContact(directContact);
+                    }
+                })
+                .catch(err => console.error("Could not fetch target chat recipient", err));
         }
     }, [searchParams, contacts, selectedContact]);
 

@@ -4,7 +4,8 @@ import { useForm } from 'react-hook-form';
 import { useAuth } from '@/context/AuthContext';
 import {
   FileText, Film, Headphones, Image as ImageIcon, Link2, 
-  Download, Trash2, Plus, Search, FileUp, Eye, Edit2, CheckCircle2, XCircle, FileDigit
+  Download, Trash2, Plus, Search, FileUp, Eye, Edit2, CheckCircle2, XCircle, FileDigit,
+  BookOpen, Layers, Sparkles
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -17,14 +18,23 @@ interface Niveau {
   nom: string;
 }
 
+interface Subject {
+  id: string;
+  name: string;
+  code?: string;
+  imageUrl?: string;
+}
+
 interface Resource {
   id: string;
   title: string;
   type: 'PDF' | 'VIDEO' | 'AUDIO' | 'IMAGE' | 'LIEN';
   url: string;
   niveauId: string;
+  subjectId?: string;
   isPublished: boolean;
   niveau?: Niveau;
+  subject?: Subject;
   createdAt: string;
   createdBy?: { id: string; firstName: string; lastName: string };
 }
@@ -32,6 +42,7 @@ interface Resource {
 type FormData = {
   title: string;
   niveauId: string;
+  subjectId?: string;
 };
 
 export default function LibraryPage() {
@@ -44,9 +55,11 @@ export default function LibraryPage() {
   
   const [resources, setResources] = useState<Resource[]>([]);
   const [niveaux, setNiveaux] = useState<Niveau[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [selectedNiveauId, setSelectedNiveauId] = useState<string>('ALL');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -77,12 +90,18 @@ export default function LibraryPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [niveauxRes, resourcesRes] = await Promise.all([
+      const params = new URLSearchParams();
+      if (selectedNiveauId !== 'ALL') params.append('niveauId', selectedNiveauId);
+      if (selectedSubjectId !== 'ALL') params.append('subjectId', selectedSubjectId);
+
+      const [niveauxRes, subjectsRes, resourcesRes] = await Promise.all([
         api.get('/niveaux'),
-        api.get(`/resources${selectedNiveauId !== 'ALL' ? `?niveauId=${selectedNiveauId}` : ''}`)
+        api.get('/subjects'),
+        api.get(`/resources?${params.toString()}`)
       ]);
-      setNiveaux(niveauxRes.data);
-      setResources(resourcesRes.data);
+      setNiveaux(niveauxRes.data || []);
+      setSubjects(subjectsRes.data || []);
+      setResources(resourcesRes.data || []);
     } catch (err) {
       console.error("Error fetching library data:", err);
       showToast("Erreur lors du chargement des données", "error");
@@ -93,7 +112,7 @@ export default function LibraryPage() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedNiveauId]);
+  }, [selectedNiveauId, selectedSubjectId]);
 
   // --- Add Handlers ---
   const handleAddClick = () => {
@@ -105,7 +124,12 @@ export default function LibraryPage() {
   // --- Edit Handlers ---
   const openEditModal = (resource: Resource) => {
     setSelectedResource(resource);
-    resetEdit({ title: resource.title, niveauId: resource.niveauId, linkUrl: '' });
+    resetEdit({
+      title: resource.title,
+      niveauId: resource.niveauId,
+      subjectId: resource.subjectId || '',
+      linkUrl: ''
+    });
     setEditUploadType('none');
     setEditSelectedFile(null);
     setFormError(null);
@@ -140,6 +164,9 @@ export default function LibraryPage() {
       const formData = new FormData();
       formData.append('title', data.title);
       formData.append('niveauId', data.niveauId);
+      if (data.subjectId) {
+        formData.append('subjectId', data.subjectId);
+      }
       if (editUploadType === 'file' && editSelectedFile) {
         formData.append('file', editSelectedFile);
       } else if (editUploadType === 'link' && data.linkUrl) {
@@ -174,32 +201,26 @@ export default function LibraryPage() {
     }
   };
 
-  const togglePublish = async (resource: Resource) => {
-    try {
-      const res = await api.patch(`/resources/${resource.id}/toggle-publish`, {
-        isPublished: !resource.isPublished
-      });
-      setResources(resources.map(r => r.id === resource.id ? res.data : r));
-      showToast(res.data.isPublished ? "Document publié" : "Document retiré de la publication");
-    } catch (err) {
-      showToast("Erreur lors de la modification du statut", "error");
-    }
-  };
-
   const validateResource = async (id: string) => {
     try {
-      await api.patch(`/resources/${id}/publish`, { isPublished: true });
+      const res = await api.patch(`/resources/${id}/toggle-publish`, { isPublished: true });
       showToast("Document validé et publié avec succès !");
-      fetchData();
+      setResources(resources.map(r => r.id === id ? res.data : r));
     } catch (error) {
       console.error(error);
       showToast("Erreur lors de la validation", "error");
     }
   };
 
-  const filteredResources = resources.filter(r => 
-    r.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredResources = resources.filter(r => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    const matchTitle = r.title.toLowerCase().includes(query);
+    const matchSubject = r.subject?.name && r.subject.name.toLowerCase().includes(query);
+    const matchNiveau = r.niveau?.nom && r.niveau.nom.toLowerCase().includes(query);
+    const matchAuthor = r.createdBy && `${r.createdBy.firstName} ${r.createdBy.lastName}`.toLowerCase().includes(query);
+    return matchTitle || matchSubject || matchNiveau || matchAuthor;
+  });
 
   const totalPages = Math.ceil(filteredResources.length / itemsPerPage);
   const paginatedResources = filteredResources.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -207,7 +228,7 @@ export default function LibraryPage() {
   // Reset page when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedNiveauId]);
+  }, [searchQuery, selectedNiveauId, selectedSubjectId]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -229,8 +250,8 @@ export default function LibraryPage() {
       )}
 
       <PageHeader
-        title="Bibliothèque de l'école"
-        description={isApprenant ? "Consultez les supports de cours de votre niveau." : "Gérez les supports de cours globaux accessibles par niveau d'étude."}
+        title="Librairie 3.0 & Bibliothèque Numérique"
+        description={isApprenant ? "Consultez et téléchargez les manuels, documents et ressources de votre niveau scolaire." : "Gérez la bibliothèque numérique des manuels et ressources pédagogiques par niveau et matière."}
       >
         {canAdd && (
           <Button variant="glow" onClick={handleAddClick} leftIcon={<Plus className="w-4 h-4" />}>
@@ -239,36 +260,65 @@ export default function LibraryPage() {
         )}
       </PageHeader>
 
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
-        <div className="relative w-full md:w-[28rem]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Rechercher un document par titre..."
+            placeholder="Rechercher par titre, matière, auteur..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-400"
           />
         </div>
 
-        {!isApprenant && (
-          <div className="w-full md:w-64">
-            <select
-              value={selectedNiveauId}
-              onChange={(e) => setSelectedNiveauId(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
-            >
-              <option value="ALL">Tous les niveaux</option>
-              {niveaux.map((niveau) => (
-                <option key={niveau.id} value={niveau.id}>
-                  {niveau.nom}
-                </option>
-              ))}
-            </select>
+        {/* Dropdowns */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Niveau Filter (Hidden for students because backend strictly scopes to their level) */}
+          {!isApprenant && (
+            <div className="min-w-[180px] flex-1 sm:flex-initial">
+              <div className="relative">
+                <Layers className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <select
+                  value={selectedNiveauId}
+                  onChange={(e) => setSelectedNiveauId(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer appearance-none"
+                >
+                  <option value="ALL">Tous les niveaux</option>
+                  {niveaux.map((niveau) => (
+                    <option key={niveau.id} value={niveau.id}>
+                      {niveau.nom}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Matière Filter (Available to ALL roles including Students) */}
+          <div className="min-w-[200px] flex-1 sm:flex-initial">
+            <div className="relative">
+              <BookOpen className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <select
+                value={selectedSubjectId}
+                onChange={(e) => setSelectedSubjectId(e.target.value)}
+                className="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer appearance-none"
+              >
+                <option value="ALL">Toutes les matières</option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name} {subject.code ? `(${subject.code})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
+      {/* Main Table / Grid */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center flex flex-col items-center gap-3">
@@ -283,8 +333,8 @@ export default function LibraryPage() {
             <div>
               <p className="font-bold text-slate-800 text-lg">Aucun document trouvé</p>
               <p className="text-sm text-slate-500 mt-1">
-                {selectedNiveauId !== 'ALL' || isApprenant
-                  ? "Ce niveau ne contient aucun support de cours." 
+                {selectedNiveauId !== 'ALL' || selectedSubjectId !== 'ALL' || isApprenant
+                  ? "Aucun support ne correspond aux critères sélectionnés." 
                   : "Votre bibliothèque est vide. Commencez par ajouter un document."}
               </p>
             </div>
@@ -300,7 +350,8 @@ export default function LibraryPage() {
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-400">
                   <th className="py-3.5 px-6 w-12">Type</th>
-                  <th className="py-3.5 px-4">Titre du cours</th>
+                  <th className="py-3.5 px-4">Titre du document</th>
+                  <th className="py-3.5 px-4">Matière</th>
                   <th className="py-3.5 px-4">Niveau</th>
                   <th className="py-3.5 px-4">Statut</th>
                   <th className="py-3.5 px-4">Ajouté le</th>
@@ -321,6 +372,16 @@ export default function LibraryPage() {
                         <p className="text-[11px] text-slate-400 mt-0.5">
                           Par {resource.createdBy.firstName} {resource.createdBy.lastName}
                         </p>
+                      )}
+                    </td>
+                    <td className="py-4 px-4">
+                      {resource.subject ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100/60">
+                          <BookOpen className="w-3 h-3 text-indigo-500" />
+                          {resource.subject.name}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-slate-400">Général</span>
                       )}
                     </td>
                     <td className="py-4 px-4">
@@ -431,24 +492,39 @@ export default function LibraryPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">Titre du cours *</label>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">Titre du document *</label>
               <input
                 {...registerEdit('title', { required: "Le titre est requis" })}
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">Niveau *</label>
-              <select
-                {...registerEdit('niveauId', { required: "Le niveau est requis" })}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
-              >
-                <option value="">Sélectionner un niveau...</option>
-                {niveaux.map(n => (
-                  <option key={n.id} value={n.id}>{n.nom}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Niveau *</label>
+                <select
+                  {...registerEdit('niveauId', { required: "Le niveau est requis" })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+                >
+                  <option value="">Sélectionner un niveau...</option>
+                  {niveaux.map(n => (
+                    <option key={n.id} value={n.id}>{n.nom}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Matière</label>
+                <select
+                  {...registerEdit('subjectId')}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all outline-none"
+                >
+                  <option value="">Toutes les matières (Général)</option>
+                  {subjects.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} {s.code ? `(${s.code})` : ''}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-slate-100">
@@ -534,8 +610,14 @@ export default function LibraryPage() {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">{selectedResource.title}</h3>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-2 mt-1.5">
                   <Badge variant="neutral">{selectedResource.niveau?.nom}</Badge>
+                  {selectedResource.subject && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      <BookOpen className="w-3 h-3 text-indigo-500" />
+                      {selectedResource.subject.name}
+                    </span>
+                  )}
                   {selectedResource.isPublished ? (
                      <Badge variant="success">Publié</Badge>
                   ) : (
@@ -546,6 +628,16 @@ export default function LibraryPage() {
             </div>
             
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Matière / Discipline</span>
+                <span className="font-semibold text-slate-900">
+                  {selectedResource.subject ? `${selectedResource.subject.name} ${selectedResource.subject.code ? `(${selectedResource.subject.code})` : ''}` : 'Général'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Niveau d'étude</span>
+                <span className="font-semibold text-slate-900">{selectedResource.niveau?.nom || 'N/A'}</span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Ajouté par</span>
                 <span className="font-semibold text-slate-900">
@@ -593,3 +685,4 @@ export default function LibraryPage() {
     </div>
   );
 }
+

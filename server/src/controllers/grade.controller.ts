@@ -169,18 +169,50 @@ export const getGradebook = async (req: AuthRequest, res: Response) => {
 
     const students = enrollments.map(e => e.student);
 
+    const assignmentConditions: any[] = [{ courseId: courseId }];
+    if (course.niveauId && course.subjectId) {
+      assignmentConditions.push({
+        niveauId: course.niveauId,
+        subjectId: course.subjectId,
+        OR: [
+          { isNiveauWide: true },
+          { type: { in: ['DEVOIR_NIVEAU', 'COMPOSITION_NIVEAU', 'COMPO_NIVEAU', 'EXAMEN'] } }
+        ]
+      });
+    }
+
     const assignments = await prisma.assignment.findMany({
-      where: { courseId: courseId },
+      where: { OR: assignmentConditions },
+      include: {
+        term: { select: { id: true, name: true } }
+      },
       orderBy: { dueDate: 'asc' }
     });
 
     const quizzes = await prisma.quiz.findMany({
-      where: { courseId: courseId },
+      where: {
+        OR: [
+          { courseId: courseId },
+          ...(course.niveauId && course.subjectId ? [{
+            niveauId: course.niveauId,
+            subjectId: course.subjectId
+          }] : [])
+        ]
+      },
       orderBy: { endDate: 'asc' }
     });
 
+    const studentIds = students.map(s => s.id);
+    const assignmentIds = assignments.map(a => a.id);
+
     const grades = await prisma.grade.findMany({
-      where: { courseId: courseId },
+      where: {
+        studentId: { in: studentIds },
+        OR: [
+          { courseId: courseId },
+          ...(assignmentIds.length > 0 ? [{ assignmentId: { in: assignmentIds } }] : [])
+        ]
+      },
       include: {
         assignment: { select: { id: true, title: true, type: true, coefficient: true } },
         term: { select: { id: true, name: true } }

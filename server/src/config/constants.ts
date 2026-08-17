@@ -6,6 +6,7 @@ export const ROLES = {
   EDUCATEUR: UserRole.EDUCATEUR,
   ENSEIGNANT: UserRole.ENSEIGNANT,
   APPRENANT: UserRole.APPRENANT,
+  PARENT: (UserRole as any).PARENT || 'PARENT',
 } as const;
 
 export const ROLE_HIERARCHY = {
@@ -14,6 +15,7 @@ export const ROLE_HIERARCHY = {
   [ROLES.EDUCATEUR]: 60,
   [ROLES.ENSEIGNANT]: 40,
   [ROLES.APPRENANT]: 20,
+  [ROLES.PARENT]: 10,
 };
 
 export const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100MB

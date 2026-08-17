@@ -12,10 +12,10 @@ const TESTIMONIALS = [
     content: 'Avant ÉCOLE 3.0, la période des conseils de classe et l\'impression des bulletins était un vrai cauchemar. Désormais, tout le calcul de moyennes et le rang des 1 200 élèves se font automatiquement en 1-clic.',
     rating: 5,
     impact: 'Gain de 150h / trimestre',
-    impactClass: 'chip-green',
+    impactClass: 'chip-brand',
     initials: 'JK',
-    avatarFrom: '#10b981',
-    avatarTo: '#059669',
+    avatarFrom: '#189CD8',
+    avatarTo: '#1280B2',
   },
   {
     name: 'Marie-Louise Koné',
@@ -38,7 +38,7 @@ const TESTIMONIALS = [
     content: 'Le réseau inter-écoles SEEEC nous permet de partager des banques d\'épreuves avec d\'autres établissements et d\'harmoniser nos standards pour les examens d\'État.',
     rating: 5,
     impact: 'Réseau SEEEC Certifié',
-    impactClass: 'chip-green',
+    impactClass: 'chip-brand',
     initials: 'KB',
     avatarFrom: '#F59E0B',
     avatarTo: '#EF4444',
@@ -66,8 +66,8 @@ const TESTIMONIALS = [
     impact: 'Module Technique Inclus',
     impactClass: 'chip-violet',
     initials: 'PN',
-    avatarFrom: '#8B5CF6',
-    avatarTo: '#10b981',
+    avatarFrom: '#4D3E90',
+    avatarTo: '#189CD8',
   },
 ];
 
@@ -87,7 +87,7 @@ export default function TestimonialsPage() {
             <MessageSquare className="w-3 h-3" />
             Retours d'Expérience du Terrain
           </span>
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-slate-900 mb-4 leading-[1.02]">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tighter text-[#4D3E90] mb-4 leading-[1.02]">
             Ce que disent les<br />
             <span className="gradient-text">Chefs d'Établissement</span>
           </h1>
@@ -107,7 +107,7 @@ export default function TestimonialsPage() {
                 onClick={() => setFilter(f.key)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${
                   filter === f.key
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                    ? 'bg-[#189CD8] text-white shadow-md shadow-[#189CD8]/30'
                     : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-900'
                 }`}
               >
@@ -157,7 +157,7 @@ export default function TestimonialsPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="font-black text-slate-900 text-sm truncate">{t.name}</p>
-                    <p className="text-xs text-emerald-700 font-bold truncate">{t.role}</p>
+                    <p className="text-xs text-[#1280B2] font-bold truncate">{t.role}</p>
                     <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5 truncate font-medium">
                       <Building2 className="w-3 h-3 shrink-0" /> {t.school}
                     </p>

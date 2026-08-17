@@ -7,22 +7,22 @@ interface BadgeProps {
 }
 
 const variants: Record<string, { base: string; dot: string }> = {
-  success:  { base: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', dot: 'bg-emerald-400' },
-  warning:  { base: 'bg-amber-500/10 text-amber-400 border-amber-500/20', dot: 'bg-amber-400' },
-  danger:   { base: 'bg-red-500/10 text-red-400 border-red-500/20', dot: 'bg-red-400' },
-  info:     { base: 'bg-blue-500/10 text-blue-400 border-blue-500/20', dot: 'bg-blue-400' },
-  neutral:  { base: 'bg-white/5 text-brand-text-muted border-white/10', dot: 'bg-brand-text-muted' },
-  accent:   { base: 'bg-brand-accent/10 text-brand-accent border-brand-accent/20', dot: 'bg-brand-accent' },
-  violet:   { base: 'bg-violet-500/10 text-violet-400 border-violet-500/20', dot: 'bg-violet-400' },
+  success:  { base: 'bg-[#189CD8]/10 text-[#1280B2] border-[#189CD8]/25', dot: 'bg-[#189CD8]' },
+  warning:  { base: 'bg-amber-500/10 text-amber-600 border-amber-500/20', dot: 'bg-amber-500' },
+  danger:   { base: 'bg-red-500/10 text-red-600 border-red-500/20', dot: 'bg-red-500' },
+  info:     { base: 'bg-blue-500/10 text-blue-600 border-blue-500/20', dot: 'bg-blue-500' },
+  neutral:  { base: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400' },
+  accent:   { base: 'bg-[#189CD8]/10 text-[#1280B2] border-[#189CD8]/25', dot: 'bg-[#189CD8]' },
+  violet:   { base: 'bg-violet-500/10 text-violet-600 border-violet-500/20', dot: 'bg-violet-500' },
 };
 
 const glowMap: Record<string, string> = {
-  success:  'shadow-[0_0_10px_rgba(16,185,129,0.15)]',
+  success:  'shadow-[0_0_10px_rgba(24,156,216,0.2)]',
   warning:  'shadow-[0_0_10px_rgba(245,158,11,0.15)]',
   danger:   'shadow-[0_0_10px_rgba(239,68,68,0.15)]',
   info:     'shadow-[0_0_10px_rgba(59,130,246,0.15)]',
   neutral:  '',
-  accent:   'shadow-[0_0_10px_rgba(34,197,94,0.2)]',
+  accent:   'shadow-[0_0_10px_rgba(24,156,216,0.25)]',
   violet:   'shadow-[0_0_10px_rgba(139,92,246,0.15)]',
 };
 

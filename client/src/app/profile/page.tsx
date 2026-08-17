@@ -78,7 +78,8 @@ export default function UserProfilePage() {
       setBirthDate(data.birthDate ? new Date(data.birthDate).toISOString().split('T')[0] : '');
       setBirthPlace(data.birthPlace || '');
       setAddress(data.address || '');
-      setGender(data.gender || '');
+      const g = data.gender;
+      setGender(g === 'MASCULIN' || g === 'M' ? 'MASCULIN' : g === 'FEMININ' || g === 'F' ? 'FEMININ' : g || '');
       setAvatarUrl(data.avatarUrl || '');
       setDocuments(data.documents || []);
     } catch (err) {
@@ -127,8 +128,9 @@ export default function UserProfilePage() {
 
       setMessage({ type: 'success', text: 'Profil mis à jour avec succès.' });
       fetchProfile();
-    } catch {
-      setMessage({ type: 'error', text: 'Erreur lors de la mise à jour du profil.' });
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || 'Erreur lors de la mise à jour du profil.';
+      setMessage({ type: 'error', text: errMsg });
     } finally {
       setSaving(false);
     }
@@ -182,12 +184,13 @@ export default function UserProfilePage() {
     setSaving(true);
     setMessage(null);
     try {
-      await api.put(`/users/${user?.id}/password`, { password: newPassword });
+      await api.put('/users/profile/password', { password: newPassword });
       setMessage({ type: 'success', text: 'Mot de passe modifié avec succès.' });
       setNewPassword('');
       setConfirmPassword('');
-    } catch {
-      setMessage({ type: 'error', text: 'Erreur lors de la modification du mot de passe.' });
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || 'Erreur lors de la modification du mot de passe.';
+      setMessage({ type: 'error', text: errMsg });
     } finally {
       setSaving(false);
     }
@@ -385,8 +388,8 @@ export default function UserProfilePage() {
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 text-sm"
                     >
                       <option value="">Non spécifié</option>
-                      <option value="M">Masculin</option>
-                      <option value="F">Féminin</option>
+                      <option value="MASCULIN">Masculin</option>
+                      <option value="FEMININ">Féminin</option>
                     </select>
                   </div>
 

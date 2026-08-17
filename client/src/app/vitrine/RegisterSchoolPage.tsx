@@ -6,6 +6,7 @@ import {
   CheckCircle2, ChevronLeft, Sparkles, GraduationCap, Eye, EyeOff, Tag, AlertCircle
 } from 'lucide-react';
 import api from '@/lib/api';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 // We now fetch plans dynamically
 
@@ -83,7 +84,7 @@ export default function RegisterSchoolPage() {
         setTeachingTypes(FALLBACK_TEACHING_TYPES);
         setSchoolTypes(FALLBACK_SCHOOL_TYPES);
         // Fallback minimal pour éviter le crash complet
-        const fallbackPlan = { name: "Établissement Pro", price: 45000, period: "par trimestre", color: "bg-emerald-100 text-emerald-900", planKey: "pro" };
+        const fallbackPlan = { name: "Établissement Pro", price: 45000, period: "par trimestre", color: "bg-[#189CD8]/10 text-[#1280B2] border-[#189CD8]/25", planKey: "pro" };
         setSelectedPlanInfo(fallbackPlan);
         setFormData(prev => ({ ...prev, selectedPlan: "pro" }));
       }
@@ -160,7 +161,7 @@ export default function RegisterSchoolPage() {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
-          <GraduationCap className="w-12 h-12 text-emerald-600 mb-4 opacity-50" />
+          <GraduationCap className="w-12 h-12 text-[#189CD8] mb-4 opacity-50" />
           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Chargement...</p>
         </div>
       </div>
@@ -187,19 +188,11 @@ export default function RegisterSchoolPage() {
           <div className="md:w-5/12 flex flex-col justify-between p-8 md:p-10 bg-slate-50 border-r border-slate-200 hidden md:flex">
             <div>
               {/* Logo */}
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md bg-emerald-600">
-                  <GraduationCap className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <span className="text-lg font-black text-slate-900 leading-none block">ÉCOLE 3.0</span>
-                  <span className="text-[9px] font-black tracking-[0.18em] text-emerald-600 uppercase flex items-center gap-1">
-                    <Sparkles className="w-2.5 h-2.5" /> SEEEC Platform
-                  </span>
-                </div>
+              <div className="mb-8">
+                <BrandLogo size="md" to="/" subtitle="SEEEC" />
               </div>
 
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-3 leading-tight">
+              <h2 className="text-2xl font-black text-[#4D3E90] tracking-tight mb-3 leading-tight">
                 Enregistrez votre<br />Établissement
               </h2>
               <p className="text-xs text-slate-600 leading-relaxed mb-8 font-medium">
@@ -239,8 +232,8 @@ export default function RegisterSchoolPage() {
                         <div
                           className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0 transition-all duration-300"
                           style={
-                            isDone ? { background: '#10B981', color: 'white' }
-                            : isActive ? { background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#047857' }
+                            isDone ? { background: '#189CD8', color: 'white' }
+                            : isActive ? { background: 'rgba(24,156,216,0.1)', border: '1px solid rgba(24,156,216,0.3)', color: '#1280B2' }
                             : { background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#94A3B8' }
                           }
                         >
@@ -260,7 +253,7 @@ export default function RegisterSchoolPage() {
             {/* Badges */}
             <div className="pt-6 space-y-2 border-t border-slate-200">
               <div className="flex items-center gap-2 text-xs text-slate-600 font-semibold">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <ShieldCheck className="w-4 h-4 text-[#189CD8] shrink-0" />
                 <span>Données chiffrées & sécurisées</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-600 font-semibold">
@@ -301,14 +294,14 @@ export default function RegisterSchoolPage() {
               {currentStep === 1 && (
                 <div className="space-y-4 animate-fade-in-up">
                   <div>
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight">1. Identifiants du Directeur</h3>
+                    <h3 className="text-xl font-black text-[#4D3E90] tracking-tight">1. Identifiants du Directeur</h3>
                     <p className="text-xs text-slate-500 font-medium">Informations du responsable principal de l'établissement.</p>
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                        Prénom <span className="text-emerald-600">*</span>
+                        Prénom <span className="text-[#189CD8]">*</span>
                       </label>
                       <div className="relative">
                         <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -318,7 +311,7 @@ export default function RegisterSchoolPage() {
                           value={formData.firstName}
                           onChange={handleChange}
                           placeholder="Jean-Marc"
-                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/10"
                           required
                         />
                       </div>
@@ -326,7 +319,7 @@ export default function RegisterSchoolPage() {
 
                     <div>
                       <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                        Nom de famille <span className="text-emerald-600">*</span>
+                        Nom de famille <span className="text-[#189CD8]">*</span>
                       </label>
                       <div className="relative">
                         <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -336,7 +329,7 @@ export default function RegisterSchoolPage() {
                           value={formData.lastName}
                           onChange={handleChange}
                           placeholder="Kouassi"
-                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/10"
                           required
                         />
                       </div>
@@ -345,7 +338,7 @@ export default function RegisterSchoolPage() {
 
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                      Adresse Email <span className="text-emerald-600">*</span>
+                      Adresse Email <span className="text-[#189CD8]">*</span>
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -355,7 +348,7 @@ export default function RegisterSchoolPage() {
                         value={formData.email}
                         onChange={handleChange}
                         placeholder="directeur@ecole.ci"
-                        className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                        className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/10"
                         required
                       />
                     </div>
@@ -373,7 +366,7 @@ export default function RegisterSchoolPage() {
                         value={formData.phone}
                         onChange={handleChange}
                         placeholder="+225 07 00 00 00 00"
-                        className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                        className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/10"
                       />
                     </div>
                   </div>
@@ -381,7 +374,7 @@ export default function RegisterSchoolPage() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                        Mot de passe <span className="text-emerald-600">*</span>
+                        Mot de passe <span className="text-[#189CD8]">*</span>
                       </label>
                       <div className="relative">
                         <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -391,7 +384,7 @@ export default function RegisterSchoolPage() {
                           value={formData.password}
                           onChange={handleChange}
                           placeholder="Minimum 6 caractères"
-                          className="w-full pl-10 pr-10 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                          className="w-full pl-10 pr-10 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/10"
                           required
                         />
                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
@@ -402,7 +395,7 @@ export default function RegisterSchoolPage() {
 
                     <div>
                       <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                        Confirmer le mot de passe <span className="text-emerald-600">*</span>
+                        Confirmer le mot de passe <span className="text-[#189CD8]">*</span>
                       </label>
                       <div className="relative">
                         <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -412,7 +405,7 @@ export default function RegisterSchoolPage() {
                           value={formData.confirmPassword}
                           onChange={handleChange}
                           placeholder="Répétez votre mot de passe"
-                          className="w-full pl-10 pr-10 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                          className="w-full pl-10 pr-10 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/10"
                           required
                         />
                         <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
@@ -423,8 +416,8 @@ export default function RegisterSchoolPage() {
                   </div>
 
                   {formData.confirmPassword && formData.confirmPassword === formData.password && (
-                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Mots de passe identiques
+                    <div className="p-2.5 rounded-xl bg-[#189CD8]/10 border border-[#189CD8]/25 text-xs font-bold text-[#1280B2] flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-[#189CD8]" /> Mots de passe identiques
                     </div>
                   )}
 
@@ -438,13 +431,13 @@ export default function RegisterSchoolPage() {
               {currentStep === 2 && (
                 <div className="space-y-4 animate-fade-in-up">
                   <div>
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight">2. Votre Établissement</h3>
+                    <h3 className="text-xl font-black text-[#4D3E90] tracking-tight">2. Votre Établissement</h3>
                     <p className="text-xs text-slate-500 font-medium">Informations officielles de votre école en Côte d'Ivoire.</p>
                   </div>
 
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                      Nom officiel de l'école <span className="text-emerald-600">*</span>
+                      Nom officiel de l'école <span className="text-[#189CD8]">*</span>
                     </label>
                     <div className="relative">
                       <School className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -454,7 +447,7 @@ export default function RegisterSchoolPage() {
                         value={formData.schoolName}
                         onChange={handleChange}
                         placeholder="Ex: Groupe Scolaire Excellence"
-                        className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                        className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/10"
                         required
                       />
                     </div>
@@ -463,7 +456,7 @@ export default function RegisterSchoolPage() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                        Ville <span className="text-emerald-600">*</span>
+                        Ville <span className="text-[#189CD8]">*</span>
                       </label>
                       <div className="relative">
                         <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -473,7 +466,7 @@ export default function RegisterSchoolPage() {
                           value={formData.schoolVille}
                           onChange={handleChange}
                           placeholder="Ex: Abidjan, Bouaké..."
-                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/10"
                           required
                         />
                       </div>
@@ -491,7 +484,7 @@ export default function RegisterSchoolPage() {
                           value={formData.schoolAddress}
                           onChange={handleChange}
                           placeholder="Ex: Cocody Riviera 3"
-                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
+                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] focus:bg-white focus:ring-2 focus:ring-[#189CD8]/10"
                         />
                       </div>
                     </div>
@@ -508,7 +501,7 @@ export default function RegisterSchoolPage() {
                           name="teachingTypeId"
                           value={formData.teachingTypeId}
                           onChange={handleChange}
-                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
+                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] font-bold cursor-pointer"
                         >
                           <option value="">Sélectionnez le type d'enseignement...</option>
                           {teachingTypes.map((t) => (
@@ -528,7 +521,7 @@ export default function RegisterSchoolPage() {
                           name="schoolTypeId"
                           value={formData.schoolTypeId}
                           onChange={handleChange}
-                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
+                          className="w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-[#189CD8] font-bold cursor-pointer"
                         >
                           <option value="">Sélectionnez le type d'école...</option>
                           {schoolTypes.map((st) => (
@@ -554,13 +547,13 @@ export default function RegisterSchoolPage() {
               {currentStep === 3 && (
                 <div className="space-y-4 animate-fade-in-up">
                   <div>
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight">3. Récapitulatif & Validation</h3>
+                    <h3 className="text-xl font-black text-[#4D3E90] tracking-tight">3. Récapitulatif & Validation</h3>
                     <p className="text-xs text-slate-500 font-medium">Vérifiez vos informations avant de valider votre compte.</p>
                   </div>
 
                   <div className="space-y-3">
                     <div className="rounded-2xl p-4 bg-slate-50 border border-slate-200 text-xs">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700 mb-2">Directeur</p>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-[#1280B2] mb-2">Directeur</p>
                       <p className="font-black text-slate-900 text-sm">{formData.firstName} {formData.lastName}</p>
                       <p className="text-slate-600 font-medium">{formData.email} {formData.phone && `• ${formData.phone}`}</p>
                     </div>
@@ -592,7 +585,7 @@ export default function RegisterSchoolPage() {
 
             <p className="mt-8 text-center text-xs text-slate-500 font-medium">
               Déjà inscrit ?{' '}
-              <Link to="/login" className="text-emerald-600 font-bold hover:text-emerald-700 transition-colors">
+              <Link to="/login" className="text-[#189CD8] font-bold hover:text-[#1280B2] transition-colors">
                 Se connecter →
               </Link>
             </p>

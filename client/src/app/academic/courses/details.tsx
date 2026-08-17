@@ -39,13 +39,12 @@ import {
   UserCheck,
   TrendingUp,
   BarChart3,
-  CheckSquare
+  CheckSquare,
+  MessageCircle
 } from 'lucide-react';
 import Gradebook from '@/components/Gradebook';
 import QuizList from '@/components/QuizList';
-import ExerciseEditor from '@/components/ExerciseEditor';
 import ExerciseTake from '@/components/ExerciseTake';
-import { CreateEvaluationModal } from '@/components/CreateEvaluationModal';
 import { EvaluationPreviewModal } from '@/components/EvaluationPreviewModal';
 import { CreateEvaluationPage } from './CreateEvaluationPage';
 import { CreateExercisePage } from './CreateExercisePage';
@@ -176,6 +175,45 @@ const CourseDetails = () => {
         { id: 'TRIMESTRE_2', name: 'Trimestre 2' },
         { id: 'TRIMESTRE_3', name: 'Trimestre 3' }
       ];
+
+  const matchesSelectedTerm = (
+    item: { termId?: string | null; term?: { id?: string; name?: string } | null; title?: string },
+    filter: string,
+    termsList: Array<{ id: string; name: string }>
+  ) => {
+    if (!filter || filter === 'ALL') return true;
+
+    const itemTermId = item.termId || item.term?.id;
+    const itemTermName = item.term?.name || (itemTermId ? termsList.find(t => t.id === itemTermId)?.name : null) || '';
+
+    // Direct match
+    if (itemTermId === filter) return true;
+    if (itemTermName && itemTermName.toLowerCase() === filter.toLowerCase()) return true;
+
+    // Filter term name resolution
+    const filterTermObj = termsList.find(t => t.id === filter);
+    const filterName = (filterTermObj?.name || filter).toLowerCase();
+
+    // Determine target index: 1, 2, or 3
+    const isTargetT1 = filter === 'TRIMESTRE_1' || filterName.includes('1') || filterName.includes('premier') || filterName.includes('trimestre 1');
+    const isTargetT2 = filter === 'TRIMESTRE_2' || filterName.includes('2') || filterName.includes('deux') || filterName.includes('second') || filterName.includes('trimestre 2');
+    const isTargetT3 = filter === 'TRIMESTRE_3' || filterName.includes('3') || filterName.includes('trois') || filterName.includes('trimestre 3');
+
+    // Check item term name or title (e.g. "Devoir 1 Trimestre 1", "Chapitre 1 - T1")
+    const combinedItemText = `${itemTermName} ${item.title || ''}`.toLowerCase();
+    if (itemTermName || item.title) {
+      if (isTargetT1 && (combinedItemText.includes('1') || combinedItemText.includes('premier') || combinedItemText.includes('trimestre 1') || combinedItemText.includes('t1'))) return true;
+      if (isTargetT2 && (combinedItemText.includes('2') || combinedItemText.includes('deux') || combinedItemText.includes('second') || combinedItemText.includes('trimestre 2') || combinedItemText.includes('t2'))) return true;
+      if (isTargetT3 && (combinedItemText.includes('3') || combinedItemText.includes('trois') || combinedItemText.includes('trimestre 3') || combinedItemText.includes('t3'))) return true;
+    }
+
+    // If item has no term assigned at all, default to Trimestre 1
+    if (!itemTermId && !itemTermName) {
+      return isTargetT1;
+    }
+
+    return false;
+  };
   
   const [pageViewMode, setPageViewMode] = useState<'DETAILS' | 'CREATE_EVALUATION' | 'CREATE_EXERCISE'>('DETAILS');
   const [editingEvaluationId, setEditingEvaluationId] = useState<string | null>(null);
@@ -213,61 +251,12 @@ const CourseDetails = () => {
   const [publishScope, setPublishScope] = useState('CLASSE');
   const [isPublishing, setIsPublishing] = useState(false);
 
-  // Exercises Modals State
-  const [isExerciseEditorOpen, setIsExerciseEditorOpen] = useState(false);
+  // Exercises State
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [takingExerciseId, setTakingExerciseId] = useState<string | null>(null);
 
   const [quizzes, setQuizzes] = useState<any[]>([]);
-  const [conductStudents, setConductStudents] = useState<any[]>([]);
-  const [conductGrades, setConductGrades] = useState<any[]>([]);
-  const [savingConduct, setSavingConduct] = useState<string | null>(null);
-  const [saveConductSuccess, setSaveConductSuccess] = useState<string | null>(null);
 
-  // ... (handleConductChange function)
-  const handleConductChange = async (studentId: string, value: string, comment?: string) => {
-    // Validation
-    if (value === '') return;
-    const numValue = parseFloat(value);
-    if (isNaN(numValue) || numValue < 0 || numValue > 20) {
-        alert("La note doit être comprise entre 0 et 20");
-        return;
-    }
-
-    setSavingConduct(studentId);
-    setSaveConductSuccess(null);
-
-    try {
-        await api.post('/grades/save', {
-            studentId,
-            courseId: id,
-            value: numValue,
-            comment
-        });
-
-        // Update local state
-        setConductGrades(prev => {
-            const existing = prev.find((g: any) => g.studentId === studentId);
-            if (existing) {
-                return prev.map((g: any) => g.studentId === studentId ? { ...g, value: numValue, comment } : g);
-            } else {
-                return [...prev, { id: 'temp', studentId, value: numValue, comment }];
-            }
-        });
-
-        setSaveConductSuccess(studentId);
-        setTimeout(() => setSaveConductSuccess(null), 2000);
-    } catch (error) {
-        console.error("Error saving conduct grade", error);
-        alert("Erreur lors de l'enregistrement de la note.");
-    } finally {
-        setSavingConduct(null);
-    }
-  };
-
-  const getConductGrade = (studentId: string) => {
-      return conductGrades.find((g: any) => g.studentId === studentId);
-  };
   const { register: registerMat, handleSubmit: handleSubmitMat, reset: resetMat, watch: watchMat, formState: { errors: errorsMat } } = useForm<{ title: string; type: string; url: string; source?: string; chapterId?: string; file?: FileList }>();
   const { register: registerChap, handleSubmit: handleSubmitChap, reset: resetChap } = useForm<{ title: string; content?: string; termId?: string }>();
   const { register: registerAssign, handleSubmit: handleSubmitAssign, reset: resetAssign, formState: { errors: errorsAssign } } = useForm<{ title: string; description?: string; type: string; dueDate: string; coefficient: number; file?: FileList; voiceNote?: FileList; correction?: FileList }>({
@@ -276,10 +265,12 @@ const CourseDetails = () => {
 
   const isTeacher = user?.role === 'ENSEIGNANT' || user?.role === 'DIRECTEUR' || user?.role === 'SUPER_ADMIN';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  // Le SUPER_ADMIN, DIRECTEUR et l'ENSEIGNANT peuvent créer/modifier les cours, chapitres et supports
-  const canCreateContent = isSuperAdmin || user?.role === 'ENSEIGNANT' || user?.role === 'DIRECTEUR';
-  // Le SUPER_ADMIN, DIRECTEUR et l'ENSEIGNANT peuvent créer des exercices
-  const canCreateExercise = isSuperAdmin || user?.role === 'ENSEIGNANT' || user?.role === 'DIRECTEUR';
+  const isDirecteur = user?.role === 'DIRECTEUR';
+  // Seul le SUPER_ADMIN et le DIRECTEUR gèrent la création et modification des chapitres
+  const canManageChapters = isSuperAdmin || isDirecteur;
+  // Le SUPER_ADMIN, DIRECTEUR et l'ENSEIGNANT peuvent ajouter des supports et créer des exercices
+  const canCreateContent = isSuperAdmin || isDirecteur || user?.role === 'ENSEIGNANT';
+  const canCreateExercise = isSuperAdmin || isDirecteur || user?.role === 'ENSEIGNANT';
 
   const selectedMatType = watchMat('type', 'PDF');
 
@@ -416,27 +407,25 @@ const CourseDetails = () => {
             .catch(err => console.error("Error fetching course stats", err));
       }
 
-      
-      const fetchStudents = api.get(`/courses/${id}/students`)
-        .then(res => setCourseStudents(res.data))
-        .catch(err => console.error("Error fetching students", err));
+      const isStudent = user?.role === 'APPRENANT' || user?.role === 'PARENT';
+
+      const fetchStudents = !isStudent
+        ? api.get(`/courses/${id}/students`)
+            .then(res => setCourseStudents(res.data))
+            .catch(err => console.error("Error fetching students", err))
+        : Promise.resolve();
 
       const fetchTeachers = api.get(`/courses/${id}/teachers`)
         .then(res => setCourseTeachers(res.data))
         .catch(err => console.error("Error fetching teachers", err));
 
-      const fetchSchools = api.get(`/courses/${id}/schools`)
-        .then(res => setCourseSchools(res.data))
-        .catch(err => console.error("Error fetching schools", err));
+      const fetchSchools = !isStudent
+        ? api.get(`/courses/${id}/schools`)
+            .then(res => setCourseSchools(res.data))
+            .catch(err => console.error("Error fetching schools", err))
+        : Promise.resolve();
 
-      const fetchConduct = api.get(`/grades/${id}/conduct`)
-        .then(res => {
-            setConductStudents(res.data.students);
-            setConductGrades(res.data.grades);
-        })
-        .catch(err => console.error("Error fetching conduct grades", err));
-
-      const fetchTerms = api.get('/academic-years')
+      const fetchTerms = api.get('/academic/years')
         .then(res => {
           const years = res.data || [];
           const matchYear = years.find((y: any) => y.id === currentCourseYearId) || years.find((y: any) => y.isCurrent) || years[0];
@@ -446,7 +435,7 @@ const CourseDetails = () => {
         })
         .catch(err => console.error("Error fetching terms", err));
 
-      await Promise.allSettled([fetchAssignments, fetchChapters, fetchQuizzes, fetchConduct, fetchStudents, fetchTeachers, fetchSchools, fetchTerms]);
+      await Promise.allSettled([fetchAssignments, fetchChapters, fetchQuizzes, fetchStudents, fetchTeachers, fetchSchools, fetchTerms]);
 
     } catch (error) {
       console.error('Error fetching course details', error);
@@ -689,7 +678,7 @@ const CourseDetails = () => {
                 </div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-                {canCreateContent && (
+                {canManageChapters && (
                     <Button
                         variant="primary"
                         onClick={() => setIsChapterModalOpen(true)}
@@ -729,9 +718,8 @@ const CourseDetails = () => {
         </div>
       </div>
 
-      {/* 5 Cartes de statistiques et de navigation interactives */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-          {/* 1. Chapitres */}
+      <div className={`grid ${user?.role === 'APPRENANT' ? 'grid-cols-1 sm:grid-cols-3 gap-4' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5'}`}>
+          {/* 1. Chapitres & Cours */}
           <button
               type="button"
               onClick={() => setActiveTab('CONTENT')}
@@ -755,10 +743,10 @@ const CourseDetails = () => {
                   {chapters.length}
               </div>
               <div className="text-xs font-extrabold text-brand-text truncate">
-                  Chapitres
+                  {user?.role === 'APPRENANT' ? 'Mes Cours & Chapitres' : 'Chapitres'}
               </div>
               <div className="text-[11px] text-brand-muted truncate mt-0.5">
-                  Pédagogie & Supports
+                  {user?.role === 'APPRENANT' ? 'Supports, leçons & révisions' : 'Pédagogie & Supports'}
               </div>
           </button>
 
@@ -786,45 +774,47 @@ const CourseDetails = () => {
                   {assignments.length}
               </div>
               <div className="text-xs font-extrabold text-brand-text truncate">
-                  Compo & Évaluations
+                  {user?.role === 'APPRENANT' ? 'Concours & Évaluations' : 'Compo & Évaluations'}
               </div>
               <div className="text-[11px] text-brand-muted truncate mt-0.5">
-                  Épreuves & Devoirs
+                  {user?.role === 'APPRENANT' ? 'Devoirs, concours & quiz' : 'Épreuves & Devoirs'}
               </div>
           </button>
 
-          {/* 3. Élèves inscrits */}
-          <button
-              type="button"
-              onClick={() => setActiveTab('STUDENTS')}
-              className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden ${
-                  activeTab === 'STUDENTS'
-                      ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
-                      : 'bg-brand-card hover:bg-slate-100/70 dark:hover:bg-slate-800/60 border-brand-border/80 hover:border-emerald-500/40'
-              }`}
-          >
-              <div className="flex items-center justify-between mb-2">
-                  <div className={`p-2 rounded-xl transition-colors ${activeTab === 'STUDENTS' ? 'bg-emerald-500 text-white shadow-xs' : 'bg-brand-surface text-brand-muted group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30'}`}>
-                      <Users className="w-5 h-5" />
-                  </div>
-                  {activeTab === 'STUDENTS' && (
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-xs uppercase tracking-wider">
-                          Actif
-                      </span>
-                  )}
-              </div>
-              <div className="text-2xl font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  {courseStudents.length}
-              </div>
-              <div className="text-xs font-extrabold text-brand-text truncate">
-                  Élèves inscrits
-              </div>
-              <div className="text-[11px] text-brand-muted truncate mt-0.5">
-                  Apprenants concernés
-              </div>
-          </button>
+          {/* 3. Élèves inscrits (Masqué pour APPRENANT) */}
+          {user?.role !== 'APPRENANT' && (
+            <button
+                type="button"
+                onClick={() => setActiveTab('STUDENTS')}
+                className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden ${
+                    activeTab === 'STUDENTS'
+                        ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
+                        : 'bg-brand-card hover:bg-slate-100/70 dark:hover:bg-slate-800/60 border-brand-border/80 hover:border-emerald-500/40'
+                }`}
+            >
+                <div className="flex items-center justify-between mb-2">
+                    <div className={`p-2 rounded-xl transition-colors ${activeTab === 'STUDENTS' ? 'bg-emerald-500 text-white shadow-xs' : 'bg-brand-surface text-brand-muted group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30'}`}>
+                        <Users className="w-5 h-5" />
+                    </div>
+                    {activeTab === 'STUDENTS' && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-xs uppercase tracking-wider">
+                            Actif
+                        </span>
+                    )}
+                </div>
+                <div className="text-2xl font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    {courseStudents.length}
+                </div>
+                <div className="text-xs font-extrabold text-brand-text truncate">
+                    Élèves inscrits
+                </div>
+                <div className="text-[11px] text-brand-muted truncate mt-0.5">
+                    Apprenants concernés
+                </div>
+            </button>
+          )}
 
-          {/* 4. Professeurs associés */}
+          {/* 4. Mon Professeur / Professeurs associés */}
           <button
               type="button"
               onClick={() => setActiveTab('TEACHERS')}
@@ -844,47 +834,66 @@ const CourseDetails = () => {
                       </span>
                   )}
               </div>
-              <div className="text-2xl font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  {courseTeachers.length}
-              </div>
-              <div className="text-xs font-extrabold text-brand-text truncate">
-                  Professeurs associés
-              </div>
-              <div className="text-[11px] text-brand-muted truncate mt-0.5">
-                  Corps professoral
-              </div>
+              {user?.role === 'APPRENANT' ? (
+                <>
+                  <div className="text-base font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
+                      {courseTeachers.length > 0 ? `${courseTeachers[0].firstName} ${courseTeachers[0].lastName}` : 'Enseignant assigné'}
+                  </div>
+                  <div className="text-xs font-extrabold text-brand-text truncate">
+                      Mon Professeur
+                  </div>
+                  <div className="text-[11px] text-brand-muted truncate mt-0.5 flex items-center gap-1">
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span>Discuter & poser des questions</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      {courseTeachers.length}
+                  </div>
+                  <div className="text-xs font-extrabold text-brand-text truncate">
+                      Professeurs associés
+                  </div>
+                  <div className="text-[11px] text-brand-muted truncate mt-0.5">
+                      Corps professoral
+                  </div>
+                </>
+              )}
           </button>
 
-          {/* 5. Écoles associées */}
-          <button
-              type="button"
-              onClick={() => setActiveTab('SCHOOLS')}
-              className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden ${
-                  activeTab === 'SCHOOLS'
-                      ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
-                      : 'bg-brand-card hover:bg-slate-100/70 dark:hover:bg-slate-800/60 border-brand-border/80 hover:border-emerald-500/40'
-              }`}
-          >
-              <div className="flex items-center justify-between mb-2">
-                  <div className={`p-2 rounded-xl transition-colors ${activeTab === 'SCHOOLS' ? 'bg-emerald-500 text-white shadow-xs' : 'bg-brand-surface text-brand-muted group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30'}`}>
-                      <Building2 className="w-5 h-5" />
-                  </div>
-                  {activeTab === 'SCHOOLS' && (
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-xs uppercase tracking-wider">
-                          Actif
-                      </span>
-                  )}
-              </div>
-              <div className="text-2xl font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  {courseSchools.length}
-              </div>
-              <div className="text-xs font-extrabold text-brand-text truncate">
-                  Écoles associées
-              </div>
-              <div className="text-[11px] text-brand-muted truncate mt-0.5">
-                  Établissements actifs
-              </div>
-          </button>
+          {/* 5. Écoles associées (Masqué pour APPRENANT) */}
+          {user?.role !== 'APPRENANT' && (
+            <button
+                type="button"
+                onClick={() => setActiveTab('SCHOOLS')}
+                className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden ${
+                    activeTab === 'SCHOOLS'
+                        ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
+                        : 'bg-brand-card hover:bg-slate-100/70 dark:hover:bg-slate-800/60 border-brand-border/80 hover:border-emerald-500/40'
+                }`}
+            >
+                <div className="flex items-center justify-between mb-2">
+                    <div className={`p-2 rounded-xl transition-colors ${activeTab === 'SCHOOLS' ? 'bg-emerald-500 text-white shadow-xs' : 'bg-brand-surface text-brand-muted group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30'}`}>
+                        <Building2 className="w-5 h-5" />
+                    </div>
+                    {activeTab === 'SCHOOLS' && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-xs uppercase tracking-wider">
+                            Actif
+                        </span>
+                    )}
+                </div>
+                <div className="text-2xl font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    {courseSchools.length}
+                </div>
+                <div className="text-xs font-extrabold text-brand-text truncate">
+                    Écoles associées
+                </div>
+                <div className="text-[11px] text-brand-muted truncate mt-0.5">
+                    Réseau d'écoles
+                </div>
+            </button>
+          )}
       </div>
 
       {activeTab === 'CONTENT' ? (
@@ -905,7 +914,7 @@ const CourseDetails = () => {
                         Tous ({chapters.length})
                     </button>
                     {availableTerms.map(t => {
-                        const count = chapters.filter(c => c.termId === t.id || c.term?.name === t.name || (t.name === 'Trimestre 1' && !c.termId)).length;
+                        const count = chapters.filter(c => matchesSelectedTerm(c, t.id, availableTerms)).length;
                         return (
                             <button
                                 key={t.id}
@@ -923,7 +932,7 @@ const CourseDetails = () => {
                     })}
                 </div>
                 
-                {canCreateContent && (
+                {canManageChapters && (
                     <Button
                         type="button"
                         onClick={() => setIsChapterModalOpen(true)}
@@ -936,17 +945,32 @@ const CourseDetails = () => {
                 )}
             </div>
 
-            {chapters.length === 0 ? (
-                <div className="text-center py-12 text-brand-text-muted bg-brand-card rounded-2xl border border-brand-border/60">
-                    Aucun chapitre créé pour le moment.
-                </div>
-            ) : (
-                chapters
-                  .filter(chap => {
-                    if (selectedTermFilter === 'ALL') return true;
-                    return chap.termId === selectedTermFilter || chap.term?.name === selectedTermFilter || (selectedTermFilter === 'TRIMESTRE_1' && !chap.termId);
-                  })
-                  .map(chapter => (
+            {(() => {
+                const filteredChapters = chapters.filter(chap => matchesSelectedTerm(chap, selectedTermFilter, availableTerms));
+                if (chapters.length === 0) {
+                    return (
+                        <div className="text-center py-12 text-brand-text-muted bg-brand-card rounded-2xl border border-brand-border/60">
+                            Aucun chapitre créé pour le moment.
+                        </div>
+                    );
+                }
+                if (filteredChapters.length === 0) {
+                    return (
+                        <div className="bg-brand-card rounded-2xl p-12 text-center border border-brand-border/60 space-y-3">
+                            <BookOpen className="w-10 h-10 text-brand-muted mx-auto opacity-40" />
+                            <p className="text-sm font-semibold text-brand-text">Aucun chapitre pour ce trimestre</p>
+                            <p className="text-xs text-brand-muted">Ce cours n'a pas encore de chapitre associé à ce trimestre.</p>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedTermFilter('ALL')}
+                                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md transition cursor-pointer"
+                            >
+                                Afficher tous les chapitres
+                            </button>
+                        </div>
+                    );
+                }
+                return filteredChapters.map(chapter => (
                     <div key={chapter.id} className="bg-brand-card rounded-2xl shadow-sm border border-brand-border/80 overflow-hidden hover:border-emerald-500/50 transition-all">
                         <div className="bg-brand-sidebar p-4 border-b border-brand-border/70 flex flex-wrap justify-between items-center gap-3">
                             <div className="flex items-center gap-3">
@@ -1007,7 +1031,7 @@ const CourseDetails = () => {
                                     </button>
                                 )}
 
-                                {canCreateContent && (
+                                {canManageChapters && (
                                     <div className="flex items-center gap-1 ml-1 pl-2 border-l border-brand-border/50">
                                         <button
                                             onClick={(e) => openEditChapterModal(chapter, e)}
@@ -1142,8 +1166,13 @@ const CourseDetails = () => {
                                     <h4 className="font-semibold text-brand-text">Exercices</h4>
                                     {canCreateExercise && (
                                         <button
-                                            onClick={() => { setSelectedChapterId(chapter.id); setIsExerciseEditorOpen(true); }}
-                                            className="text-xs font-bold text-brand-accent hover:underline flex items-center gap-1"
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedChapterId(chapter.id);
+                                                setEditingExerciseId(null);
+                                                setPageViewMode('CREATE_EXERCISE');
+                                            }}
+                                            className="text-xs font-bold text-brand-accent hover:underline flex items-center gap-1 cursor-pointer"
                                         >
                                             <Plus className="w-3.5 h-3.5" /> Créer un exercice
                                         </button>
@@ -1157,39 +1186,54 @@ const CourseDetails = () => {
                                 {chapter.exercises?.map(exercise => {
                                     const submission = exercise.submissions?.[0];
                                     return (
-                                        <div key={exercise.id} className="flex items-center justify-between p-3 bg-brand-card rounded-lg border border-brand-border/50 hover:border-brand-accent/50 transition">
+                                        <div key={exercise.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-brand-card rounded-xl border border-brand-border/60 hover:border-emerald-500/50 transition-all shadow-xs">
                                             <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-lg ${submission ? 'bg-emerald-500/10 text-emerald-500' : 'bg-brand-accent/10 text-brand-accent'}`}>
+                                                <div className={`p-2.5 rounded-xl ${submission ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' : 'bg-brand-accent/10 text-brand-accent border border-brand-accent/20'}`}>
                                                     {submission ? <CheckCircle className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                                                 </div>
                                                 <div>
-                                                    <h5 className="font-semibold text-brand-text text-sm">{exercise.title}</h5>
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <h5 className="font-bold text-brand-text text-sm">{exercise.title}</h5>
+                                                        {submission && (
+                                                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                                                                Déjà fait
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <div className="flex items-center gap-2 text-xs text-brand-text-muted mt-0.5">
-                                                        <span className="font-medium">{exercise.type}</span>
-                                                        <span>• {exercise._count.questions} question(s)</span>
-                                                        {exercise.isGraded && <span className="text-yellow-500 font-medium">• Noté</span>}
+                                                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">{exercise.type}</span>
+                                                        <span>• {exercise._count?.questions || 0} question(s)</span>
+                                                        {exercise.isGraded && <span className="text-amber-500 font-bold">• Noté</span>}
                                                     </div>
                                                 </div>
                                             </div>
                                             
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-3 self-end sm:self-center">
                                                 {submission && submission.score !== undefined && submission.score !== null && (
-                                                    <div className="text-xs font-bold bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded">
+                                                    <div className="text-xs font-black bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
                                                         {submission.score.toFixed(1)} / {submission.maxScore}
                                                     </div>
                                                 )}
                                                 
-                                                {user?.role === 'APPRENANT' ? (
+                                                {user?.role === 'APPRENANT' || user?.role === 'PARENT' ? (
                                                     <Button
                                                         variant="primary"
                                                         size="sm"
-                                                        onClick={() => setTakingExerciseId(exercise.id)}
-                                                        leftIcon={<PlayCircle className="w-4 h-4" />}
+                                                        onClick={() => navigate(`/exercises/${exercise.id}`, { state: { courseId: id } })}
+                                                        leftIcon={submission ? <CheckCircle className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
+                                                        className="!bg-emerald-600 hover:!bg-emerald-700 font-bold shadow-xs"
                                                     >
-                                                        {submission ? 'Voir Résultat' : 'Commencer'}
+                                                        {submission ? 'Voir la correction / Refaire' : 'Commencer l\'exercice'}
                                                     </Button>
                                                 ) : canCreateExercise ? (
                                                     <div className="flex items-center gap-1.5">
+                                                        <button 
+                                                            onClick={() => navigate(`/exercises/${exercise.id}`, { state: { courseId: id } })}
+                                                            className="p-1.5 text-brand-text-muted hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition cursor-pointer"
+                                                            title="Aperçu / Tester l'exercice"
+                                                        >
+                                                            <PlayCircle className="w-4 h-4" />
+                                                        </button>
                                                         <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -1218,8 +1262,8 @@ const CourseDetails = () => {
                             </div>
                         </div>
                     </div>
-                ))
-            )}
+                ));
+            })()}
         </div>
       ) : activeTab === 'ASSIGNMENTS' ? (
         <div className="space-y-6">
@@ -1251,15 +1295,16 @@ const CourseDetails = () => {
                 </div>
 
                 {/* Filters & Tabs */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-brand-border/40">
-                    <div className="flex items-center gap-2 overflow-x-auto">
+                <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-brand-border/40">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-black text-brand-text-muted uppercase tracking-wider px-1">Type :</span>
                         <button
                             type="button"
                             onClick={() => setSelectedEvalFilter('ALL')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                                 selectedEvalFilter === 'ALL'
                                     ? 'bg-brand-accent text-white shadow-sm'
-                                    : 'bg-brand-sidebar text-brand-text-muted hover:text-brand-text'
+                                    : 'bg-brand-sidebar text-brand-text-muted hover:text-brand-text border border-brand-border/50'
                             }`}
                         >
                             Toutes ({assignments.length})
@@ -1267,10 +1312,10 @@ const CourseDetails = () => {
                         <button
                             type="button"
                             onClick={() => setSelectedEvalFilter('COMPOSITION')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                                 selectedEvalFilter === 'COMPOSITION'
                                     ? 'bg-indigo-600 text-white shadow-sm'
-                                    : 'bg-brand-sidebar text-brand-text-muted hover:text-brand-text'
+                                    : 'bg-brand-sidebar text-brand-text-muted hover:text-brand-text border border-brand-border/50'
                             }`}
                         >
                             <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
@@ -1279,10 +1324,10 @@ const CourseDetails = () => {
                         <button
                             type="button"
                             onClick={() => setSelectedEvalFilter('DEVOIR')}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                                 selectedEvalFilter === 'DEVOIR'
                                     ? 'bg-amber-600 text-white shadow-sm'
-                                    : 'bg-brand-sidebar text-brand-text-muted hover:text-brand-text'
+                                    : 'bg-brand-sidebar text-brand-text-muted hover:text-brand-text border border-brand-border/50'
                             }`}
                         >
                             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -1290,19 +1335,37 @@ const CourseDetails = () => {
                         </button>
                     </div>
 
-                    {/* Trimestre Filter */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-brand-text-muted">Trimestre :</span>
-                        <select
-                            value={selectedEvalTerm}
-                            onChange={(e) => setSelectedEvalTerm(e.target.value)}
-                            className="p-1.5 bg-brand-sidebar border border-brand-border/60 rounded-lg text-xs font-bold text-brand-text focus:outline-none cursor-pointer"
+                    {/* Trimestre Filter Pills */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-black text-brand-text-muted uppercase tracking-wider px-1">Trimestre :</span>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedEvalTerm('ALL')}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                selectedEvalTerm === 'ALL'
+                                    ? 'bg-emerald-500 text-white shadow-md'
+                                    : 'bg-brand-sidebar text-brand-text-muted hover:text-brand-text border border-brand-border/50'
+                            }`}
                         >
-                            <option value="ALL">Tous les trimestres</option>
-                            {availableTerms.map(t => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
-                        </select>
+                            Tous ({assignments.length})
+                        </button>
+                        {availableTerms.map(t => {
+                            const count = assignments.filter(a => matchesSelectedTerm(a, t.id, availableTerms)).length;
+                            return (
+                                <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => setSelectedEvalTerm(t.id)}
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                        selectedEvalTerm === t.id
+                                            ? 'bg-emerald-500 text-white shadow-md'
+                                            : 'bg-brand-sidebar text-brand-text-muted hover:text-brand-text border border-brand-border/50'
+                                    }`}
+                                >
+                                    {t.name} ({count})
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -1314,8 +1377,7 @@ const CourseDetails = () => {
                         selectedEvalFilter === 'ALL' ? true :
                         selectedEvalFilter === 'COMPOSITION' ? (a.type.startsWith('COMPOSITION') || a.type.startsWith('COMPO')) :
                         (!a.type.startsWith('COMPOSITION') && !a.type.startsWith('COMPO'));
-                    const matchesTerm = 
-                        selectedEvalTerm === 'ALL' ? true : (a.termId === selectedEvalTerm);
+                    const matchesTerm = matchesSelectedTerm(a, selectedEvalTerm, availableTerms);
                     return matchesType && matchesTerm;
                 });
 
@@ -1842,10 +1904,14 @@ const CourseDetails = () => {
             <div>
               <h2 className="text-xl font-bold text-brand-text flex items-center gap-2.5">
                 <GraduationCap className="w-6 h-6 text-brand-accent" />
-                Corps professoral associé ({courseTeachers.length})
+                {user?.role === 'APPRENANT' 
+                  ? (courseTeachers.length > 1 ? `Mes Professeurs (${courseTeachers.length})` : 'Mon Professeur') 
+                  : `Corps professoral associé (${courseTeachers.length})`}
               </h2>
               <p className="text-xs text-brand-text-muted mt-1">
-                Professeurs affectés à l'enseignement de cette matière pour ce niveau.
+                {user?.role === 'APPRENANT'
+                  ? "Retrouvez votre professeur pour ce cours et contactez-le directement par messagerie."
+                  : "Professeurs affectés à l'enseignement de cette matière pour ce niveau."}
               </p>
             </div>
           </div>
@@ -1853,58 +1919,76 @@ const CourseDetails = () => {
           {courseTeachers.length === 0 ? (
             <div className="p-12 text-center text-brand-muted bg-brand-card rounded-2xl border border-brand-border/60 flex flex-col items-center gap-3">
               <GraduationCap className="w-12 h-12 text-brand-border opacity-50" />
-              <p className="text-base font-semibold text-brand-text">Aucun professeur affecté</p>
-              <p className="text-xs text-brand-muted">Assignez des enseignants via la gestion des classes.</p>
+              <p className="text-base font-semibold text-brand-text">
+                {user?.role === 'APPRENANT' ? "Aucun professeur affecté pour le moment" : "Aucun professeur affecté"}
+              </p>
+              <p className="text-xs text-brand-muted">
+                {user?.role === 'APPRENANT' ? "L'administration affectera un enseignant prochainement." : "Assignez des enseignants via la gestion des classes."}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {courseTeachers.map((teacher: any) => (
-                <div key={teacher.id} className="bg-brand-card p-5 rounded-2xl border border-brand-border/70 hover:border-brand-accent/50 transition-all space-y-4 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 font-black text-base flex items-center justify-center border border-emerald-500/30 shrink-0">
-                      {teacher.firstName?.charAt(0)}{teacher.lastName?.charAt(0)}
+                <div key={teacher.id} className="bg-brand-card p-5 rounded-2xl border border-brand-border/70 hover:border-emerald-500/50 transition-all space-y-4 shadow-sm flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 font-black text-base flex items-center justify-center border border-emerald-500/30 shrink-0 shadow-xs">
+                        {teacher.firstName?.charAt(0)}{teacher.lastName?.charAt(0)}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-base text-brand-text">
+                          {teacher.firstName} {teacher.lastName}
+                        </h4>
+                        <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block mt-0.5">
+                          {course?.subject?.name ? `Professeur de ${course.subject.name}` : 'Enseignant titulaire'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-base text-brand-text">
-                        {teacher.firstName} {teacher.lastName}
-                      </h4>
-                      <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block mt-0.5">
-                        Enseignant titulaire
-                      </span>
+
+                    <div className="space-y-1.5 text-xs text-brand-text-muted pt-2 border-t border-brand-border/40">
+                      {teacher.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-3.5 h-3.5 text-brand-muted" />
+                          <a href={`mailto:${teacher.email}`} className="hover:text-brand-accent truncate">{teacher.email}</a>
+                        </div>
+                      )}
+                      {teacher.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-3.5 h-3.5 text-brand-muted" />
+                          <a href={`tel:${teacher.phone}`} className="hover:text-emerald-400">{teacher.phone}</a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Classes & Schools */}
+                    <div className="pt-2 border-t border-brand-border/40 space-y-2 text-xs">
+                      <div>
+                        <span className="text-[11px] font-bold text-brand-muted block mb-1">Classe(s) assignée(s) :</span>
+                        <div className="flex flex-wrap gap-1">
+                          {teacher.classes && teacher.classes.length > 0 ? (
+                            teacher.classes.map((cls: string, idx: number) => (
+                              <span key={idx} className="bg-brand-accent/10 text-brand-accent border border-brand-accent/20 px-2 py-0.5 rounded text-[11px] font-bold">
+                                {cls}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-brand-muted italic text-[11px]">Toutes les classes du niveau</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 text-xs text-brand-text-muted pt-2 border-t border-brand-border/40">
-                    {teacher.email && (
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-3.5 h-3.5 text-brand-muted" />
-                        <a href={`mailto:${teacher.email}`} className="hover:text-brand-accent truncate">{teacher.email}</a>
-                      </div>
-                    )}
-                    {teacher.phone && (
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-brand-muted" />
-                        <a href={`tel:${teacher.phone}`} className="hover:text-emerald-400">{teacher.phone}</a>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Classes & Schools */}
-                  <div className="pt-3 border-t border-brand-border/40 space-y-2 text-xs">
-                    <div>
-                      <span className="text-[11px] font-bold text-brand-muted block mb-1">Classe(s) assignée(s) :</span>
-                      <div className="flex flex-wrap gap-1">
-                        {teacher.classes && teacher.classes.length > 0 ? (
-                          teacher.classes.map((cls: string, idx: number) => (
-                            <span key={idx} className="bg-brand-accent/10 text-brand-accent border border-brand-accent/20 px-2 py-0.5 rounded text-[11px] font-bold">
-                              {cls}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-brand-muted italic text-[11px]">Toutes les classes du niveau</span>
-                        )}
-                      </div>
-                    </div>
+                  {/* Direct Action: Chat with teacher */}
+                  <div className="pt-3 border-t border-brand-border/40">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/chat?userId=${teacher.id}`)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>Discuter avec mon professeur</span>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -1978,82 +2062,7 @@ const CourseDetails = () => {
           )}
         </div>
       ) : (
-        <div className="space-y-8">
-            {/* Conduct / Participation Section */}
-            <div className="bg-brand-card p-6 rounded-xl shadow-sm border border-brand-border/50 overflow-x-auto">
-                <h2 className="text-xl font-bold text-brand-text mb-4 flex items-center gap-2">
-                    <Award className="w-5 h-5 text-brand-accent" />
-                    Note de Conduite / Participation
-                </h2>
-                
-                {conductStudents.length === 0 ? (
-                    <p className="text-brand-text-muted italic">Aucun élève inscrit.</p>
-                ) : (
-                    <table className="w-full border-collapse min-w-[600px]">
-                        <thead>
-                            <tr className="bg-brand-sidebar">
-                                <th className="p-3 text-left border border-brand-border/30 text-sm font-semibold text-brand-text">Élève</th>
-                                <th className="p-3 text-center border border-brand-border/30 text-sm font-semibold text-brand-text w-32">Note /20</th>
-                                <th className="p-3 text-left border border-brand-border/30 text-sm font-semibold text-brand-text">Commentaire (Optionnel)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {conductStudents.map((student: any) => {
-                                const grade = getConductGrade(student.id);
-                                const isSaving = savingConduct === student.id;
-                                const isSuccess = saveConductSuccess === student.id;
-                                
-                                return (
-                                    <tr key={student.id} className="hover:bg-brand-sidebar/50 transition">
-                                        <td className="p-3 border border-brand-border/30 text-sm font-medium text-brand-text">
-                                            {student.lastName} {student.firstName}
-                                        </td>
-                                        <td className="p-2 border border-brand-border/30 text-center relative">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max="20"
-                                                    step="0.5"
-                                                    className={`w-20 p-2 text-center border rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text ${isSuccess ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-brand-border/50'}`}
-                                                    defaultValue={grade ? grade.value : ''}
-                                                    onBlur={(e) => {
-                                                        const val = e.target.value;
-                                                        const currentVal = grade ? grade.value : undefined;
-                                                        if (val !== '' && parseFloat(val) !== currentVal) {
-                                                            handleConductChange(student.id, val, grade?.comment);
-                                                        }
-                                                    }}
-                                                    disabled={!isTeacher}
-                                                />
-                                                {isSaving && <span className="w-3 h-3 border-2 border-brand-accent border-t-transparent rounded-full animate-spin"></span>}
-                                                {isSuccess && <div className="text-emerald-500">✓</div>}
-                                            </div>
-                                        </td>
-                                        <td className="p-2 border border-brand-border/30">
-                                            <input
-                                                type="text"
-                                                className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text text-sm"
-                                                placeholder="Ajouter une observation..."
-                                                defaultValue={grade ? grade.comment || '' : ''}
-                                                onBlur={(e) => {
-                                                    const comment = e.target.value;
-                                                    const currentComment = grade ? grade.comment : '';
-                                                    if (comment !== currentComment && grade && grade.value !== undefined) {
-                                                        handleConductChange(student.id, grade.value.toString(), comment);
-                                                    }
-                                                }}
-                                                disabled={!isTeacher || !grade}
-                                            />
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                )}
-            </div>
-
+        <div className="space-y-6">
             <Gradebook courseId={id!} />
         </div>
       )}
@@ -2415,42 +2424,7 @@ const CourseDetails = () => {
         </div>
       </Modal>
 
-      {/* Exercise Editor Modal */}
-      {isExerciseEditorOpen && selectedChapterId && (
-        <ExerciseEditor
-          chapterId={selectedChapterId}
-          isOpen={isExerciseEditorOpen}
-          onClose={() => { setIsExerciseEditorOpen(false); setSelectedChapterId(null); }}
-          onSuccess={fetchCourseDetails}
-        />
-      )}
 
-      {/* Exercise Take Modal */}
-      {takingExerciseId && (
-        <Modal
-          isOpen={!!takingExerciseId}
-          onClose={() => setTakingExerciseId(null)}
-          title="Faire l'exercice"
-          size="lg"
-        >
-          <ExerciseTake 
-            exerciseId={takingExerciseId} 
-            onClose={() => { setTakingExerciseId(null); fetchCourseDetails(); }}
-          />
-        </Modal>
-      )}
-
-      {/* Create Evaluation Modal */}
-      <CreateEvaluationModal
-        isOpen={isCreateEvalModalOpen}
-        onClose={() => setIsCreateEvalModalOpen(false)}
-        courseId={id!}
-        courseSubject={course?.subject?.name}
-        courseNiveau={(course as any)?.niveau?.name || (course as any)?.niveau?.nom || course?.class?.name}
-        defaultCoefficient={(course as any)?.coefficient || 1}
-        availableTerms={availableTerms}
-        onSuccess={fetchCourseDetails}
-      />
 
       {/* Delete Confirmation Modals */}
       <ConfirmationModal

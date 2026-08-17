@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { DataTable } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
-import { Plus, Eye, Edit2, Trash2, LayoutGrid, List, FileText } from 'lucide-react';
+import { Plus, Eye, Edit2, Trash2, LayoutGrid, List, FileText, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -35,6 +35,33 @@ export default function AssignmentsPage() {
   const columns = [
     { key: 'title', header: 'Titre' },
     { 
+      key: 'type',
+      header: 'Format',
+      render: (row: any) => {
+        const hasQuestions = (row.questions && row.questions.length > 0) || (row._count?.questions && row._count.questions > 0);
+        const hasFiles = (row.attachments && row.attachments.length > 0);
+        if (hasQuestions && hasFiles) {
+          return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+              <Sparkles className="w-3 h-3" /> Mixte
+            </span>
+          );
+        }
+        if (hasQuestions) {
+          return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <Sparkles className="w-3 h-3" /> QCM en ligne
+            </span>
+          );
+        }
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+            <FileText className="w-3 h-3" /> Document
+          </span>
+        );
+      }
+    },
+    { 
       key: 'niveau',
       header: 'Niveau', 
       render: (row: any) => row.niveau?.nom || row.niveau?.name || 'N/A' 
@@ -42,10 +69,10 @@ export default function AssignmentsPage() {
     { 
       key: 'dueDate',
       header: 'Date limite', 
-      render: (row: any) => new Date(row.dueDate).toLocaleDateString() 
+      render: (row: any) => new Date(row.dueDate).toLocaleDateString('fr-FR') 
     },
-    { key: 'points', header: 'Points' },
-    { key: 'coefficient', header: 'Coefficient' },
+    { key: 'points', header: 'Points', render: (row: any) => `${row.points || 20} pts` },
+    { key: 'coefficient', header: 'Coefficient', render: (row: any) => `Coef ${row.coefficient || 1}` },
     {
       key: 'actions',
       header: 'Action',
@@ -149,37 +176,55 @@ export default function AssignmentsPage() {
           {loading && (
             <div className="col-span-full text-center py-10 text-brand-text-muted">Chargement...</div>
           )}
-          {!loading && filteredAssignments.map((assignment: any) => (
-            <div key={assignment.id} className="bg-brand-card p-6 rounded-xl border border-brand-border/50 hover:shadow-lg transition-all duration-300 hover:border-brand-accent/50 group relative">
-                <Link to={`/assignments/${assignment.id}`} className="block h-full">
-                <div className="flex flex-col h-full">
+          {!loading && filteredAssignments.map((assignment: any) => {
+            const hasQuestions = (assignment.questions && assignment.questions.length > 0) || (assignment._count?.questions && assignment._count.questions > 0);
+            const hasFiles = (assignment.attachments && assignment.attachments.length > 0);
+
+            return (
+              <div key={assignment.id} className="bg-brand-card p-6 rounded-xl border border-brand-border/50 hover:shadow-lg transition-all duration-300 hover:border-brand-accent/50 group relative">
+                <Link to={isEnseignant ? `/enseignant/assignments/${assignment.id}` : `/assignments/${assignment.id}`} className="block h-full">
+                  <div className="flex flex-col h-full">
                     <div className="flex justify-between items-start mb-3">
-                        <div className="bg-brand-accent/10 p-2 rounded-lg text-brand-accent">
-                            <FileText className="w-6 h-6" />
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="text-xs font-bold bg-brand-sidebar border border-brand-border/50 text-brand-text px-2 py-1 rounded">
-                              Coef: {assignment.coefficient}
+                      <div className="bg-brand-accent/10 p-2 rounded-lg text-brand-accent">
+                        {hasQuestions ? <Sparkles className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {hasQuestions && hasFiles ? (
+                          <span className="text-[11px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded">
+                            Mixte
                           </span>
-                        </div>
+                        ) : hasQuestions ? (
+                          <span className="text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded">
+                            QCM en ligne
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded">
+                            Document
+                          </span>
+                        )}
+                        <span className="text-xs font-bold bg-brand-sidebar border border-brand-border/50 text-brand-text px-2 py-0.5 rounded">
+                          Coef: {assignment.coefficient || 1}
+                        </span>
+                      </div>
                     </div>
                     <h3 className="font-semibold text-brand-text mb-1 line-clamp-1 group-hover:text-brand-accent transition-colors">{assignment.title}</h3>
-                    <p className="text-sm font-medium text-brand-accent/80 mb-4">{assignment.niveau?.name || 'N/A'}</p>
+                    <p className="text-sm font-medium text-brand-accent/80 mb-4">{assignment.niveau?.nom || assignment.niveau?.name || 'Niveau Global'}</p>
                     
                     <div className="mt-auto pt-4 border-t border-brand-border/50 space-y-3">
-                        <div className="flex items-center justify-between text-xs font-medium">
-                            <span className="text-brand-text-muted">Limite: {new Date(assignment.dueDate).toLocaleDateString()}</span>
-                            <span className="bg-brand-accent/10 text-brand-accent border border-brand-accent/20 px-2 py-0.5 rounded-full font-bold">{assignment.points} pts</span>
-                        </div>
-                        <Button variant="primary" size="sm" className="w-full flex items-center justify-center gap-1">
-                            <Eye className="w-4 h-4" />
-                            {isEnseignant ? 'Voir les détails' : 'Faire le devoir'}
-                        </Button>
+                      <div className="flex items-center justify-between text-xs font-medium">
+                        <span className="text-brand-text-muted">Limite: {new Date(assignment.dueDate).toLocaleDateString('fr-FR')}</span>
+                        <span className="bg-brand-accent/10 text-brand-accent border border-brand-accent/20 px-2 py-0.5 rounded-full font-bold">{assignment.points || 20} pts</span>
+                      </div>
+                      <Button variant="primary" size="sm" className="w-full flex items-center justify-center gap-1">
+                        <Eye className="w-4 h-4" />
+                        {isEnseignant ? 'Voir les détails' : 'Faire le devoir'}
+                      </Button>
                     </div>
-                </div>
+                  </div>
                 </Link>
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

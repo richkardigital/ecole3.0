@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -22,9 +23,9 @@ const NavItem = ({ to, icon: Icon, children, isActive, badge }: {
     to={to}
     className="relative flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-[14px] font-bold tracking-tight transition-all duration-200 group select-none"
     style={isActive ? {
-      background: 'rgba(16, 185, 129, 0.12)',
-      border: '1px solid rgba(16, 185, 129, 0.3)',
-      color: '#065f46',
+      background: 'rgba(24, 156, 216, 0.1)',
+      border: '1px solid rgba(24, 156, 216, 0.28)',
+      color: '#1280b2',
       fontWeight: 800,
     } : {
       background: 'transparent',
@@ -46,13 +47,13 @@ const NavItem = ({ to, icon: Icon, children, isActive, badge }: {
   >
     {isActive && (
       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-r-full"
-        style={{ background: '#10B981', boxShadow: '0 0 10px rgba(16,185,129,0.6)' }} />
+        style={{ background: '#189CD8', boxShadow: '0 0 10px rgba(24,156,216,0.6)' }} />
     )}
-    <Icon className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isActive ? 'text-emerald-700 stroke-[2.5]' : 'text-slate-500 group-hover:scale-110'}`} />
+    <Icon className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isActive ? 'text-[#189CD8] stroke-[2.5]' : 'text-slate-500 group-hover:scale-110'}`} />
     <span className="flex-1 truncate">{children}</span>
     {badge !== undefined && badge > 0 && (
       <span className="ml-auto px-2 py-0.5 text-[11px] font-black rounded-full text-white shrink-0"
-        style={{ background: '#10B981' }}>
+        style={{ background: '#189CD8' }}>
         {badge}
       </span>
     )}
@@ -72,9 +73,9 @@ const NavSection = ({ title, children }: { title: string; children: React.ReactN
 
 const ROLE_CONFIG: Record<string, { label: string; prefix: string; from: string; to: string; textColor: string }> = {
   SUPER_ADMIN: { label: 'Super Admin', prefix: '/admin', from: '#6366F1', to: '#4F46E5', textColor: 'text-indigo-700' },
-  DIRECTEUR:   { label: 'Directeur',   prefix: '/directeur', from: '#0EA5E9', to: '#0284C7', textColor: 'text-sky-700' },
+  DIRECTEUR:   { label: 'Directeur',   prefix: '/directeur', from: '#189CD8', to: '#1280B2', textColor: 'text-[#1280B2]' },
   EDUCATEUR:   { label: 'Éducateur',   prefix: '/educateur', from: '#F59E0B', to: '#D97706', textColor: 'text-amber-700' },
-  ENSEIGNANT:  { label: 'Enseignant',  prefix: '/enseignant', from: '#10B981', to: '#059669', textColor: 'text-emerald-700' },
+  ENSEIGNANT:  { label: 'Enseignant',  prefix: '/enseignant', from: '#4D3E90', to: '#3C2F73', textColor: 'text-[#4D3E90]' },
   APPRENANT:   { label: 'Élève',       prefix: '', from: '#8B5CF6', to: '#7C3AED', textColor: 'text-purple-700' },
   PARENT:      { label: 'Parent',      prefix: '/parent', from: '#EC4899', to: '#DB2777', textColor: 'text-pink-700' },
 };
@@ -91,7 +92,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   if (!user) return null;
 
-  const roleConf = ROLE_CONFIG[user.role] ?? { label: user.role, prefix: '', from: '#10B981', to: '#059669', textColor: 'text-emerald-700' };
+  const roleConf = ROLE_CONFIG[user.role] ?? { label: user.role, prefix: '', from: '#189CD8', to: '#1280B2', textColor: 'text-[#1280B2]' };
   const p = location.pathname;
 
   return (
@@ -127,22 +128,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         }}
       >
         {/* ── HEADER ── */}
-        <div className="flex items-center justify-between px-6 py-5 shrink-0"
+        <div className="flex items-center justify-between px-5 py-5 shrink-0"
           style={{ borderBottom: '1px solid #F1F5F9' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-white text-base shadow-md"
-              style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
-              É
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-black text-slate-900 text-lg tracking-tight">ÉCOLE 3.0</span>
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase text-emerald-800"
-                  style={{ background: '#D1FAE5' }}>SEEEC</span>
-              </div>
-              <p className="text-[11px] font-bold text-slate-500">Plateforme Éducative</p>
-            </div>
-          </div>
+          <BrandLogo size="md" to={roleConf.prefix ? `${roleConf.prefix}/dashboard` : '/dashboard'} subtitle="SEEEC" />
 
           <button
             onClick={onClose}
@@ -262,7 +250,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               </NavSection>
               <NavSection title="Pédagogie">
                 <NavItem to="/enseignant/courses" icon={BookOpen} isActive={p.startsWith('/enseignant/courses')}>Mes Cours</NavItem>
-                <NavItem to="/enseignant/assignments" icon={PenTool} isActive={p === '/enseignant/assignments'}>Devoirs de niveau</NavItem>
                 <NavItem to="/enseignant/library" icon={FolderOpen} isActive={p === '/enseignant/library'}>Librairie 3.0</NavItem>
               </NavSection>
               <NavSection title="Notes">

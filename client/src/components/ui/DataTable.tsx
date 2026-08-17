@@ -140,7 +140,7 @@ export function DataTable<T extends Record<string, any>>({
                 paginated.map((item, idx) => (
                   <tr
                     key={item.id || idx}
-                    className={`transition-all duration-200 ${onRowClick ? 'cursor-pointer hover:bg-white/[0.03] hover:shadow-[inset_3px_0_0_#22c55e]' : ''}`}
+                    className={`transition-all duration-200 ${onRowClick ? 'cursor-pointer hover:bg-white/[0.03] hover:shadow-[inset_3px_0_0_#189cd8]' : ''}`}
                     onClick={() => onRowClick?.(item)}
                   >
                     {columns.map(col => (
