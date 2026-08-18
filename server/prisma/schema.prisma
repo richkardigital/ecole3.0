@@ -424,6 +424,7 @@ model Term {
   assignments     Assignment[]
   quizzes         Quiz[]
   chapters        Chapter[]
+  absences        Absence[]
 
   @@index([status])
   @@index([academicYearId])
@@ -564,6 +565,7 @@ model Course {
   quizzes     Quiz[]
   grades      Grade[]
   annualAverages AnnualAverage[] @relation("CourseAnnualAverages")
+  absences    Absence[]
 
   @@unique([subjectId, niveauId])
   @@index([niveauId])
@@ -1026,8 +1028,15 @@ model ForumComment {
 model Absence {
   id        String   @id @default(uuid())
   date      DateTime
+  hours     Float    @default(1)
   reason    String?
   justified Boolean  @default(false)
+
+  courseId  String?
+  course    Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  termId    String?
+  term      Term?    @relation(fields: [termId], references: [id], onDelete: SetNull)
 
   studentId String
   student   User @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -1036,6 +1045,8 @@ model Absence {
 
   @@index([studentId])
   @@index([date])
+  @@index([courseId])
+  @@index([termId])
 }
 
 // =============================================

@@ -167,13 +167,13 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
         if ((role as string) === 'SUPER_ADMIN') {
             contacts = await prisma.user.findMany({
                 where: { id: { not: userId } },
-                select: { id: true, firstName: true, lastName: true, role: true, isOnline: true }
+                select: { id: true, firstName: true, lastName: true, role: true, isOnline: true, avatarUrl: true, phone: true }
             });
         }
         else if ((role as string) === 'DIRECTEUR' || (role as string) === 'EDUCATEUR') {
             contacts = await prisma.user.findMany({
                 where: { id: { not: userId }, schoolId: req.user?.schoolId },
-                select: { id: true, firstName: true, lastName: true, role: true, isOnline: true }
+                select: { id: true, firstName: true, lastName: true, role: true, isOnline: true, avatarUrl: true, phone: true }
             });
         }
         // If Teacher, get students in their classes AND other teachers
@@ -186,7 +186,7 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
                              enrollments: {
                                  include: { 
                                      student: {
-                                         select: { id: true, firstName: true, lastName: true, role: true, isOnline: true }
+                                         select: { id: true, firstName: true, lastName: true, role: true, isOnline: true, avatarUrl: true, phone: true }
                                      } 
                                  }
                              }
@@ -209,11 +209,11 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
              // Aussi récupérer les autres enseignants et les directeurs de la même école
              const colleagues = await prisma.user.findMany({
                  where: {
-                     role: { in: ['ENSEIGNANT', 'DIRECTEUR'] },
+                     role: { in: ['ENSEIGNANT', 'DIRECTEUR', 'EDUCATEUR'] },
                      id: { not: userId },
                      schoolId: req.user?.schoolId || undefined
                  },
-                 select: { id: true, firstName: true, lastName: true, role: true, isOnline: true }
+                 select: { id: true, firstName: true, lastName: true, role: true, isOnline: true, avatarUrl: true, phone: true }
              });
              
              colleagues.forEach(c => studentMap.set(c.id, c));
@@ -229,7 +229,7 @@ export const getContacts = async (req: AuthRequest, res: Response) => {
                              teacherClasses: {
                                  include: { 
                                      teacher: {
-                                         select: { id: true, firstName: true, lastName: true, role: true, isOnline: true }
+                                         select: { id: true, firstName: true, lastName: true, role: true, isOnline: true, avatarUrl: true, phone: true }
                                      } 
                                  }
                              }

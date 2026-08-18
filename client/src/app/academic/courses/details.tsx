@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api, { getFileUrl } from '@/lib/api';
+import { getSubjectIllustration } from '@/lib/subjectIllustrations';
 import { useAuth } from '@/context/AuthContext';
 import { useForm } from 'react-hook-form';
 import { 
@@ -68,7 +69,7 @@ interface ExerciseModel {
 interface CourseModel {
     id: string;
     class: { name: string; school?: { name: string } };
-    subject: { name: string };
+    subject: { id?: string; name: string; code?: string; imageUrl?: string };
     niveau?: { id: string; name?: string; nom?: string };
     academicYear?: { id: string; name: string };
     teacher: { firstName: string; lastName: string };
@@ -645,76 +646,113 @@ const CourseDetails = () => {
     );
   }
 
-  const backPath = user?.role === 'SUPER_ADMIN' ? '/admin/courses' : user?.role === 'DIRECTEUR' ? '/directeur/courses' : user?.role === 'ENSEIGNANT' ? '/enseignant/courses' : '/courses';
+  const backPath = user?.role === 'SUPER_ADMIN' ? '/admin/courses' : user?.role === 'DIRECTEUR' ? '/directeur/courses' : user?.role === 'ENSEIGNANT' ? '/enseignant/courses' : user?.role === 'EDUCATEUR' ? '/educateur/courses' : '/courses';
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to={backPath} className="p-2 text-brand-muted hover:text-brand-text hover:bg-brand-surface rounded-lg transition-colors cursor-pointer">
-            <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <h2 className="text-xl font-bold text-brand-text">Détails du Cours</h2>
-      </div>
+      {/* ── COURSE BANNER WITH SUBJECT BACKGROUND ILLUSTRATION ── */}
+      <div className="bg-brand-card border border-brand-border rounded-3xl overflow-hidden shadow-lg relative group">
+        <div className="min-h-56 sm:min-h-64 relative overflow-hidden bg-slate-950 flex flex-col justify-between p-6 sm:p-8">
+          {/* Background image of the subject */}
+          <img 
+            src={getSubjectIllustration(course.subject?.name, course.subject?.imageUrl)} 
+            alt={course.subject?.name || "Cours"}
+            className="absolute inset-0 w-full h-full object-cover opacity-75 group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+          />
+          {/* Deep gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/65 to-black/35 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/50 to-transparent pointer-events-none" />
 
-      <div className="bg-brand-card p-6 rounded-2xl shadow-sm border border-brand-border/80 overflow-hidden">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-black text-brand-text flex items-center gap-3 truncate">
-                  <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs">
-                    <Book className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  </div>
-                  <span className="truncate">{course.subject?.name}</span>
-                </h1>
-                <div className="flex flex-wrap items-center gap-2.5 mt-3">
-                  <span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-lg text-xs font-extrabold shadow-xs">
-                    Niveau : {(course as any).niveau?.name || (course as any).niveau?.nom || (course as any).niveauName || course.class?.name || 'Global'}
-                  </span>
-                  <span className="bg-brand-surface text-brand-text border border-brand-border/80 px-3 py-1 rounded-lg text-xs font-bold shadow-xs">
-                    Année Académique : {(course as any).academicYear?.name || 'Active'}
-                  </span>
-                  <span className="bg-brand-surface text-brand-text border border-brand-border/80 px-3 py-1 rounded-lg text-xs font-extrabold shadow-xs">
-                    Coefficient : {(course as any).coefficient || 1}
-                  </span>
-                </div>
+          {/* Top Row: Back button, Badges & Actions */}
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Link 
+                to={backPath} 
+                className="px-3 py-1.5 bg-black/50 hover:bg-black/75 text-white/90 hover:text-white rounded-xl backdrop-blur-md border border-white/15 transition-all shadow-sm flex items-center gap-2 text-xs font-bold"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Retour</span>
+              </Link>
+              <span className="bg-emerald-500/25 text-emerald-300 text-xs font-black px-3 py-1.5 rounded-xl border border-emerald-500/40 backdrop-blur-md flex items-center gap-1.5 shadow-sm">
+                <GraduationCap className="w-4 h-4 text-emerald-400" />
+                {(course as any).niveau?.name || (course as any).niveau?.nom || (course as any).niveauName || course.class?.name || 'Niveau Global'}
+              </span>
+              <span className="bg-black/50 text-white/90 text-xs font-bold px-3 py-1.5 rounded-xl border border-white/15 backdrop-blur-md flex items-center gap-1.5 shadow-sm">
+                <Calendar className="w-3.5 h-3.5 text-brand-accent" />
+                {(course as any).academicYear?.name || 'Année Active'}
+              </span>
+              <span className="bg-black/50 text-amber-300 text-xs font-extrabold px-3 py-1.5 rounded-xl border border-amber-500/30 backdrop-blur-md flex items-center gap-1.5 shadow-sm">
+                <Award className="w-3.5 h-3.5 text-amber-400" />
+                Coef. {(course as any).coefficient || 1}
+              </span>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-                {canManageChapters && (
-                    <Button
-                        variant="primary"
-                        onClick={() => setIsChapterModalOpen(true)}
-                        leftIcon={<FolderPlus className="w-4 h-4" />}
-                        className="shadow-lg shadow-emerald-950/40 cursor-pointer"
-                    >
-                        Nouveau Chapitre
-                    </Button>
-                )}
-                {activeTab === 'ASSIGNMENTS' && (canCreateContent || isTeacher || isSuperAdmin) && (
-                    <Button
-                        variant="primary"
-                        onClick={() => {
-                            setEditingEvaluationId(null);
-                            setPageViewMode('CREATE_EVALUATION');
-                        }}
-                        leftIcon={<Plus className="w-4 h-4" />}
-                        className="cursor-pointer"
-                    >
-                        Nouvelle Composition / Devoir
-                    </Button>
-                )}
-                {isTeacher && !isSuperAdmin && (
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab(activeTab === 'GRADES' ? 'CONTENT' : 'GRADES')}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
-                            activeTab === 'GRADES'
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
-                                : 'bg-brand-surface text-brand-text-muted hover:text-brand-text border-brand-border/80'
-                        }`}
-                    >
-                        {activeTab === 'GRADES' ? '← Retour au cours' : 'Notes & Évaluations'}
-                    </button>
-                )}
+
+            {/* Actions: New Chapter, Evaluation, Grades */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {canManageChapters && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsChapterModalOpen(true)}
+                  leftIcon={<FolderPlus className="w-4 h-4" />}
+                  className="shadow-lg shadow-emerald-950/60 cursor-pointer backdrop-blur-sm"
+                >
+                  Nouveau Chapitre
+                </Button>
+              )}
+              {activeTab === 'ASSIGNMENTS' && (canCreateContent || isTeacher || isSuperAdmin) && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setEditingEvaluationId(null);
+                    setPageViewMode('CREATE_EVALUATION');
+                  }}
+                  leftIcon={<Plus className="w-4 h-4" />}
+                  className="cursor-pointer backdrop-blur-sm shadow-md"
+                >
+                  Nouvelle Évaluation
+                </Button>
+              )}
+              {isTeacher && !isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(activeTab === 'GRADES' ? 'CONTENT' : 'GRADES')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border backdrop-blur-md ${
+                    activeTab === 'GRADES'
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md'
+                      : 'bg-black/50 text-white hover:bg-black/70 border-white/20 shadow-sm'
+                  }`}
+                >
+                  {activeTab === 'GRADES' ? '← Retour au cours' : 'Notes & Évaluations'}
+                </button>
+              )}
             </div>
+          </div>
+
+          {/* Bottom Row: Course Title & Subject Meta */}
+          <div className="relative z-10 mt-6 sm:mt-8">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white drop-shadow-md tracking-tight flex flex-wrap items-center gap-3">
+              <span>{course.subject?.name || 'Détails du Cours'}</span>
+              {course.subject?.code && (
+                <span className="text-xs font-mono font-bold bg-white/15 text-white/90 px-2.5 py-1 rounded-lg border border-white/20 backdrop-blur-xs">
+                  {course.subject.code}
+                </span>
+              )}
+            </h1>
+            <p className="text-xs sm:text-sm font-medium text-emerald-200/90 mt-2 flex flex-wrap items-center gap-2 drop-shadow">
+              <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{chapters.length} chapitre{chapters.length > 1 ? 's' : ''} configuré{chapters.length > 1 ? 's' : ''}</span>
+              <span>•</span>
+              <span>{assignments.length} devoir{assignments.length > 1 ? 's' : ''} & évaluation{assignments.length > 1 ? 's' : ''}</span>
+              {courseTeachers && courseTeachers.length > 0 && (
+                <>
+                  <span>•</span>
+                  <span>{courseTeachers.length} enseignant{courseTeachers.length > 1 ? 's' : ''}</span>
+                </>
+              )}
+            </p>
+          </div>
         </div>
       </div>
 

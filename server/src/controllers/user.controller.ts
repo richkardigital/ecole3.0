@@ -535,20 +535,69 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: String(id) },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        avatarUrl: true,
-        phone: true,
-        school: { select: { id: true, name: true } }
+      include: {
+        school: { select: { id: true, name: true, ville: true } },
+        enrollments: {
+          where: { status: 'ACTIVE' },
+          include: {
+            class: {
+              include: {
+                niveau: { select: { id: true, nom: true } }
+              }
+            }
+          },
+          take: 1
+        },
+        teacherClasses: {
+          include: {
+            class: { select: { id: true, name: true } },
+            subject: { select: { id: true, name: true, code: true } }
+          }
+        }
       }
     });
 
     if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
-    res.json(user);
+
+    // Format fields for convenient client usage
+    const studentClass = user.enrollments?.[0]?.class?.name || null;
+    const studentNiveau = user.enrollments?.[0]?.class?.niveau?.nom || null;
+
+    // Extract unique subjects for teacher
+    const subjectsMap = new Map<string, string>();
+    user.teacherClasses?.forEach((tc: any) => {
+      if (tc.subject?.name) subjectsMap.set(tc.subject.id, tc.subject.name);
+    });
+    const teacherSubjects = Array.from(subjectsMap.values());
+
+    // Extract unique classes for teacher
+    const classesMap = new Map<string, string>();
+    user.teacherClasses?.forEach((tc: any) => {
+      if (tc.class?.name) classesMap.set(tc.class.id, tc.class.name);
+    });
+    const teacherClasses = Array.from(classesMap.values());
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      phone: user.phone,
+      parentPhone: user.parentPhone,
+      matricule: user.matricule,
+      birthDate: user.birthDate,
+      birthPlace: user.birthPlace,
+      address: user.address,
+      gender: user.gender,
+      isOnline: user.isOnline,
+      school: user.school,
+      className: studentClass,
+      niveauName: studentNiveau,
+      teacherSubjects,
+      teacherClasses
+    });
   } catch (error) {
     console.error("Get User By ID Error:", error);
     res.status(500).json({ message: "Erreur lors de la récupération de l'utilisateur" });

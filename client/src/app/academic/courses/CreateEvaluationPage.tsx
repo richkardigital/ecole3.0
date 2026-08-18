@@ -405,8 +405,8 @@ export const CreateEvaluationPage: React.FC<CreateEvaluationPageProps> = ({
               <span>•</span>
               <span>{courseNiveau || 'Niveau Global'}</span>
             </div>
-            <h1 className="text-2xl font-black text-brand-text tracking-tight mt-0.5 flex items-center gap-2.5">
-              <Layers className="w-6 h-6 text-emerald-400" />
+            <h1 className="text-2xl font-black text-[#4D3E90] tracking-tight mt-0.5 flex items-center gap-2.5">
+              <Layers className="w-6 h-6 text-emerald-500" />
               {evaluationId ? "Modifier l'Évaluation" : "Créer une Nouvelle Évaluation"}
             </h1>
           </div>

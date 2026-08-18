@@ -172,6 +172,73 @@ export const createComment = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const updatePost = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const { title, content, category } = req.body;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    const post = await prisma.forumPost.findUnique({ where: { id } });
+    if (!post) return res.status(404).json({ message: "Discussion non trouvée" });
+
+    // Allow update if user is author OR Super Admin / Directeur / Admin
+    const isAuthor = post.authorId === userId;
+    const isAdmin = ["SUPER_ADMIN", "DIRECTEUR", "ADMIN"].includes(userRole || "");
+    if (!isAuthor && !isAdmin) {
+      return res.status(403).json({ message: "Vous n'avez pas l'autorisation de modifier cette discussion" });
+    }
+
+    let fileUrl = post.fileUrl;
+    let fileType = post.fileType;
+
+    if (req.file) {
+      const publicUrl = await uploadToSupabase(req.file);
+      if (publicUrl) {
+        fileUrl = publicUrl;
+        fileType = req.file.mimetype;
+      }
+    } else if (req.body.removeAttachment === "true") {
+      fileUrl = null;
+      fileType = null;
+    }
+
+    const updatedPost = await prisma.forumPost.update({
+      where: { id },
+      data: {
+        ...(title ? { title: String(title).trim() } : {}),
+        ...(content ? { content: String(content).trim() } : {}),
+        ...(category ? { category } : {}),
+        fileUrl,
+        fileType,
+      },
+      include: {
+        author: {
+          select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+        },
+        comments: {
+          orderBy: { createdAt: "asc" },
+          include: {
+            author: {
+              select: { id: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+            },
+          },
+        },
+        _count: {
+          select: { comments: true },
+        },
+      },
+    });
+
+    req.app.get("io")?.emit("forum:post_updated", updatedPost);
+
+    res.json(updatedPost);
+  } catch (error) {
+    console.error("Error updating forum post:", error);
+    res.status(500).json({ message: "Erreur lors de la modification de la discussion", error });
+  }
+};
+
 export const deletePost = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params as { id: string };
@@ -180,20 +247,25 @@ export const deletePost = async (req: AuthRequest, res: Response) => {
 
     const post = await prisma.forumPost.findUnique({ where: { id } });
 
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) return res.status(404).json({ message: "Discussion non trouvée" });
 
-    // Allow deletion if user is author OR admin
-    if (post.authorId !== userId && userRole !== "SUPER_ADMIN" && userRole !== "DIRECTEUR") {
-      return res.status(403).json({ message: "Access denied" });
+    // Allow deletion if user is author OR admin roles
+    const isAuthor = post.authorId === userId;
+    const isAdmin = ["SUPER_ADMIN", "DIRECTEUR", "ADMIN", "EDUCATEUR"].includes(userRole || "");
+    if (!isAuthor && !isAdmin) {
+      return res.status(403).json({ message: "Action non autorisée" });
     }
 
+    // Delete comments first or let Prisma cascade
+    await prisma.forumComment.deleteMany({ where: { postId: id } });
     await prisma.forumPost.delete({ where: { id } });
 
     req.app.get("io")?.emit("forum:post_deleted", id);
 
-    res.json({ message: "Post deleted" });
+    res.json({ message: "Discussion supprimée avec succès" });
   } catch (error) {
-    res.status(500).json({ message: "Error deleting post", error });
+    console.error("Error deleting post:", error);
+    res.status(500).json({ message: "Erreur lors de la suppression de la discussion", error });
   }
 };
 
@@ -205,18 +277,21 @@ export const deleteComment = async (req: AuthRequest, res: Response) => {
 
     const comment = await prisma.forumComment.findUnique({ where: { id } });
 
-    if (!comment) return res.status(404).json({ message: "Comment not found" });
+    if (!comment) return res.status(404).json({ message: "Commentaire non trouvé" });
 
-    if (comment.authorId !== userId && userRole !== "SUPER_ADMIN" && userRole !== "DIRECTEUR") {
-      return res.status(403).json({ message: "Access denied" });
+    const isAuthor = comment.authorId === userId;
+    const isAdmin = ["SUPER_ADMIN", "DIRECTEUR", "ADMIN", "EDUCATEUR"].includes(userRole || "");
+    if (!isAuthor && !isAdmin) {
+      return res.status(403).json({ message: "Action non autorisée" });
     }
 
     await prisma.forumComment.delete({ where: { id } });
 
     req.app.get("io")?.emit("forum:comment_deleted", { id, postId: comment.postId });
 
-    res.json({ message: "Comment deleted" });
+    res.json({ message: "Commentaire supprimé avec succès" });
   } catch (error) {
-    res.status(500).json({ message: "Error deleting comment", error });
+    console.error("Error deleting comment:", error);
+    res.status(500).json({ message: "Erreur lors de la suppression du commentaire", error });
   }
 };

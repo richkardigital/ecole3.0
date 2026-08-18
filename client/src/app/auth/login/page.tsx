@@ -3,10 +3,11 @@ import { useForm } from 'react-hook-form';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
-import { Eye, EyeOff, GraduationCap, ArrowRight, ArrowLeft, ShieldCheck, Sparkles, Mail, Lock, Users, BookOpen } from 'lucide-react';
+import { Eye, EyeOff, GraduationCap, ArrowRight, ArrowLeft, ShieldCheck, Sparkles, Mail, Lock, Users, BookOpen, Search, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
+import { ExpressStudentLookupModal } from '@/components/parent/ExpressStudentLookupModal';
 
 const DEMO_ACCOUNTS = [
   { label: 'Super Admin', email: 'superadmin@example.com', color: 'text-red-600', bg: 'bg-red-50 border-red-200 hover:border-red-300', dot: '#ef4444', initial: 'SA' },
@@ -32,6 +33,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
 
   const onSubmit = async (data: any) => {
     setIsLoading(true);
@@ -118,15 +120,43 @@ const Login = () => {
           </Link>
         </div>
 
-        <div className="w-full max-w-lg bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-xl">
+        <div className="w-full max-w-lg bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-xl space-y-6">
+          
+          {/* ── BANNIÈRE ACCÈS DIRECT PARENT ── */}
+          <div 
+            onClick={() => setIsLookupModalOpen(true)}
+            className="p-4 rounded-2xl bg-gradient-to-r from-pink-50 via-purple-50 to-sky-50 border border-pink-200/90 flex items-center justify-between gap-3 cursor-pointer hover:border-pink-300 hover:shadow-md transition-all group"
+          >
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1.5 text-xs font-black text-pink-700 uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5 text-pink-600 group-hover:rotate-12 transition-transform" />
+                Accès direct parent
+              </div>
+              <p className="text-sm font-black text-slate-900 tracking-tight">
+                Parent d'élève • Suivez votre enfant
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsLookupModalOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-xl text-xs font-black bg-pink-600 hover:bg-pink-700 text-white shadow-md shadow-pink-600/25 transition-all shrink-0 flex items-center gap-1.5 group-hover:scale-105"
+            >
+              <span>Suivre mon enfant</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {/* Form header */}
-          <div className="mb-7">
+          <div>
             <h2 className="text-3xl font-black text-[#4D3E90] tracking-tight mb-2">Connexion</h2>
             <p className="text-slate-600 text-sm font-medium">Connectez-vous à votre espace SEEEC.</p>
           </div>
 
           {/* Demo accounts */}
-          <div className="mb-7">
+          <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Comptes démo — cliquez pour remplir</p>
             <div className="grid grid-cols-2 gap-2.5">
               {DEMO_ACCOUNTS.map((d) => (
@@ -150,7 +180,7 @@ const Login = () => {
 
           {/* Error */}
           {error && (
-            <div className="mb-6 px-4 py-3.5 rounded-xl text-sm text-red-600 font-medium flex items-start gap-3 bg-red-50 border border-red-200">
+            <div className="px-4 py-3.5 rounded-xl text-sm text-red-600 font-medium flex items-start gap-3 bg-red-50 border border-red-200">
               <span className="shrink-0 mt-0.5">⚠️</span>
               <span>{error}</span>
             </div>
@@ -213,7 +243,7 @@ const Login = () => {
             </div>
           </form>
 
-          <div className="mt-7 pt-5 border-t border-slate-100 text-center">
+          <div className="pt-5 border-t border-slate-100 text-center">
             <p className="text-sm text-slate-600 font-medium">
               Votre école n'est pas encore inscrite ?{' '}
               <Link to="/inscription" className="text-[#189CD8] font-bold hover:text-[#1280B2] hover:underline transition-colors whitespace-nowrap">
@@ -223,8 +253,16 @@ const Login = () => {
           </div>
         </div>
       </div>
+
+      {/* Express Student Lookup Modal */}
+      <ExpressStudentLookupModal
+        isOpen={isLookupModalOpen}
+        onClose={() => setIsLookupModalOpen(false)}
+      />
+
     </div>
   );
 };
 
 export default Login;
+

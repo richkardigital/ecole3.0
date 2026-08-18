@@ -152,27 +152,28 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <NavItem to="/admin/broadcast" icon={Zap} isActive={p === '/admin/broadcast'}>Flash News</NavItem>
               </NavSection>
               <NavSection title="Créations">
-                <NavItem to="/admin/teaching-types" icon={Layers} isActive={p === '/admin/teaching-types'}>Types d'enseignement</NavItem>
-                <NavItem to="/admin/school-types" icon={School} isActive={p === '/admin/school-types'}>Types d'établissement</NavItem>
-                <NavItem to="/admin/academic-years" icon={Calendar} isActive={p === '/admin/academic-years'}>Années Scolaires</NavItem>
-                <NavItem to="/admin/niveaux" icon={GraduationCap} isActive={p === '/admin/niveaux'}>Niveaux Scolaires</NavItem>
-                <NavItem to="/admin/subjects" icon={BookOpen} isActive={p === '/admin/subjects'}>Matières</NavItem>
-                <NavItem to="/admin/subscriptions" icon={CreditCard} isActive={p === '/admin/subscriptions'}>Abonnements</NavItem>
+                <NavItem to="/admin/teaching-types" icon={Layers} isActive={p.startsWith('/admin/teaching-types')}>Types d'enseignement</NavItem>
+                <NavItem to="/admin/school-types" icon={School} isActive={p.startsWith('/admin/school-types')}>Types d'établissement</NavItem>
+                <NavItem to="/admin/academic-years" icon={Calendar} isActive={p.startsWith('/admin/academic-years')}>Années Scolaires</NavItem>
+                <NavItem to="/admin/niveaux" icon={GraduationCap} isActive={p.startsWith('/admin/niveaux')}>Niveaux Scolaires</NavItem>
+                <NavItem to="/admin/subjects" icon={BookOpen} isActive={p.startsWith('/admin/subjects')}>Matières</NavItem>
+                <NavItem to="/admin/subscriptions" icon={CreditCard} isActive={p.startsWith('/admin/subscriptions')}>Abonnements</NavItem>
               </NavSection>
               <NavSection title="Académique">
                 <NavItem to="/admin/courses" icon={BookOpen} isActive={p.startsWith('/admin/courses')}>Cours Académiques</NavItem>
-                <NavItem to="/admin/report-cards" icon={FileText} isActive={p === '/admin/report-cards'}>Bulletins Scolaires</NavItem>
-                <NavItem to="/admin/library" icon={FolderOpen} isActive={p === '/admin/library'}>Librairie 3.0</NavItem>
+                <NavItem to="/admin/report-cards" icon={FileText} isActive={p.startsWith('/admin/report-cards')}>Bulletins Scolaires</NavItem>
+                <NavItem to="/admin/library" icon={FolderOpen} isActive={p.startsWith('/admin/library')}>Librairie 3.0</NavItem>
               </NavSection>
               <NavSection title="Effectifs">
-                <NavItem to="/admin/schools" icon={School} isActive={p === '/admin/schools'}>Toutes les Écoles</NavItem>
-                <NavItem to="/admin/classes" icon={School} isActive={p === '/admin/classes'}>Toutes les Classes</NavItem>
-                <NavItem to="/admin/users" icon={Users} isActive={p === '/admin/users'}>Tous les Utilisateurs</NavItem>
+                <NavItem to="/admin/schools" icon={School} isActive={p.startsWith('/admin/schools')}>Toutes les Écoles</NavItem>
+                <NavItem to="/admin/classes" icon={School} isActive={p.startsWith('/admin/classes')}>Toutes les Classes</NavItem>
+                <NavItem to="/admin/users" icon={Users} isActive={p.startsWith('/admin/users')}>Tous les Utilisateurs</NavItem>
+                <NavItem to="/admin/cards" icon={CreditCard} isActive={p.startsWith('/admin/cards')}>Cartes Scolaires</NavItem>
               </NavSection>
               <NavSection title="Réseau">
-                <NavItem to="/admin/seeec" icon={Network} isActive={p === '/admin/seeec'}>Réseau SEEEC</NavItem>
-                <NavItem to="/admin/chat" icon={MessageCircle} isActive={p === '/admin/chat'}>Messagerie</NavItem>
-                <NavItem to="/admin/forum" icon={MessageCircle} isActive={p === '/admin/forum'}>Forum d'entraide</NavItem>
+                <NavItem to="/admin/seeec" icon={Network} isActive={p.startsWith('/admin/seeec')}>Réseau SEEEC</NavItem>
+                <NavItem to="/admin/chat" icon={MessageCircle} isActive={p.startsWith('/admin/chat')}>Messagerie</NavItem>
+                <NavItem to="/admin/forum" icon={MessageCircle} isActive={p.startsWith('/admin/forum')}>Forum d'entraide</NavItem>
               </NavSection>
               <div className="pt-2 space-y-1" style={{ borderTop: '1px solid #F1F5F9' }}>
                 <NavItem to="/admin/profile" icon={User} isActive={p === '/admin/profile'}>Mon Profil</NavItem>
@@ -189,22 +190,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <NavItem to="/directeur/agenda" icon={Calendar} isActive={p === '/directeur/agenda'}>Agenda Scolaire</NavItem>
               </NavSection>
               <NavSection title="Mon Établissement">
-                <NavItem to="/directeur/classes" icon={School} isActive={p === '/directeur/classes'}>Classes & Effectifs</NavItem>
-                <NavItem to="/directeur/users" icon={Users} isActive={p === '/directeur/users'}>Mes utilisateurs</NavItem>
+                <NavItem to="/directeur/classes" icon={School} isActive={p.startsWith('/directeur/classes')}>Classes & Effectifs</NavItem>
+                <NavItem to="/directeur/users" icon={Users} isActive={p.startsWith('/directeur/users')}>Mes utilisateurs</NavItem>
+                <NavItem to="/directeur/cards" icon={CreditCard} isActive={p.startsWith('/directeur/cards')}>Cartes Scolaires</NavItem>
               </NavSection>
               <NavSection title="Pédagogie">
                 <NavItem to="/directeur/courses" icon={LibraryIcon} isActive={p.startsWith('/directeur/courses')}>Cours & Dossiers</NavItem>
-                <NavItem to="/directeur/report-cards" icon={FileText} isActive={p === '/directeur/report-cards'}>Bulletins Trimestriels</NavItem>
-                <NavItem to="/directeur/library" icon={FolderOpen} isActive={p === '/directeur/library'}>Librairie 3.0</NavItem>
+                <NavItem to="/directeur/report-cards" icon={FileText} isActive={p.startsWith('/directeur/report-cards')}>Bulletins Trimestriels</NavItem>
+                <NavItem to="/directeur/library" icon={FolderOpen} isActive={p.startsWith('/directeur/library')}>Librairie 3.0</NavItem>
               </NavSection>
               <NavSection title="Vie Scolaire">
-                <NavItem to="/directeur/absences" icon={ClipboardList} isActive={p === '/directeur/absences'}>Registre Absences</NavItem>
-                <NavItem to="/directeur/conduct" icon={ClipboardList} isActive={p === '/directeur/conduct'}>Discipline & Conduite</NavItem>
+                <NavItem to="/directeur/absences" icon={ClipboardList} isActive={p.startsWith('/directeur/absences')}>Registre Absences</NavItem>
+                <NavItem to="/directeur/conduct" icon={ClipboardList} isActive={p.startsWith('/directeur/conduct')}>Discipline & Conduite</NavItem>
               </NavSection>
               <NavSection title="Communication">
-                <NavItem to="/directeur/broadcast" icon={Megaphone} isActive={p === '/directeur/broadcast'}>Annonces Flash</NavItem>
-                <NavItem to="/directeur/chat" icon={MessageCircle} isActive={p === '/directeur/chat'}>Messagerie</NavItem>
-                <NavItem to="/directeur/forum" icon={MessageCircle} isActive={p === '/directeur/forum'}>Forum Écoles</NavItem>
+                <NavItem to="/directeur/broadcast" icon={Megaphone} isActive={p.startsWith('/directeur/broadcast')}>Annonces Flash</NavItem>
+                <NavItem to="/directeur/chat" icon={MessageCircle} isActive={p.startsWith('/directeur/chat')}>Messagerie</NavItem>
+                <NavItem to="/directeur/forum" icon={MessageCircle} isActive={p.startsWith('/directeur/forum')}>Forum Écoles</NavItem>
                 <NavItem to="/directeur/shared-resources" icon={Network} isActive={p.startsWith('/directeur/shared-resources')}>Réseau SEEEC</NavItem>
               </NavSection>
               <div className="pt-2 space-y-1" style={{ borderTop: '1px solid #F1F5F9' }}>
@@ -222,18 +224,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <NavItem to="/educateur/agenda" icon={Calendar} isActive={p === '/educateur/agenda'}>Agenda Scolaire</NavItem>
               </NavSection>
               <NavSection title="Vie Scolaire">
-                <NavItem to="/educateur/absences" icon={ClipboardList} isActive={p === '/educateur/absences'}>Absences Élèves</NavItem>
-                <NavItem to="/educateur/conduct" icon={ClipboardList} isActive={p === '/educateur/conduct'}>Bulletins de Conduite</NavItem>
-                <NavItem to="/educateur/classes" icon={School} isActive={p === '/educateur/classes'}>Classes Affectées</NavItem>
+                <NavItem to="/educateur/absences" icon={ClipboardList} isActive={p.startsWith('/educateur/absences')}>Absences Élèves</NavItem>
+                <NavItem to="/educateur/conduct" icon={ClipboardList} isActive={p.startsWith('/educateur/conduct')}>Bulletins de Conduite</NavItem>
+                <NavItem to="/educateur/classes" icon={School} isActive={p.startsWith('/educateur/classes')}>Classes Affectées</NavItem>
+                <NavItem to="/educateur/cards" icon={CreditCard} isActive={p.startsWith('/educateur/cards')}>Cartes Scolaires</NavItem>
               </NavSection>
               <NavSection title="Pédagogie">
-                <NavItem to="/educateur/users" icon={Users} isActive={p === '/educateur/users'}>Registre Élèves</NavItem>
+                <NavItem to="/educateur/users" icon={Users} isActive={p.startsWith('/educateur/users')}>Registre Élèves</NavItem>
                 <NavItem to="/educateur/courses" icon={LibraryIcon} isActive={p.startsWith('/educateur/courses')}>Cours & Chapitres</NavItem>
-                <NavItem to="/educateur/report-cards" icon={FileText} isActive={p === '/educateur/report-cards'}>Bulletins</NavItem>
+                <NavItem to="/educateur/report-cards" icon={FileText} isActive={p.startsWith('/educateur/report-cards')}>Bulletins</NavItem>
               </NavSection>
               <NavSection title="Communication">
-                <NavItem to="/educateur/chat" icon={MessageCircle} isActive={p === '/educateur/chat'}>Messagerie</NavItem>
-                <NavItem to="/educateur/broadcast" icon={Megaphone} isActive={p === '/educateur/broadcast'}>Annonces</NavItem>
+                <NavItem to="/educateur/chat" icon={MessageCircle} isActive={p.startsWith('/educateur/chat')}>Messagerie</NavItem>
+                <NavItem to="/educateur/forum" icon={MessageCircle} isActive={p.startsWith('/educateur/forum')}>Forum d'échange</NavItem>
+                <NavItem to="/educateur/broadcast" icon={Megaphone} isActive={p.startsWith('/educateur/broadcast')}>Annonces</NavItem>
               </NavSection>
               <div className="pt-2" style={{ borderTop: '1px solid #F1F5F9' }}>
                 <NavItem to="/educateur/profile" icon={User} isActive={p === '/educateur/profile' || p === '/educateur/settings'}>Mon Profil</NavItem>
@@ -271,6 +275,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <>
               <NavSection title="Mon Espace">
                 <NavItem to="/dashboard" icon={LayoutDashboard} isActive={p === '/dashboard'}>Accueil</NavItem>
+                <NavItem to="/cards" icon={CreditCard} isActive={p.startsWith('/cards')}>Ma Carte Scolaire</NavItem>
                 <NavItem to="/agenda" icon={Calendar} isActive={p === '/agenda'}>Agenda Scolaire</NavItem>
               </NavSection>
               <NavSection title="Cours & Exercices">

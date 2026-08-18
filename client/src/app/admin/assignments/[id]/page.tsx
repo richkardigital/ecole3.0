@@ -59,7 +59,7 @@ interface AssignmentData {
 export default function GlobalAssignmentDetailsPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const canAccess = user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR' || user?.role === 'ENSEIGNANT';
+  const canAccess = user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR' || user?.role === 'ENSEIGNANT' || user?.role === 'EDUCATEUR';
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const toast = useToast();
@@ -91,6 +91,7 @@ export default function GlobalAssignmentDetailsPage() {
     if (user?.role === 'SUPER_ADMIN') return '/admin/assignments';
     if (user?.role === 'DIRECTEUR') return '/directeur/assignments';
     if (user?.role === 'ENSEIGNANT') return '/enseignant/assignments';
+    if (user?.role === 'EDUCATEUR') return '/educateur/evaluations';
     return '/assignments';
   };
 

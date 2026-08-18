@@ -2,6 +2,7 @@ import type { Response } from "express";
 import prisma from "../utils/prisma.js";
 import { z } from "zod";
 import type { AuthRequest } from "../middleware/auth.js";
+import { calculateConductScoreAndAppreciation } from "./conduct.controller.js";
 
 // =============================================
 // Helpers
@@ -164,16 +165,39 @@ export const generateClassBulletins = async (
             participationGrades.length
           : null;
 
+      // Absences (somme des heures)
+      const studentAbsences = allAbsences.filter((a) => a.studentId === sid);
+      const totalAbsences = studentAbsences.reduce((sum, a) => sum + (a.hours ?? 1), 0);
+      const absencesJustifiees = studentAbsences.filter((a) => a.justified).reduce((sum, a) => sum + (a.hours ?? 1), 0);
+
       // Conduite du trimestre
-      const conduct = await prisma.conduct.findFirst({
+      let conduct = await prisma.conduct.findFirst({
         where: { studentId: sid, termId },
       });
 
+      // Si pas encore de conduite, calcul automatique basé sur 20/20 et les heures d'absences
+      let conductGrade = conduct?.grade;
+      if (conductGrade === null || conductGrade === undefined) {
+        const autoCond = calculateConductScoreAndAppreciation(totalAbsences - absencesJustifiees, absencesJustifiees);
+        conductGrade = autoCond.grade;
+        conduct = await prisma.conduct.upsert({
+          where: { studentId_termId: { studentId: sid, termId } },
+          update: { grade: conductGrade, appreciation: autoCond.appreciation },
+          create: {
+            studentId: sid,
+            termId,
+            grade: conductGrade,
+            appreciation: autoCond.appreciation,
+            comment: `Calcul automatique : ${totalAbsences - absencesJustifiees}h non justifiées, ${absencesJustifiees}h justifiées.`
+          }
+        });
+      }
+
       // La conduite compte comme une matière avec coefficient 1
       const courseAveragesWithConduct = [...courseAverages];
-      if (conduct && conduct.grade !== null && conduct.grade !== undefined) {
+      if (conductGrade !== null && conductGrade !== undefined) {
         courseAveragesWithConduct.push({
-          average: conduct.grade,
+          average: conductGrade,
           coefficient: 1,
         });
       }
@@ -181,21 +205,16 @@ export const generateClassBulletins = async (
       const overallAvg = calculateOverallAverage(courseAveragesWithConduct);
       studentAverages.push({ studentId: sid, average: overallAvg });
 
-      // Absences
-      const studentAbsences = allAbsences.filter((a) => a.studentId === sid);
-      const totalAbsences = studentAbsences.length;
-      const absencesJustifiees = studentAbsences.filter((a) => a.justified).length;
-
       // Upsert BulletinEleve
       await prisma.bulletinEleve.upsert({
         where: { studentId_termId: { studentId: sid, termId } },
         update: {
           classId,
           moyenneGenerale: overallAvg,
-          noteConduite: conduct?.grade ?? null,
+          noteConduite: conductGrade ?? null,
           noteParticipation: avgParticipation,
-          totalAbsences,
-          absencesJustifiees,
+          totalAbsences: Math.round(totalAbsences),
+          absencesJustifiees: Math.round(absencesJustifiees),
           appreciationGenerale: getAppreciation(overallAvg),
         },
         create: {
@@ -203,10 +222,10 @@ export const generateClassBulletins = async (
           termId,
           classId,
           moyenneGenerale: overallAvg,
-          noteConduite: conduct?.grade ?? null,
+          noteConduite: conductGrade ?? null,
           noteParticipation: avgParticipation,
-          totalAbsences,
-          absencesJustifiees,
+          totalAbsences: Math.round(totalAbsences),
+          absencesJustifiees: Math.round(absencesJustifiees),
           appreciationGenerale: getAppreciation(overallAvg),
           statut: "BROUILLON",
         },
@@ -285,8 +304,8 @@ export const generateBulletinForStudent = async (
     absenceWhere.date = { gte: term.startDate, lte: term.endDate };
   }
   const studentAbsences = await prisma.absence.findMany({ where: absenceWhere });
-  const totalAbsences = studentAbsences.length;
-  const absencesJustifiees = studentAbsences.filter((a) => a.justified).length;
+  const totalAbsences = studentAbsences.reduce((sum, a) => sum + (a.hours ?? 1), 0);
+  const absencesJustifiees = studentAbsences.filter((a) => a.justified).reduce((sum, a) => sum + (a.hours ?? 1), 0);
 
   const courseAverages = courses.map((course) => {
     const cGrades = studentGrades.filter(
@@ -309,14 +328,31 @@ export const generateBulletinForStudent = async (
         participationGrades.length
       : null;
 
-  const conduct = await prisma.conduct.findFirst({
+  let conduct = await prisma.conduct.findFirst({
     where: { studentId, termId },
   });
 
+  let conductGrade = conduct?.grade;
+  if (conductGrade === null || conductGrade === undefined) {
+    const autoCond = calculateConductScoreAndAppreciation(totalAbsences - absencesJustifiees, absencesJustifiees);
+    conductGrade = autoCond.grade;
+    conduct = await prisma.conduct.upsert({
+      where: { studentId_termId: { studentId, termId } },
+      update: { grade: conductGrade, appreciation: autoCond.appreciation },
+      create: {
+        studentId,
+        termId,
+        grade: conductGrade,
+        appreciation: autoCond.appreciation,
+        comment: `Calcul automatique : ${totalAbsences - absencesJustifiees}h non justifiées, ${absencesJustifiees}h justifiées.`
+      }
+    });
+  }
+
   const courseAveragesWithConduct = [...courseAverages];
-  if (conduct && conduct.grade !== null && conduct.grade !== undefined) {
+  if (conductGrade !== null && conductGrade !== undefined) {
     courseAveragesWithConduct.push({
-      average: conduct.grade,
+      average: conductGrade,
       coefficient: 1, // Conduite compte comme une matière
     });
   }
@@ -328,10 +364,10 @@ export const generateBulletinForStudent = async (
     update: {
       classId,
       moyenneGenerale: overallAvg,
-      noteConduite: conduct?.grade ?? null,
+      noteConduite: conductGrade ?? null,
       noteParticipation: avgParticipation,
-      totalAbsences,
-      absencesJustifiees,
+      totalAbsences: Math.round(totalAbsences),
+      absencesJustifiees: Math.round(absencesJustifiees),
       appreciationGenerale: getAppreciation(overallAvg),
     },
     create: {
@@ -339,10 +375,10 @@ export const generateBulletinForStudent = async (
       termId,
       classId,
       moyenneGenerale: overallAvg,
-      noteConduite: conduct?.grade ?? null,
+      noteConduite: conductGrade ?? null,
       noteParticipation: avgParticipation,
-      totalAbsences,
-      absencesJustifiees,
+      totalAbsences: Math.round(totalAbsences),
+      absencesJustifiees: Math.round(absencesJustifiees),
       appreciationGenerale: getAppreciation(overallAvg),
       statut: "BROUILLON",
     },
@@ -350,61 +386,78 @@ export const generateBulletinForStudent = async (
 };
 
 /**
- * Récupère le bulletin complet d'un élève pour un trimestre donné.
+ * Logique pure de récupération/génération du bulletin pour un élève (utilisée par l'API protégée et l'accès public parent)
  */
-export const getBulletinEleve = async (req: AuthRequest, res: Response) => {
-  try {
-    const studentId = String(req.params.studentId || req.user?.id);
-    const termId = req.query.termId ? String(req.query.termId) : undefined;
+export const fetchStudentBulletinData = async (studentId: string, inputTermId?: string) => {
+  let termId = inputTermId && inputTermId !== "ALL" ? inputTermId : undefined;
 
-    if (!studentId || !termId) {
-      return res.status(400).json({ message: "studentId et termId requis" });
-    }
+  // Si pas de trimestre spécifié, trouver le trimestre actif ou le plus récent
+  if (!termId) {
+    const openTerm = await prisma.term.findFirst({
+      where: { status: "OPEN" },
+      orderBy: { startDate: "desc" }
+    });
+    termId = openTerm?.id;
+  }
 
-    // RBAC
-    const role = req.user?.role as string;
-    if (role === "APPRENANT" && req.user?.id !== studentId) {
-      return res.status(403).json({ message: "Accès refusé" });
-    }
+  if (!termId) {
+    const latestTerm = await prisma.term.findFirst({
+      orderBy: { startDate: "desc" }
+    });
+    termId = latestTerm?.id;
+  }
 
-    // Récupérer l'élève
-    const student = await prisma.user.findUnique({
-      where: { id: studentId },
-      include: {
-        school: {
-          include: {
-            manager: {
-              select: {
-                firstName: true,
-                lastName: true,
-              }
+  if (!termId) {
+    return null;
+  }
+
+  // Récupérer l'élève
+  const student = await prisma.user.findUnique({
+    where: { id: studentId },
+    include: {
+      school: {
+        include: {
+          manager: {
+            select: {
+              firstName: true,
+              lastName: true,
             }
           }
-        },
-        enrollments: {
-          include: { class: { include: { niveau: true } } },
-          orderBy: { joinedAt: "desc" },
-          take: 1,
-        },
+        }
       },
-    });
-
-    if (!student)
-      return res.status(404).json({ message: "Élève introuvable" });
-
-    const enrollment = student.enrollments[0];
-    if (!enrollment)
-      return res
-        .status(400)
-        .json({ message: "Élève non inscrit dans une classe" });
-
-    const classId = enrollment.classId;
-
-    // Récupérer le bulletin
-    let bulletin = await prisma.bulletinEleve.findUnique({
-      where: {
-        studentId_termId: { studentId, termId: termId },
+      enrollments: {
+        include: { class: { include: { niveau: true } } },
+        orderBy: { joinedAt: "desc" },
+        take: 1,
       },
+    },
+  });
+
+  if (!student) return null;
+
+  const enrollment = student.enrollments[0];
+  if (!enrollment) return null;
+
+  const classId = enrollment.classId;
+
+  // Récupérer le bulletin
+  let bulletin = await prisma.bulletinEleve.findUnique({
+    where: {
+      studentId_termId: { studentId, termId },
+    },
+    include: {
+      soumisPar: { select: { firstName: true, lastName: true } },
+      valideEducateurPar: { select: { firstName: true, lastName: true } },
+      valideDirecteurPar: { select: { firstName: true, lastName: true } },
+      valideAdminPar: { select: { firstName: true, lastName: true } },
+    },
+  });
+
+  // Si pas encore de bulletin, on le génère à la volée
+  if (!bulletin) {
+    await generateBulletinForStudent(studentId, termId, classId);
+    bulletin = await prisma.bulletinEleve.findUnique({
+      where: { studentId_termId: { studentId, termId } },
       include: {
         soumisPar: { select: { firstName: true, lastName: true } },
         valideEducateurPar: { select: { firstName: true, lastName: true } },
@@ -412,177 +465,214 @@ export const getBulletinEleve = async (req: AuthRequest, res: Response) => {
         valideAdminPar: { select: { firstName: true, lastName: true } },
       },
     });
+  }
 
-    // Si pas encore de bulletin, on le génère à la volée
-    if (!bulletin) {
-      await generateBulletinForStudent(studentId, termId, classId);
-      bulletin = await prisma.bulletinEleve.findUnique({
-        where: { studentId_termId: { studentId, termId: termId } },
-        include: {
-          soumisPar: { select: { firstName: true, lastName: true } },
-          valideEducateurPar: { select: { firstName: true, lastName: true } },
-          valideDirecteurPar: { select: { firstName: true, lastName: true } },
-          valideAdminPar: { select: { firstName: true, lastName: true } },
-        },
-      });
-    }
+  // Récupérer les professeurs/matières de la classe
+  const teacherClasses = await prisma.teacherClass.findMany({
+    where: { classId },
+    include: {
+      subject: true,
+      teacher: { select: { firstName: true, lastName: true } },
+    },
+  });
 
-    // Récupérer les professeurs/matières de la classe
-    const teacherClasses = await prisma.teacherClass.findMany({
-      where: { classId },
-      include: {
-        subject: true,
-        teacher: { select: { firstName: true, lastName: true } },
+  // Récupérer les notes de l'élève pour ce trimestre
+  const grades = await prisma.grade.findMany({
+    where: { studentId, termId },
+    include: { assignment: true, course: { include: { subject: true } } },
+  });
+
+  // Récupérer la conduite
+  const conduct = await prisma.conduct.findFirst({
+    where: { studentId, termId },
+  });
+
+  // Récupérer le terme
+  const term = await prisma.term.findUnique({
+    where: { id: termId },
+    include: { academicYear: true },
+  });
+
+  // Calculer les moyennes par matière
+  const subjectStats = teacherClasses.map((tc) => {
+    const courseGrades = grades.filter(
+      (g) =>
+        g.course?.subjectId === tc.subject.id ||
+        g.assignment?.subjectId === tc.subject.id
+    );
+
+    const devoirsGrades = courseGrades.filter(
+      (g) => (g as any).type === "DEVOIR" || (g as any).type === "INTERRO"
+    );
+    const evalGrades = courseGrades.filter(
+      (g) => (g as any).type === "EVALUATION" || (g as any).type === "EXAMEN"
+    );
+    const quizGrades = courseGrades.filter(
+      (g) => (g as any).type === "QUIZ"
+    );
+    const participationGrades = courseGrades.filter(
+      (g) => (g as any).type === "PARTICIPATION"
+    );
+
+    const average = calculateCourseAverage(courseGrades);
+    const avgDevoirs = calculateCourseAverage(devoirsGrades);
+    const avgEval = calculateCourseAverage(evalGrades);
+    const avgQuiz = calculateCourseAverage(quizGrades);
+    const avgParticipation = calculateCourseAverage(participationGrades);
+
+    return {
+      courseId: tc.id,
+      subjectId: tc.subject.id,
+      subjectName: tc.subject.name,
+      subjectCode: tc.subject.code,
+      coefficient: tc.subject.coefficient || 1,
+      teacher: `${tc.teacher.firstName} ${tc.teacher.lastName}`,
+      average,
+      appreciation: getAppreciation(average),
+      avgDevoirs,
+      avgEval,
+      avgQuiz,
+      avgParticipation,
+      gradesCount: courseGrades.length,
+    };
+  });
+
+  // Moyenne générale (incluant la note de conduite)
+  const subjectStatsForAverage = subjectStats.map((s) => ({
+    average: s.average,
+    coefficient: s.coefficient,
+  }));
+  if (conduct && conduct.grade !== null && conduct.grade !== undefined) {
+    subjectStatsForAverage.push({
+      average: conduct.grade,
+      coefficient: 1, // Conduite coef 1
+    });
+  }
+
+  const overallAverage = calculateOverallAverage(subjectStatsForAverage);
+
+  // Rang dans la classe (depuis le bulletin calculé)
+  const rangClasse = bulletin?.rangClasse ?? null;
+  const nombreEleves = bulletin?.nombreEleves ?? null;
+
+  // Synthèse annuelle (tous les trimestres de l'année)
+  let termsSummary: any[] = [];
+  let annualAverage: number | null = null;
+  if (term?.academicYearId) {
+    const allTerms = await prisma.term.findMany({
+      where: { academicYearId: term.academicYearId },
+      orderBy: { startDate: "asc" },
+    });
+
+    const allBulletins = await prisma.bulletinEleve.findMany({
+      where: {
+        studentId,
+        termId: { in: allTerms.map((t) => t.id) },
       },
     });
 
-    // Récupérer les notes de l'élève pour ce trimestre
-    const grades = await prisma.grade.findMany({
-      where: { studentId, termId: termId },
-      include: { assignment: true, course: { include: { subject: true } } },
-    });
-
-    // Récupérer la conduite
-    const conduct = await prisma.conduct.findFirst({
-      where: { studentId, termId: termId },
-    });
-
-    // Récupérer le terme
-    const term = await prisma.term.findUnique({
-      where: { id: termId },
-      include: { academicYear: true },
-    });
-
-    // Calculer les moyennes par matière
-    const subjectStats = teacherClasses.map((tc) => {
-      const courseGrades = grades.filter(
-        (g) =>
-          g.course?.subjectId === tc.subject.id ||
-          g.assignment?.subjectId === tc.subject.id
-      );
-
-      const devoirsGrades = courseGrades.filter(
-        (g) => (g as any).type === "DEVOIR" || (g as any).type === "INTERRO"
-      );
-      const evalGrades = courseGrades.filter(
-        (g) => (g as any).type === "EVALUATION" || (g as any).type === "EXAMEN"
-      );
-      const quizGrades = courseGrades.filter(
-        (g) => (g as any).type === "QUIZ"
-      );
-      const participationGrades = courseGrades.filter(
-        (g) => (g as any).type === "PARTICIPATION"
-      );
-
-      const average = calculateCourseAverage(courseGrades);
-      const avgDevoirs = calculateCourseAverage(devoirsGrades);
-      const avgEval = calculateCourseAverage(evalGrades);
-      const avgQuiz = calculateCourseAverage(quizGrades);
-      const avgParticipation = calculateCourseAverage(participationGrades);
-
+    termsSummary = allTerms.map((t) => {
+      const b = allBulletins.find((bul) => bul.termId === t.id);
       return {
-        courseId: tc.id,
-        subjectId: tc.subject.id,
-        subjectName: tc.subject.name,
-        subjectCode: tc.subject.code,
-        coefficient: tc.subject.coefficient || 1,
-        teacher: `${tc.teacher.firstName} ${tc.teacher.lastName}`,
-        average,
-        appreciation: getAppreciation(average),
-        avgDevoirs,
-        avgEval,
-        avgQuiz,
-        avgParticipation,
-        gradesCount: courseGrades.length,
+        termId: t.id,
+        termName: t.name,
+        overallAverage: b?.moyenneGenerale ?? null,
+        statut: b?.statut ?? null,
       };
     });
 
-    // Moyenne générale (incluant la note de conduite)
-    const subjectStatsForAverage = subjectStats.map((s) => ({
-      average: s.average,
-      coefficient: s.coefficient,
-    }));
-    if (conduct && conduct.grade !== null && conduct.grade !== undefined) {
-      subjectStatsForAverage.push({
-        average: conduct.grade,
-        coefficient: 1, // Conduite coef 1
-      });
+    const validTermAverages = allBulletins
+      .map((b) => b.moyenneGenerale)
+      .filter((a): a is number => a !== null);
+    annualAverage =
+      validTermAverages.length > 0
+        ? parseFloat(
+            (
+              validTermAverages.reduce((acc, v) => acc + v, 0) /
+              validTermAverages.length
+            ).toFixed(2)
+          )
+        : null;
+  }
+
+  // Récupérer les paramètres globaux de la plateforme
+  const systemSettings = await (prisma as any).systemSetting.findFirst({
+    where: { id: "default" }
+  });
+
+  return {
+    bulletin,
+    student: {
+      id: student.id,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      matricule: student.matricule,
+      birthDate: student.birthDate,
+      avatarUrl: student.avatarUrl,
+      photoUrl: student.avatarUrl,
+      class: enrollment.class.name,
+      niveau: enrollment.class.niveau?.nom ?? null,
+    },
+    school: student.school,
+    systemSettings: systemSettings ? {
+      platformName: systemSettings.platformName,
+      signatureUrl: systemSettings.signatureUrl,
+      stampUrl: systemSettings.stampUrl,
+      email: systemSettings.email,
+      phone: systemSettings.phone,
+      address: systemSettings.address,
+    } : null,
+    term,
+    subjects: subjectStats,
+    overallAverage,
+    rangClasse,
+    nombreEleves,
+    conduct: conduct
+      ? {
+          appreciation: (conduct as any).appreciation,
+          comment: (conduct as any).comment,
+          grade: (conduct as any).grade,
+        }
+      : null,
+    totalAbsences: bulletin?.totalAbsences ?? 0,
+    absencesJustifiees: bulletin?.absencesJustifiees ?? 0,
+    termsSummary,
+    annualAverage,
+  };
+};
+
+/**
+ * Récupère le bulletin complet d'un élève pour un trimestre donné (Route authentifiée).
+ */
+export const getBulletinEleve = async (req: AuthRequest, res: Response) => {
+  try {
+    const studentId = String(req.params.studentId || req.user?.id);
+    const termId = req.query.termId ? String(req.query.termId) : undefined;
+
+    if (!studentId) {
+      return res.status(400).json({ message: "studentId requis" });
     }
 
-    const overallAverage = calculateOverallAverage(subjectStatsForAverage);
-
-    // Rang dans la classe (depuis le bulletin calculé)
-    const rangClasse = bulletin?.rangClasse ?? null;
-    const nombreEleves = bulletin?.nombreEleves ?? null;
-
-    // Synthèse annuelle (tous les trimestres de l'année)
-    let termsSummary: any[] = [];
-    let annualAverage: number | null = null;
-    if (term?.academicYearId) {
-      const allTerms = await prisma.term.findMany({
-        where: { academicYearId: term.academicYearId },
-        orderBy: { startDate: "asc" },
+    // RBAC
+    const role = req.user?.role as string;
+    if (role === "APPRENANT" && req.user?.id !== studentId) {
+      return res.status(403).json({ message: "Accès refusé" });
+    }
+    if (role === "PARENT") {
+      const isParent = await prisma.parentChild.findUnique({
+        where: { parentId_studentId: { parentId: req.user!.id, studentId } }
       });
-
-      const allBulletins = await prisma.bulletinEleve.findMany({
-        where: {
-          studentId,
-          termId: { in: allTerms.map((t) => t.id) },
-        },
-      });
-
-      termsSummary = allTerms.map((t) => {
-        const b = allBulletins.find((bul) => bul.termId === t.id);
-        return {
-          termId: t.id,
-          termName: t.name,
-          overallAverage: b?.moyenneGenerale ?? null,
-          statut: b?.statut ?? null,
-        };
-      });
-
-      const validTermAverages = allBulletins
-        .map((b) => b.moyenneGenerale)
-        .filter((a): a is number => a !== null);
-      annualAverage =
-        validTermAverages.length > 0
-          ? parseFloat(
-              (
-                validTermAverages.reduce((acc, v) => acc + v, 0) /
-                validTermAverages.length
-              ).toFixed(2)
-            )
-          : null;
+      if (!isParent) {
+        return res.status(403).json({ message: "Accès refusé. Vous n'êtes pas associé à cet élève." });
+      }
     }
 
-    res.json({
-      bulletin,
-      student: {
-        id: student.id,
-        firstName: student.firstName,
-        lastName: student.lastName,
-        matricule: student.matricule,
-        class: enrollment.class.name,
-        niveau: enrollment.class.niveau?.nom ?? null,
-      },
-      school: student.school,
-      term,
-      subjects: subjectStats,
-      overallAverage,
-      rangClasse,
-      nombreEleves,
-      conduct: conduct
-        ? {
-            appreciation: (conduct as any).appreciation,
-            comment: (conduct as any).comment,
-            grade: (conduct as any).grade,
-          }
-        : null,
-      totalAbsences: bulletin?.totalAbsences ?? 0,
-      absencesJustifiees: bulletin?.absencesJustifiees ?? 0,
-      termsSummary,
-      annualAverage,
-    });
+    const data = await fetchStudentBulletinData(studentId, termId);
+    if (!data) {
+      return res.status(404).json({ message: "Élève ou bulletin introuvable" });
+    }
+
+    res.json(data);
   } catch (error) {
     console.error("Erreur récupération bulletin:", error);
     res.status(500).json({ message: "Erreur lors de la récupération du bulletin" });

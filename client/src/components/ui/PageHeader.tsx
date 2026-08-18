@@ -33,7 +33,12 @@ export function PageHeader({ title, description, subtitle, action, children, ico
         )}
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight gradient-text-white leading-none">{title}</h1>
+            <h1 
+              className="text-2xl md:text-3xl font-black tracking-tight text-[#4D3E90] leading-tight"
+              style={{ color: '#4D3E90' }}
+            >
+              {title}
+            </h1>
             {badge && (
               <span className={`chip ${badgeColors[badgeVariant]} hidden sm:inline-flex`}>
                 {badge}

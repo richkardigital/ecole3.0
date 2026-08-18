@@ -9,8 +9,8 @@ const router = Router();
 
 router.use(authenticate);
 
-// Get specific student report (Student sees own, Admin/Teacher sees any)
-router.get("/student/:studentId", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT, ROLES.EDUCATEUR]), getStudentReportCard);
+// Get specific student report (Student sees own, Admin/Teacher/Parent sees any)
+router.get("/student/:studentId", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT, ROLES.EDUCATEUR, ROLES.PARENT]), getStudentReportCard);
 
 // Get global class report (School Admin/Teacher)
 router.get("/class/:classId", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.ENSEIGNANT, ROLES.EDUCATEUR]), getClassReportCard);

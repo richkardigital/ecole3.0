@@ -85,7 +85,7 @@ const QuizTake = () => {
         return (
             <div className="max-w-2xl mx-auto p-6 mt-10">
                 <div className="bg-white p-8 rounded-xl shadow-lg text-center border border-slate-200">
-                    <h1 className="text-3xl font-bold text-slate-900 mb-4">{quiz.title}</h1>
+                    <h1 className="text-3xl font-black text-[#4D3E90] mb-4">{quiz.title}</h1>
                     {quiz.description && <p className="text-slate-500 mb-8 text-lg">{quiz.description}</p>}
                     
                     <div className="bg-indigo-50 p-4 rounded-lg inline-block mb-8 text-indigo-600 text-sm border border-indigo-200">

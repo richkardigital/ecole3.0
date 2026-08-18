@@ -5,6 +5,7 @@ import {
   createPost,
   getPosts,
   getPost,
+  updatePost,
   createComment,
   deletePost,
   deleteComment
@@ -18,6 +19,7 @@ router.use(authenticate);
 router.get("/", getPosts);
 router.post("/", upload.single('file'), createPost);
 router.get("/:id", getPost);
+router.put("/:id", upload.single('file'), updatePost);
 router.delete("/:id", deletePost);
 
 // Comments

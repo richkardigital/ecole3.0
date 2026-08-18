@@ -7,11 +7,13 @@ import {
   Plus, Edit, Trash2, ArrowLeft, Users as UsersIcon, GraduationCap, 
   School, UserCog, Eye, EyeOff, Loader2, Download, FileSpreadsheet, 
   MessageCircle, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, 
-  LayoutGrid, List, RotateCcw, Building2, CheckCircle2, X
+  LayoutGrid, List, RotateCcw, Building2, CheckCircle2, X, CreditCard
 } from 'lucide-react';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
+import { StudentCardModal } from '@/components/cards/StudentCardModal';
+import { StudentCardData } from '@/lib/studentCardPdfGenerator';
 
 interface User {
   id: string;
@@ -112,6 +114,7 @@ const Users = () => {
   const [isSubmitLoading, setIsSubmitLoading] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<File | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedCardForModal, setSelectedCardForModal] = useState<StudentCardData | null>(null);
   const { register, handleSubmit, reset } = useForm();
   
   const [schools, setSchools] = useState<any[]>([]);
@@ -1164,7 +1167,7 @@ const Users = () => {
                                 )
                             ) : u.role === 'EDUCATEUR' ? (
                                 <span className="text-xs font-semibold text-indigo-500 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-lg inline-flex items-center gap-1">
-                                  <span>Vie Scolaire</span>
+                                  <span>Éducateur</span>
                                 </span>
                             ) : (
                               <span className="text-xs text-brand-text-muted">-</span>
@@ -1185,6 +1188,35 @@ const Users = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                           <div className="flex justify-end gap-2">
+                              {(u.role === 'APPRENANT' || u.role === 'ELEVE') && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedCardForModal({
+                                      id: u.id,
+                                      matricule: u.matricule || `MAT-${u.id.substring(0, 8).toUpperCase()}`,
+                                      firstName: u.firstName,
+                                      lastName: u.lastName,
+                                      birthDate: (u as any).birthDate || null,
+                                      birthPlace: (u as any).birthPlace || 'Abidjan',
+                                      gender: u.gender || 'M',
+                                      photoUrl: u.avatarUrl || null,
+                                      className: u.enrollments?.[0]?.class?.name || 'Classe non assignée',
+                                      levelName: u.enrollments?.[0]?.class?.niveau?.nom || 'Secondaire',
+                                      academicYear: '2025-2026',
+                                      schoolName: u.school?.name || 'Complexe Scolaire École 3.0',
+                                      schoolAddress: 'Abidjan, Côte d\'Ivoire',
+                                      schoolPhone: '+225 27 22 00 00 00',
+                                      schoolEmail: 'contact@ecole30.ci',
+                                      parentPhone: u.phone,
+                                      bloodGroup: 'O+',
+                                    });
+                                  }}
+                                  className="p-2 text-pink-600 hover:text-white bg-pink-500/10 hover:bg-pink-600 rounded-lg transition border border-transparent hover:border-pink-600 cursor-pointer"
+                                  title="Carte Scolaire 3D & Téléchargement"
+                                >
+                                  <CreditCard className="w-4 h-4" />
+                                </button>
+                              )}
                               {(currentUser?.role !== 'SUPER_ADMIN' || u.id !== currentUser?.id) && (
                                 <button 
                                     onClick={() => {
@@ -1285,6 +1317,13 @@ const Users = () => {
         message="Les rôles et accès de cet utilisateur vont être mis à jour. Continuer ?"
         confirmText="Confirmer la mise à jour"
         variant="success"
+      />
+
+      {/* ── STUDENT CARD MODAL ── */}
+      <StudentCardModal
+        isOpen={!!selectedCardForModal}
+        onClose={() => setSelectedCardForModal(null)}
+        cardData={selectedCardForModal}
       />
     </div>
   );

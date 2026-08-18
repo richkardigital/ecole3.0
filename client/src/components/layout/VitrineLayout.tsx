@@ -98,7 +98,7 @@ export const VitrineLayout = () => {
                   { label: 'Se connecter', path: '/login' },
                   { label: 'Inscrire mon école', path: '/inscription' },
                   { label: 'Mot de passe oublié', path: '/mot-de-passe-oublie' },
-                  { label: 'FAQ', path: '/faq' },
+                  { label: "Suivi de l'enfant", path: '/suivi-enfant' },
                 ].map((l) => (
                   <li key={l.path}>
                     <Link to={l.path} className="text-sm text-slate-300 hover:text-[#38bdf8] transition-colors font-medium">

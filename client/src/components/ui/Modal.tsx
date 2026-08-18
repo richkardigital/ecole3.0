@@ -69,7 +69,12 @@ export const Modal = ({ isOpen, onClose, title, children, size = 'md', footer, a
             className="flex items-center justify-between px-6 py-4.5 shrink-0 relative bg-white"
             style={{ borderBottom: '1px solid #F1F5F9' }}
           >
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">{title}</h2>
+            <h2 
+              className="text-lg font-black text-[#4D3E90] tracking-tight"
+              style={{ color: '#4D3E90' }}
+            >
+              {title}
+            </h2>
             <button
               onClick={onClose}
               className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all duration-200"

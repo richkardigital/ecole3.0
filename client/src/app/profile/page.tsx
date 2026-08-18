@@ -19,9 +19,12 @@ import {
   Phone,
   Mail,
   MapPin,
-  Camera
+  Camera,
+  CreditCard
 } from 'lucide-react';
 import api from '@/lib/api';
+import { StudentCard } from '@/components/cards/StudentCard';
+import { StudentCardData } from '@/lib/studentCardPdfGenerator';
 
 interface UserDoc {
   id: string;
@@ -33,7 +36,7 @@ interface UserDoc {
 
 export default function UserProfilePage() {
   const { user, setUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'password'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'password' | 'card'>('profile');
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -253,6 +256,20 @@ export default function UserProfilePage() {
           <Lock className="w-4 h-4" />
           Sécurité & Mot de passe
         </button>
+
+        {(user?.role === 'APPRENANT' || (user?.role as string) === 'ELEVE') && (
+          <button
+            onClick={() => setActiveTab('card')}
+            className={`pb-3 px-1 font-bold text-sm flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              activeTab === 'card'
+                ? 'border-pink-600 text-pink-600'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <CreditCard className="w-4 h-4" />
+            Ma Carte Scolaire (3D)
+          </button>
+        )}
       </div>
 
       {loadingProfile ? (
@@ -623,6 +640,46 @@ export default function UserProfilePage() {
                   </Button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB 4: MA CARTE SCOLAIRE 3D (ÉLÈVE) */}
+          {activeTab === 'card' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col items-center justify-center space-y-6">
+              <div className="text-center max-w-md space-y-1.5">
+                <span className="text-xs font-black uppercase tracking-wider text-pink-600">
+                  Badge Numérique Officiel
+                </span>
+                <h3 className="text-xl font-black text-slate-900">
+                  Ma Carte d'Apprenant École 3.0
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Cette carte officielle certifiée contient votre QR code sécurisé de scolarité. Vous pouvez la retourner en 3D ou la télécharger au format PDF.
+                </p>
+              </div>
+
+              <StudentCard
+                data={{
+                  id: user?.id,
+                  matricule: matricule || `MAT-${user?.id?.substring(0, 8).toUpperCase() || '2026-0000'}`,
+                  firstName: firstName || user?.firstName || '',
+                  lastName: lastName || user?.lastName || '',
+                  birthDate: birthDate || null,
+                  birthPlace: birthPlace || 'Abidjan',
+                  gender: gender === 'FEMININ' ? 'F' : 'M',
+                  photoUrl: displayAvatar || avatarUrl || null,
+                  className: (user as any)?.className || 'Classe active',
+                  levelName: (user as any)?.levelName || 'Secondaire',
+                  academicYear: '2025-2026',
+                  schoolName: (user as any)?.schoolName || 'Complexe Scolaire École 3.0',
+                  schoolAddress: address || 'Abidjan, Côte d\'Ivoire',
+                  schoolPhone: '+225 27 22 00 00 00',
+                  schoolEmail: email || 'contact@ecole30.ci',
+                  parentPhone: parentPhone || phone,
+                  bloodGroup: 'O+',
+                }}
+                showActions={true}
+              />
             </div>
           )}
         </>

@@ -444,17 +444,17 @@ async function seed(): Promise<void> {
   // 9. Élèves de 4ème A (11 élèves)
   // ============================================
   const elevesData = [
-    { firstName: "Jean", lastName: "Koffi", email: "apprenant@ecole1.com", gender: "MASCULIN", matricule: "MAT-2026-4A00", conductNote: 17.5, conductAppr: "Excellente discipline, élève travailleur et respectueux." },
-    { firstName: "Amani", lastName: "Kouadio Jean", email: "amani.jean@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A01", conductNote: 16.0, conductAppr: "Bonne conduite d'ensemble, attentif en classe." },
-    { firstName: "Bamba", lastName: "Fatoumata", email: "bamba.f@ecole.ci", gender: "FEMININ", matricule: "MAT-2026-4A02", conductNote: 18.0, conductAppr: "Comportement exemplaire, déléguée de classe très investie." },
-    { firstName: "Cissé", lastName: "Ibrahim", email: "cisse.ib@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A03", conductNote: 14.5, conductAppr: "Attitude convenable, quelques bavardages à corriger." },
-    { firstName: "Diarrassouba", lastName: "Aïcha", email: "diarra.a@ecole.ci", gender: "FEMININ", matricule: "MAT-2026-4A04", conductNote: 17.0, conductAppr: "Très sérieuse et appliquée dans toutes les activités." },
-    { firstName: "Koffi", lastName: "Ahou Grace", email: "koffi.grace@ecole.ci", gender: "FEMININ", matricule: "MAT-2026-4A05", conductNote: 16.5, conductAppr: "Très bon esprit de camaraderie et assiduité." },
-    { firstName: "Koné", lastName: "Aboubacar", email: "kone.abou@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A06", conductNote: 15.0, conductAppr: "Bonne participation, maintenir les efforts." },
-    { firstName: "N'Guessan", lastName: "Yao Cédric", email: "nguessan.cedric@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A07", conductNote: 16.0, conductAppr: "Élève ponctuel et respectueux du règlement." },
-    { firstName: "Ouattara", lastName: "Salif", email: "ouattara.salif@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A08", conductNote: 14.0, conductAppr: "Conduite satisfaisante mais attention à la concentration." },
-    { firstName: "Sylla", lastName: "Mariam", email: "sylla.m@ecole.ci", gender: "FEMININ", matricule: "MAT-2026-4A09", conductNote: 18.5, conductAppr: "Exemplaire en tout point, félicitations pour votre tenue." },
-    { firstName: "Touré", lastName: "Oumar", email: "toure.oumar@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A10", conductNote: 15.5, conductAppr: "Bon comportement, participe activement." }
+    { firstName: "Jean", lastName: "Koffi", email: "apprenant@ecole1.com", gender: "MASCULIN", matricule: "MAT-2026-4A00", avatarUrl: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2012-05-14"), conductNote: 17.5, conductAppr: "Excellente discipline, élève travailleur et respectueux." },
+    { firstName: "Amani", lastName: "Kouadio Jean", email: "amani.jean@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A01", avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2012-03-10"), conductNote: 16.0, conductAppr: "Bonne conduite d'ensemble, attentif en classe." },
+    { firstName: "Bamba", lastName: "Fatoumata", email: "bamba.f@ecole.ci", gender: "FEMININ", matricule: "MAT-2026-4A02", avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2012-08-22"), conductNote: 18.0, conductAppr: "Comportement exemplaire, déléguée de classe très investie." },
+    { firstName: "Cissé", lastName: "Ibrahim", email: "cisse.ib@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A03", avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2012-01-19"), conductNote: 14.5, conductAppr: "Attitude convenable, quelques bavardages à corriger." },
+    { firstName: "Diarrassouba", lastName: "Aïcha", email: "diarra.a@ecole.ci", gender: "FEMININ", matricule: "MAT-2026-4A04", avatarUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2012-06-15"), conductNote: 17.0, conductAppr: "Très sérieuse et appliquée dans toutes les activités." },
+    { firstName: "Koffi", lastName: "Ahou Grace", email: "koffi.grace@ecole.ci", gender: "FEMININ", matricule: "MAT-2026-4A05", avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2012-09-30"), conductNote: 16.5, conductAppr: "Très bon esprit de camaraderie et assiduité." },
+    { firstName: "Koné", lastName: "Aboubacar", email: "kone.abou@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A06", avatarUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2012-04-12"), conductNote: 15.0, conductAppr: "Bonne participation, maintenir les efforts." },
+    { firstName: "N'Guessan", lastName: "Yao Cédric", email: "nguessan.cedric@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A07", avatarUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2012-11-25"), conductNote: 16.0, conductAppr: "Élève ponctuel et respectueux du règlement." },
+    { firstName: "Ouattara", lastName: "Salif", email: "ouattara.salif@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A08", avatarUrl: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2012-07-08"), conductNote: 14.0, conductAppr: "Conduite satisfaisante mais attention à la concentration." },
+    { firstName: "Sylla", lastName: "Mariam", email: "sylla.m@ecole.ci", gender: "FEMININ", matricule: "MAT-2026-4A09", avatarUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2011-11-03"), conductNote: 18.5, conductAppr: "Exemplaire en tout point, félicitations pour votre tenue." },
+    { firstName: "Touré", lastName: "Oumar", email: "toure.oumar@ecole.ci", gender: "MASCULIN", matricule: "MAT-2026-4A10", avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80", birthDate: new Date("2012-10-05"), conductNote: 15.5, conductAppr: "Bon comportement, participe activement." }
   ];
 
   const createdStudents: any[] = [];
@@ -470,6 +470,8 @@ async function seed(): Promise<void> {
         role: 'APPRENANT',
         schoolId: schoolDemo.id,
         matricule: e.matricule,
+        avatarUrl: e.avatarUrl,
+        birthDate: e.birthDate,
         phone: `+225 01 02 03 04 ${i.toString().padStart(2, '0')}`,
       }
     });

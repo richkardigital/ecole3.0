@@ -69,7 +69,7 @@ const QuizAttemptDetail = () => {
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 mb-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">{attempt.quiz.title}</h1>
+                        <h1 className="text-2xl font-black text-[#4D3E90]">{attempt.quiz.title}</h1>
                         <p className="text-slate-500">
                             Par {attempt.student.firstName} {attempt.student.lastName} • 
                             Le {new Date(attempt.completedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}

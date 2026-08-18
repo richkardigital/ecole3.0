@@ -93,6 +93,10 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
+    if (user.role === 'PARENT') {
+      navigate('/parent/dashboard', { replace: true });
+      return;
+    }
     const fetchStats = async () => {
       setLoading(true);
       try {
@@ -134,7 +138,10 @@ const Dashboard = () => {
               <Sparkles className="w-3 h-3" />
               {roleConf.greeting}
             </span>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-2 leading-tight text-slate-900">
+            <h1 
+              className="text-3xl md:text-4xl font-black tracking-tight mb-2 leading-tight text-[#4D3E90]"
+              style={{ color: '#4D3E90' }}
+            >
               Bonjour,{' '}
               <span style={{ color: roleConf.accentFrom }}>
                 {user.firstName}
@@ -179,7 +186,7 @@ const Dashboard = () => {
             {user.role === 'SUPER_ADMIN' && (<>
               <StatCard title="Écoles" count={stats?.schools ?? '—'} label="Établissements actifs" icon={<School className="w-5 h-5" />} iconColor="text-blue-600" badgeColor="bg-blue-50 border-blue-200" onClick={() => navigate('/admin/schools')} trend={{ value: 12, isPositive: true }} />
               <StatCard title="Enseignants" count={stats?.teachers ?? '—'} label="Professeurs actifs" icon={<Users className="w-5 h-5" />} iconColor="text-amber-600" badgeColor="bg-amber-50 border-amber-200" onClick={() => navigate('/admin/users?group=enseignant')} />
-              <StatCard title="Éducateurs" count={stats?.educators ?? '—'} label="Vie scolaire" icon={<Users className="w-5 h-5" />} iconColor="text-indigo-600" badgeColor="bg-indigo-50 border-indigo-200" onClick={() => navigate('/admin/users?group=educateur')} />
+              <StatCard title="Éducateurs" count={stats?.educators ?? '—'} label="Éducateurs" icon={<Users className="w-5 h-5" />} iconColor="text-indigo-600" badgeColor="bg-indigo-50 border-indigo-200" onClick={() => navigate('/admin/users?group=educateur')} />
               <StatCard title="Élèves" count={stats?.students ?? '—'} label={selectedYear ? "Inscrits cette année" : "Total inscrits"} icon={<GraduationCap className="w-5 h-5" />} iconColor="text-[#189CD8]" badgeColor="bg-[#189CD8]/10 border-[#189CD8]/25" onClick={() => navigate('/admin/users?group=eleve')} />
               <StatCard title="Classes" count={stats?.classes ?? '—'} label="Classes créées" icon={<School className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/admin/classes')} />
             </>)}
@@ -187,7 +194,7 @@ const Dashboard = () => {
             {(user.role === 'DIRECTEUR') && (<>
               <StatCard title="Classes" count={stats?.classes ?? '—'} label="Classes de l'école" icon={<School className="w-5 h-5" />} iconColor="text-purple-600" badgeColor="bg-purple-50 border-purple-200" onClick={() => navigate('/directeur/classes')} />
               <StatCard title="Enseignants" count={stats?.teachers ?? '—'} label="Corps enseignant" icon={<Users className="w-5 h-5" />} iconColor="text-amber-600" badgeColor="bg-amber-50 border-amber-200" onClick={() => navigate('/directeur/users?group=enseignant')} />
-              <StatCard title="Éducateurs" count={stats?.educators ?? '—'} label="Vie scolaire" icon={<Users className="w-5 h-5" />} iconColor="text-indigo-600" badgeColor="bg-indigo-50 border-indigo-200" onClick={() => navigate('/directeur/users?group=educateur')} />
+              <StatCard title="Éducateurs" count={stats?.educators ?? '—'} label="Éducateurs" icon={<Users className="w-5 h-5" />} iconColor="text-indigo-600" badgeColor="bg-indigo-50 border-indigo-200" onClick={() => navigate('/directeur/users?group=educateur')} />
               <StatCard title="Élèves" count={stats?.students ?? '—'} label="Élèves inscrits" icon={<GraduationCap className="w-5 h-5" />} iconColor="text-[#189CD8]" badgeColor="bg-[#189CD8]/10 border-[#189CD8]/25" onClick={() => navigate('/directeur/users?group=eleve')} trend={{ value: 3, isPositive: true }} />
               <StatCard title="Bulletins" count="Trimestre 1" label="Bulletins officiels" icon={<FileText className="w-5 h-5" />} iconColor="text-sky-600" badgeColor="bg-sky-50 border-sky-200" onClick={() => navigate('/directeur/report-cards')} />
             </>)}

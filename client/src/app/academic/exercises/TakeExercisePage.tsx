@@ -278,7 +278,7 @@ export default function TakeExercisePage() {
                     </>
                   )}
                 </div>
-                <h1 className="text-lg sm:text-xl font-black text-brand-text flex items-center gap-2 truncate">
+                <h1 className="text-lg sm:text-xl font-black text-[#4D3E90] flex items-center gap-2 truncate">
                   {exercise.title}
                 </h1>
               </div>

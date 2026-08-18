@@ -31,8 +31,12 @@ import {
   ChevronRight,
   UserCheck,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  CreditCard,
+  Printer
 } from 'lucide-react';
+import { StudentCardModal } from '@/components/cards/StudentCardModal';
+import { StudentCardData, exportBatchStudentCardsPdf, exportStudentCardPdf } from '@/lib/studentCardPdfGenerator';
 
 interface Student {
   id: string;
@@ -86,6 +90,8 @@ interface CourseItem {
 export default function ClassDetailsPage() {
   const { user } = useAuth();
   const basePath = user?.role === 'SUPER_ADMIN' ? '/admin' : user?.role === 'EDUCATEUR' ? '/educateur' : '/directeur';
+  const canManageTeachers = user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR';
+  const isEducateur = user?.role === 'EDUCATEUR';
   
   const navigate = useNavigate();
   const params = useParams();
@@ -158,6 +164,47 @@ export default function ClassDetailsPage() {
   // Remove Student Modal
   const [studentToRemove, setStudentToRemove] = useState<Student | null>(null);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
+
+  // Student Card Modal & Batch Print
+  const [selectedCardForModal, setSelectedCardForModal] = useState<StudentCardData | null>(null);
+  const [isPrintingCards, setIsPrintingCards] = useState(false);
+
+  const handlePrintClassCards = async () => {
+    if (students.length === 0) return;
+    setIsPrintingCards(true);
+    try {
+      const cardsData: StudentCardData[] = students.map((st) => ({
+        id: st.id,
+        matricule: st.matricule || `MAT-${st.id.substring(0, 8).toUpperCase()}`,
+        firstName: st.firstName,
+        lastName: st.lastName,
+        birthDate: (st as any).birthDate || null,
+        birthPlace: (st as any).birthPlace || 'Abidjan',
+        gender: st.gender || 'M',
+        photoUrl: st.avatarUrl || null,
+        className: cls?.name || 'Classe',
+        levelName: cls?.niveau?.nom || 'Secondaire',
+        academicYear: cls?.academicYear?.name || '2025-2026',
+        schoolName: cls?.school?.name || (user as any)?.schoolName || 'Complexe Scolaire École 3.0',
+        schoolAddress: cls?.school?.address || 'Abidjan, Côte d\'Ivoire',
+        schoolPhone: cls?.school?.phone || '+225 27 22 00 00 00',
+        schoolEmail: cls?.school?.email || 'contact@ecole30.ci',
+        parentName: (st as any).parentName,
+        parentPhone: (st as any).parentPhone || st.phone,
+        bloodGroup: (st as any).bloodGroup || 'O+',
+      }));
+
+      await exportBatchStudentCardsPdf(cardsData, {
+        title: `Cartes_${cls?.name || 'Classe'}`,
+        academicYear: cls?.academicYear?.name || '2025-2026',
+      });
+    } catch (err) {
+      console.error('Erreur export cartes classe:', err);
+      alert('Impossible d\'exporter les cartes de la classe.');
+    } finally {
+      setIsPrintingCards(false);
+    }
+  };
 
   const fetchClassData = async () => {
     try {
@@ -453,7 +500,7 @@ export default function ClassDetailsPage() {
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-black text-brand-text">{cls.name}</h1>
+                <h1 className="text-2xl font-black text-[#4D3E90]">{cls.name}</h1>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${cls.isActive ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                   {cls.isActive ? 'Active' : 'Inactive'}
                 </span>
@@ -601,6 +648,18 @@ export default function ClassDetailsPage() {
                     leftIcon={<Plus className="w-4 h-4" />}
                   >
                     Inscrire des élèves
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePrintClassCards}
+                    disabled={isPrintingCards || students.length === 0}
+                    isLoading={isPrintingCards}
+                    leftIcon={<CreditCard className="w-4 h-4 text-pink-600" />}
+                    className="border-pink-500/30 text-pink-700 bg-pink-50/50 hover:bg-pink-100"
+                  >
+                    Imprimer Cartes (A4)
                   </Button>
 
                   <Button
@@ -870,6 +929,34 @@ export default function ClassDetailsPage() {
                           <td className="p-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               <button 
+                                onClick={() => {
+                                  setSelectedCardForModal({
+                                    id: student.id,
+                                    matricule: student.matricule || `MAT-${student.id.substring(0, 8).toUpperCase()}`,
+                                    firstName: student.firstName,
+                                    lastName: student.lastName,
+                                    birthDate: (student as any).birthDate || null,
+                                    birthPlace: (student as any).birthPlace || 'Abidjan',
+                                    gender: student.gender || 'M',
+                                    photoUrl: student.avatarUrl || null,
+                                    className: cls?.name || 'Classe',
+                                    levelName: cls?.niveau?.nom || 'Secondaire',
+                                    academicYear: cls?.academicYear?.name || '2025-2026',
+                                    schoolName: cls?.school?.name || (user as any)?.schoolName || 'Complexe Scolaire École 3.0',
+                                    schoolAddress: cls?.school?.address || 'Abidjan, Côte d\'Ivoire',
+                                    schoolPhone: cls?.school?.phone || '+225 27 22 00 00 00',
+                                    schoolEmail: cls?.school?.email || 'contact@ecole30.ci',
+                                    parentName: (student as any).parentName,
+                                    parentPhone: (student as any).parentPhone || student.phone,
+                                    bloodGroup: (student as any).bloodGroup || 'O+',
+                                  });
+                                }}
+                                className="p-2 text-pink-600 hover:text-white bg-pink-500/10 hover:bg-pink-600 rounded-lg transition-colors cursor-pointer" 
+                                title="Carte Scolaire 3D & Téléchargement"
+                              >
+                                <CreditCard className="w-4 h-4" />
+                              </button>
+                              <button 
                                 onClick={() => openTransferModal(student)}
                                 className="p-2 text-brand-accent hover:text-white bg-brand-accent/10 hover:bg-brand-accent rounded-lg transition-colors cursor-pointer"
                                 title="Migrer / Transférer vers une autre classe"
@@ -920,24 +1007,28 @@ export default function ClassDetailsPage() {
                 <div>
                   <h3 className="text-lg font-bold text-brand-text">Enseignants & Matières Affectés</h3>
                   <p className="text-xs text-brand-text-muted mt-0.5">
-                    Gérez les professeurs intervenant dans cette classe et leurs matières respectives.
+                    {canManageTeachers 
+                      ? "Gérez les professeurs intervenant dans cette classe et leurs matières respectives."
+                      : "Consultez les professeurs affectés à cette classe et leurs matières respectives."}
                   </p>
                 </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    setIsAssigningTeacher(true);
-                    fetchTeachersAndSubjects();
-                  }}
-                  leftIcon={<Plus className="w-4 h-4" />}
-                >
-                  Affecter un enseignant
-                </Button>
+                {canManageTeachers && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setIsAssigningTeacher(true);
+                      fetchTeachersAndSubjects();
+                    }}
+                    leftIcon={<Plus className="w-4 h-4" />}
+                  >
+                    Affecter un enseignant
+                  </Button>
+                )}
               </div>
 
               {/* ASSIGN TEACHER FORM */}
-              {isAssigningTeacher && (
+              {canManageTeachers && isAssigningTeacher && (
                 <div className="bg-brand-sidebar border border-brand-border p-5 rounded-2xl space-y-4 shadow-lg">
                   <h4 className="font-bold text-brand-text flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-brand-accent" />
@@ -1035,13 +1126,15 @@ export default function ClassDetailsPage() {
                             </span>
                           )}
                         </div>
-                        <button 
-                          onClick={() => handleUnassignTeacher(assignment.id)}
-                          className="p-1.5 text-brand-text-muted hover:text-red-400 bg-brand-card hover:bg-red-500/10 rounded-lg transition-colors border border-brand-border cursor-pointer"
-                          title="Désassigner cette matière"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {canManageTeachers && (
+                          <button 
+                            onClick={() => handleUnassignTeacher(assignment.id)}
+                            className="p-1.5 text-brand-text-muted hover:text-red-400 bg-brand-card hover:bg-red-500/10 rounded-lg transition-colors border border-brand-border cursor-pointer"
+                            title="Désassigner cette matière"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-3 mt-4">
@@ -1076,7 +1169,11 @@ export default function ClassDetailsPage() {
                   <div className="col-span-full py-12 text-center text-brand-text-muted bg-brand-sidebar/20 rounded-2xl border border-dashed border-brand-border">
                     <UserCheck className="w-8 h-8 mx-auto text-brand-text-muted/50 mb-2" />
                     <p className="font-bold text-brand-text">Aucun enseignant affecté pour l'instant</p>
-                    <p className="text-xs mt-1">Cliquez sur "Affecter un enseignant" pour associer un professeur et une matière à cette classe.</p>
+                    <p className="text-xs mt-1">
+                      {canManageTeachers 
+                        ? 'Cliquez sur "Affecter un enseignant" pour associer un professeur et une matière à cette classe.'
+                        : 'Aucun enseignant n\'a encore été affecté à cette classe par la direction.'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -1124,7 +1221,7 @@ export default function ClassDetailsPage() {
                         <span>{course._count?.quizzes || 0} quiz</span>
                       </div>
                       <Link 
-                        to={`/academic/courses/${course.id}?tab=CONTENT`}
+                        to={isEducateur ? `/educateur/courses/${course.id}?tab=CONTENT` : `/academic/courses/${course.id}?tab=CONTENT`}
                         className="inline-flex items-center gap-1 text-xs font-bold text-brand-accent hover:underline"
                       >
                         Consulter <ExternalLink className="w-3 h-3" />
@@ -1246,6 +1343,13 @@ export default function ClassDetailsPage() {
           </div>
         </div>
       )}
+
+      {/* ── STUDENT CARD MODAL ── */}
+      <StudentCardModal
+        isOpen={!!selectedCardForModal}
+        onClose={() => setSelectedCardForModal(null)}
+        cardData={selectedCardForModal}
+      />
     </div>
   );
 }

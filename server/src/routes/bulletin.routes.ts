@@ -39,7 +39,7 @@ router.post(
 // Bulletin individuel d'un élève
 router.get(
   "/student/:studentId",
-  requireRole([...ALL_STAFF, ROLES.APPRENANT]),
+  requireRole([...ALL_STAFF, ROLES.APPRENANT, ROLES.PARENT]),
   getBulletinEleve
 );
 

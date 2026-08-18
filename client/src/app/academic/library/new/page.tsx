@@ -107,7 +107,7 @@ export default function NewResourcePage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Ajouter un Document</h1>
+          <h1 className="text-2xl font-black text-[#4D3E90] tracking-tight">Ajouter un Document</h1>
           <p className="text-sm font-medium text-slate-500">Enrichissez la bibliothèque de ressources pédagogiques</p>
         </div>
       </div>

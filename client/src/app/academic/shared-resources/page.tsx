@@ -1,21 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import mathCover from '@/assets/course-covers/math.svg';
-import musicCover from '@/assets/course-covers/music.svg';
-import spanishCover from '@/assets/course-covers/spanish.svg';
-import chemistryCover from '@/assets/course-covers/chemistry.svg';
-import svtCover from '@/assets/course-covers/svt.svg';
-import philosophyCover from '@/assets/course-covers/philosophy.svg';
-import epsCover from '@/assets/course-covers/eps.svg';
-import officeCover from '@/assets/course-covers/office.svg';
-import englishCover from '@/assets/course-covers/english.svg';
-import artsCover from '@/assets/course-covers/arts.svg';
-import historyCover from '@/assets/course-covers/history.svg';
-import edhcCover from '@/assets/course-covers/edhc.svg';
-import economyCover from '@/assets/course-covers/economy.svg';
-import frenchCover from '@/assets/course-covers/french.svg';
-import defaultCover from '@/assets/course-covers/default.svg';
+import { getSubjectIllustration } from '@/lib/subjectIllustrations';
 import api from '@/lib/api';
 import { 
   Search, 
@@ -60,39 +46,6 @@ interface CourseModel {
   totalResources?: number;
   _count?: { chapters: number; assignments: number; resources: number };
 }
-
-const SUBJECT_IMAGES: Record<string, string> = {
-  'Mathématiques': mathCover,
-  'Maths': mathCover,
-  'Physique': chemistryCover,
-  'Physique-Chimie': chemistryCover,
-  'Chimie': chemistryCover,
-  'SVT': svtCover,
-  'Sciences de la Vie': svtCover,
-  'Histoire-Géo': historyCover,
-  'Histoire-Géographie': historyCover,
-  'Français': frenchCover,
-  'Francais': frenchCover,
-  'Espagnol': spanishCover,
-  'Anglais': englishCover,
-  'Philosophie': philosophyCover,
-  'EPS': epsCover,
-  'Informatique': officeCover,
-  'Bureautique': officeCover,
-  'Arts': artsCover,
-  'EDHC': edhcCover,
-  'Économie': economyCover,
-  'Economie': economyCover,
-  'Entrepreneuriat': economyCover,
-  'Musique': musicCover,
-};
-
-const getCourseImage = (subjectName: string, customImage?: string | null) => {
-  if (customImage) return customImage;
-  const subjectLower = (subjectName || '').toLowerCase();
-  const key = Object.keys(SUBJECT_IMAGES).find(k => subjectLower.includes(k.toLowerCase()));
-  return key ? SUBJECT_IMAGES[key] : defaultCover;
-};
 
 const SharedResources = () => {
   const { user } = useAuth();
@@ -313,7 +266,7 @@ const SharedResources = () => {
                 {/* Illustrated Image Banner */}
                 <div className="relative h-44 overflow-hidden shrink-0 bg-slate-950">
                   <img 
-                    src={getCourseImage(course.subject.name, course.subject.imageUrl)}
+                    src={getSubjectIllustration(course.subject.name, course.subject.imageUrl)}
                     alt={course.subject.name} 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-90" 
                   />

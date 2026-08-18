@@ -145,6 +145,7 @@ const AssignmentDetails = () => {
     if (user?.role === 'SUPER_ADMIN') return '/admin/assignments';
     if (user?.role === 'DIRECTEUR') return '/directeur/assignments';
     if (user?.role === 'ENSEIGNANT') return '/enseignant/assignments';
+    if (user?.role === 'EDUCATEUR') return '/educateur/evaluations';
     return '/assignments';
   };
 
@@ -152,7 +153,7 @@ const AssignmentDetails = () => {
     if (location.state?.from) {
       navigate(location.state.from);
     } else if (assignment?.courseId) {
-      const courseBase = user?.role === 'SUPER_ADMIN' ? '/admin/courses' : user?.role === 'DIRECTEUR' ? '/directeur/courses' : user?.role === 'ENSEIGNANT' ? '/enseignant/courses' : '/courses';
+      const courseBase = user?.role === 'SUPER_ADMIN' ? '/admin/courses' : user?.role === 'DIRECTEUR' ? '/directeur/courses' : user?.role === 'ENSEIGNANT' ? '/enseignant/courses' : user?.role === 'EDUCATEUR' ? '/educateur/courses' : '/courses';
       navigate(`${courseBase}/${assignment.courseId}?tab=ASSIGNMENTS`);
     } else {
       navigate(getBackPath());
@@ -163,6 +164,7 @@ const AssignmentDetails = () => {
     if (user?.role === 'SUPER_ADMIN') return `/admin/assignments/${id}/edit`;
     if (user?.role === 'DIRECTEUR') return `/directeur/assignments/${id}/edit`;
     if (user?.role === 'ENSEIGNANT') return `/enseignant/assignments/${id}/edit`;
+    if (user?.role === 'EDUCATEUR') return `/educateur/assignments/${id}/edit`;
     return `/assignments/${id}/edit`;
   };
 
@@ -420,7 +422,7 @@ const AssignmentDetails = () => {
               )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black text-brand-text tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-black text-[#4D3E90] tracking-tight">
               {assignment.title}
             </h1>
 

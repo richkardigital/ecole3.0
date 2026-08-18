@@ -1041,35 +1041,56 @@ export const gradeSubmission = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: "Submission not found" });
     }
 
-    // Upsert grade
-    // Note: Grade creation requires termId. We need to find the active term for this assignment.
-    // For now, let's try to find an OPEN term in the school.
-    // This logic is a bit fragile and should be improved by linking assignment to term or year.
-    
-    // Quick fix: Find the first OPEN term.
-    const activeTerm = await prisma.term.findFirst({
-        where: { status: 'OPEN' }
-    });
-    
-    let termId = activeTerm?.id;
+    const assignment = submission.assignment;
+    let termId = assignment?.termId;
+    if (!termId) {
+      const activeTerm = await prisma.term.findFirst({ where: { status: "OPEN" } });
+      termId = activeTerm?.id || null;
+    }
+    let finalCourseId = assignment?.courseId || null;
 
-    // If no active term, try to find ANY term or create a default one if we want to enforce it.
-    // For now, if schema allows null, we can skip it, OR we create a dummy one.
-    // Schema allows null.
-    // But let's see if we can just skip it.
-    
+    if (!finalCourseId && assignment?.niveauId && assignment?.subjectId) {
+      const enrollment = await prisma.enrollment.findFirst({
+        where: { studentId: submission.studentId, status: "ACTIVE", class: { niveauId: assignment.niveauId } }
+      });
+      if (enrollment) {
+        const course = await prisma.course.findFirst({
+          where: { niveauId: assignment.niveauId, subjectId: assignment.subjectId }
+        });
+        finalCourseId = course?.id ?? null;
+      }
+    }
+
+    const resolvedType = assignment?.type ? ((assignment.type.startsWith('COMPOSITION') || assignment.type.startsWith('COMPO')) ? 'EXAMEN' : 'DEVOIR') : 'DEVOIR';
+    const isTeacher = (req.user?.role as string) === "ENSEIGNANT";
+
     const grade = await prisma.grade.upsert({
       where: { submissionId: id as string },
       update: {
         value,
         comment: comment || null,
+        assignmentId: submission.assignmentId,
+        courseId: finalCourseId,
+        termId,
+        coefficient: assignment?.coefficient || 1,
+        type: resolvedType as any,
+        validated: true,
+        isGraded: true,
+        source: isTeacher ? "ENSEIGNANT" : "ADMIN",
       },
       create: {
         submissionId: id as string,
+        assignmentId: submission.assignmentId,
+        courseId: finalCourseId,
         value,
         comment: comment || null,
         studentId: submission.studentId,
-        termId: termId || null,
+        termId,
+        coefficient: assignment?.coefficient || 1,
+        type: resolvedType as any,
+        validated: true,
+        isGraded: true,
+        source: isTeacher ? "ENSEIGNANT" : "ADMIN",
       },
     });
 
@@ -1158,6 +1179,22 @@ export const gradeStudentAssignment = async (req: AuthRequest, res: Response) =>
       return res.status(400).json({ message: 'La note doit être comprise entre 0 et 20' });
     }
     
+    let finalCourseId = assignment.courseId;
+    if (!finalCourseId && assignment.niveauId && assignment.subjectId) {
+      const enrollment = await prisma.enrollment.findFirst({
+        where: { studentId: String(studentId), status: "ACTIVE", class: { niveauId: assignment.niveauId } }
+      });
+      if (enrollment) {
+        const course = await prisma.course.findFirst({
+          where: { niveauId: assignment.niveauId, subjectId: assignment.subjectId }
+        });
+        finalCourseId = course?.id ?? null;
+      }
+    }
+
+    const resolvedType = assignment.type ? ((assignment.type.startsWith('COMPOSITION') || assignment.type.startsWith('COMPO')) ? 'EXAMEN' : 'DEVOIR') : 'DEVOIR';
+    const isTeacher = (req.user?.role as string) === "ENSEIGNANT";
+
     const grade = await prisma.grade.upsert({
       where: { submissionId: submission.id },
       create: {
@@ -1166,17 +1203,21 @@ export const gradeStudentAssignment = async (req: AuthRequest, res: Response) =>
         studentId: String(studentId),
         submissionId: submission.id,
         assignmentId: id as string,
-        courseId: assignment.courseId || null,
+        courseId: finalCourseId,
         termId: assignment.termId || null,
         coefficient: assignment.coefficient || 1,
-        type: 'DEVOIR',
+        type: resolvedType as any,
         validated: true,
         isGraded: true,
-        source: 'ENSEIGNANT'
+        source: isTeacher ? 'ENSEIGNANT' : 'ADMIN'
       },
       update: {
         value: numValue,
         comment: comment || null,
+        courseId: finalCourseId,
+        termId: assignment.termId || null,
+        coefficient: assignment.coefficient || 1,
+        type: resolvedType as any,
         validated: true,
         isGraded: true
       }

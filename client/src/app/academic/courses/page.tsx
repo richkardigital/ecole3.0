@@ -26,21 +26,7 @@ import {
   Calendar,
   X,
 } from "lucide-react";
-import mathCover from "@/assets/course-covers/math.svg";
-import musicCover from "@/assets/course-covers/music.svg";
-import spanishCover from "@/assets/course-covers/spanish.svg";
-import chemistryCover from "@/assets/course-covers/chemistry.svg";
-import svtCover from "@/assets/course-covers/svt.svg";
-import philosophyCover from "@/assets/course-covers/philosophy.svg";
-import epsCover from "@/assets/course-covers/eps.svg";
-import officeCover from "@/assets/course-covers/office.svg";
-import englishCover from "@/assets/course-covers/english.svg";
-import artsCover from "@/assets/course-covers/arts.svg";
-import historyCover from "@/assets/course-covers/history.svg";
-import edhcCover from "@/assets/course-covers/edhc.svg";
-import economyCover from "@/assets/course-covers/economy.svg";
-import frenchCover from "@/assets/course-covers/french.svg";
-import defaultCover from "@/assets/course-covers/default.svg";
+import { getSubjectIllustration } from "@/lib/subjectIllustrations";
 import ConfirmationModal from "@/components/ui/ConfirmModal";
 import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -70,24 +56,6 @@ interface CourseModel {
   academicYear?: { id: string; name: string };
   academicYearId?: string;
 }
-
-const PRESET_COVERS_MAP: Record<string, string> = {
-  math: mathCover,
-  french: frenchCover,
-  english: englishCover,
-  chemistry: chemistryCover,
-  svt: svtCover,
-  history: historyCover,
-  philosophy: philosophyCover,
-  eps: epsCover,
-  music: musicCover,
-  arts: artsCover,
-  spanish: spanishCover,
-  edhc: edhcCover,
-  economy: economyCover,
-  office: officeCover,
-  default: defaultCover
-};
 
 interface Option {
   id: string;
@@ -187,33 +155,6 @@ const Courses = () => {
       console.error("Error deleting course", error);
       alert("Impossible de supprimer le cours.");
     }
-  };
-
-  const getCourseImage = (subjectName: string, subjectImageUrl?: string) => {
-    if (subjectImageUrl && subjectImageUrl.trim() !== '') {
-      if (PRESET_COVERS_MAP[subjectImageUrl]) {
-        return PRESET_COVERS_MAP[subjectImageUrl];
-      }
-      if (subjectImageUrl.startsWith('http') || subjectImageUrl.startsWith('/') || subjectImageUrl.startsWith('data:')) {
-        return subjectImageUrl;
-      }
-    }
-    const s = (subjectName || "").toLowerCase().trim();
-    if (s.includes("sport") || s.includes("eps") || s.includes("physique-eps") || s.includes("gym")) return epsCover;
-    if (s.includes("math")) return mathCover;
-    if (s.includes("franc") || s.includes("franç") || s.includes("dictée") || s.includes("grammaire")) return frenchCover;
-    if (s.includes("anglais") || s.includes("angl") || s.includes("english")) return englishCover;
-    if (s.includes("physique") || s.includes("chimie") || s.includes("pc")) return chemistryCover;
-    if (s.includes("svt") || s.includes("science") || s.includes("biologie") || s.includes("terre")) return svtCover;
-    if (s.includes("histoire") || s.includes("geo") || s.includes("géo") || s.includes("hg")) return historyCover;
-    if (s.includes("philo")) return philosophyCover;
-    if (s.includes("musique") || s.includes("music") || s.includes("chant")) return musicCover;
-    if (s.includes("art") || s.includes("plastique") || s.includes("dessin")) return artsCover;
-    if (s.includes("espagnol") || s.includes("esp") || s.includes("allemand")) return spanishCover;
-    if (s.includes("edhc") || s.includes("civique") || s.includes("morale") || s.includes("droit")) return edhcCover;
-    if (s.includes("eco") || s.includes("éco") || s.includes("compta") || s.includes("gestion")) return economyCover;
-    if (s.includes("info") || s.includes("bureautique") || s.includes("tic") || s.includes("ordinateur")) return officeCover;
-    return defaultCover;
   };
 
   const getCreatePath = () => {
@@ -462,7 +403,7 @@ const Courses = () => {
                       <td className="px-6 py-4.5 whitespace-nowrap">
                         <div className="flex items-center gap-3.5">
                           <img
-                            src={getCourseImage(course.subject?.name || "")}
+                            src={getSubjectIllustration(course.subject?.name, course.subject?.imageUrl)}
                             alt=""
                             className="w-11 h-11 rounded-xl object-cover border border-brand-border/60 shrink-0 shadow-sm"
                           />
@@ -611,8 +552,8 @@ const Courses = () => {
           {paginatedCourses.map((course) => {
             const teacherCount =
               course.teachersCount ?? course.teachers?.length ?? 0;
-            const courseImageSrc = getCourseImage(
-              course.subject?.name || "",
+            const courseImageSrc = getSubjectIllustration(
+              course.subject?.name,
               course.subject?.imageUrl,
             );
 

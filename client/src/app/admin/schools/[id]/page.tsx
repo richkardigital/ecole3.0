@@ -76,7 +76,7 @@ export default function SchoolDetailsPage() {
                   <SchoolIcon className="w-7 h-7 text-brand-accent" />
               </div>
               <div>
-                  <h1 className="text-2xl font-bold text-brand-text">{school.name}</h1>
+                  <h1 className="text-2xl font-black text-[#4D3E90]">{school.name}</h1>
                   <div className="flex items-center gap-2 mt-1">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${school.isActive ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                           {school.isActive ? 'Actif' : 'Inactif'}

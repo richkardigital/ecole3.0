@@ -57,8 +57,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-// Sécurisation des headers HTTP avec Helmet
-app.use(helmet()); // Configuration stricte par défaut (HSTS, NoSniff, XSSFilter)
+// Sécurisation des headers HTTP avec Helmet (autoriser les ressources cross-origin pour l'export PDF et canvas)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 // Global Rate Limiting : Empêche le spam excessif et les attaques DDoS
 const globalLimiter = rateLimit({
@@ -85,7 +87,12 @@ app.use(hpp());
 // --- Gestion des fichiers statiques ---
 // Note : Pour Vercel, les fichiers locaux ne persistent pas. 
 // La migration vers Supabase Storage est privilégiée pour la production.
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // --- Définition des Routes API ---
 app.use("/api/auth", authRoutes);           // Authentification (Login, Register)
@@ -106,6 +113,8 @@ app.use("/api/meetings", meetingRoutes);        // Réunions et classes virtuell
 app.use("/api/news", newsRoutes);               // Actualités et annonces scolaires
 app.use("/api/forum", forumRoutes);             // Forum École
 app.use("/api/absences", absenceRoutes);        // Gestion des absences
+app.use("/api/conducts", conductRoutes);        // Conduite et discipline
+app.use("/api/conduct", conductRoutes);         // Alias conduite
 app.use("/api/audit-logs", auditLogRoutes);     // Logs d'audit
 app.use("/api/teaching-types", teachingTypeRoutes); // Types d'enseignement
 app.use("/api/school-types", schoolTypeRoutes);     // Types d'établissement

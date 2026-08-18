@@ -24,8 +24,8 @@ const router = Router();
 router.use(authenticate);
 
 // Lecture — tous les rôles authentifiés
-router.get("/years", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT]), getAcademicYears);
-router.get("/years/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT]), getAcademicYear);
+router.get("/years", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT, ROLES.PARENT]), getAcademicYears);
+router.get("/years/:id", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT, ROLES.APPRENANT, ROLES.PARENT]), getAcademicYear);
 router.get("/years/:id/stats", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR, ROLES.ENSEIGNANT]), getAcademicYearStats);
 
 // Écriture — restreint aux admins

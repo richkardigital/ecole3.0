@@ -3,7 +3,28 @@ import { useAuth } from '@/context/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { useSocket } from '@/context/SocketContext';
 import api, { getFileUrl } from '@/lib/api';
-import { Send, User, Users, Circle, Paperclip, FileText, X, ArrowLeft, MessageSquare, Search } from 'lucide-react';
+import { 
+  Send, 
+  User, 
+  Users, 
+  Circle, 
+  Paperclip, 
+  FileText, 
+  X, 
+  ArrowLeft, 
+  MessageSquare, 
+  Search, 
+  Phone, 
+  Mail, 
+  BookOpen, 
+  GraduationCap, 
+  Building2, 
+  IdCard, 
+  Info, 
+  ShieldCheck, 
+  UserCheck, 
+  PhoneCall 
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/Toast';
 
@@ -25,12 +46,36 @@ interface Message {
 
 interface Contact {
     id: string;
+    firstName?: string;
+    lastName?: string;
+    role?: string;
+    isOnline?: boolean;
+    name?: string; 
+    avatarUrl?: string;
+    phone?: string;
+    type?: 'user' | 'class';
+}
+
+interface UserProfileDetails {
+    id: string;
+    email: string;
     firstName: string;
     lastName: string;
     role: string;
+    avatarUrl?: string | null;
+    phone?: string | null;
+    parentPhone?: string | null;
+    matricule?: string | null;
+    birthDate?: string | null;
+    birthPlace?: string | null;
+    address?: string | null;
+    gender?: string | null;
     isOnline?: boolean;
-    name?: string; 
-    type?: 'user' | 'class';
+    school?: { id: string; name: string; ville?: string | null } | null;
+    className?: string | null;
+    niveauName?: string | null;
+    teacherSubjects?: string[];
+    teacherClasses?: string[];
 }
 
 const Chat = () => {
@@ -50,6 +95,11 @@ const Chat = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
+
+    // Profile Modal State
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+    const [detailedProfile, setDetailedProfile] = useState<UserProfileDetails | null>(null);
+    const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
     // Gérer l'affichage mobile : si un contact est sélectionné, on cache la liste
     useEffect(() => {
@@ -172,6 +222,8 @@ const Chat = () => {
                             firstName: res.data.firstName,
                             lastName: res.data.lastName,
                             role: res.data.role,
+                            avatarUrl: res.data.avatarUrl,
+                            phone: res.data.phone,
                             type: 'user'
                         };
                         setContacts(prev => {
@@ -206,7 +258,7 @@ const Chat = () => {
 
     const fetchContacts = async () => {
         try {
-            // Fetch users (students/teachers)
+            // Fetch users (students/teachers/staff)
             const resUsers = await api.get('/chat/contacts');
             const users = resUsers.data.map((u: any) => ({ ...u, type: 'user' }));
 
@@ -260,6 +312,22 @@ const Chat = () => {
             setMessages(res.data);
         } catch (error) {
             console.error("Error fetching history", error);
+        }
+    };
+
+    const handleOpenContactProfile = async () => {
+        if (!selectedContact) return;
+        setIsProfileModalOpen(true);
+        if (selectedContact.type === 'class') return;
+
+        setIsLoadingProfile(true);
+        try {
+            const res = await api.get(`/users/${selectedContact.id}`);
+            setDetailedProfile(res.data);
+        } catch (err) {
+            console.error("Error fetching contact details:", err);
+        } finally {
+            setIsLoadingProfile(false);
         }
     };
 
@@ -332,10 +400,8 @@ const Chat = () => {
                 // Check if the message was already added by Supabase Realtime
                 const alreadyExists = prev.some(m => String(m.id) === String(savedMessage.id));
                 if (alreadyExists) {
-                    // Remove the temp message since the real one is already there
                     return prev.filter(m => m.id !== tempMessage.id);
                 }
-                // Otherwise replace the temp message
                 return prev.map(m => m.id === tempMessage.id ? savedMessage : m);
             });
             
@@ -345,7 +411,6 @@ const Chat = () => {
         } catch (error: any) {
             console.error("Error sending message via API:", error);
             showError("Erreur lors de l'envoi du message");
-            // Optionally remove the temp message or mark it as failed
             setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
         }
     };
@@ -368,6 +433,24 @@ const Chat = () => {
         }
     });
 
+    const getRoleLabel = (role?: string) => {
+        switch (role) {
+            case 'SUPER_ADMIN':
+                return { label: 'Super Admin', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: ShieldCheck };
+            case 'DIRECTEUR':
+                return { label: 'Directeur', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', icon: UserCheck };
+            case 'EDUCATEUR':
+                return { label: 'Éducateur', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: GraduationCap };
+            case 'ENSEIGNANT':
+            case 'TEACHER':
+                return { label: 'Professeur', color: 'bg-emerald-100 text-emerald-800 border-emerald-200', icon: BookOpen };
+            case 'APPRENANT':
+            case 'STUDENT':
+            default:
+                return { label: 'Élève', color: 'bg-sky-100 text-sky-800 border-sky-200', icon: GraduationCap };
+        }
+    };
+
     const renderAttachment = (msg: Message) => {
         if (!msg.attachmentUrl) return null;
         
@@ -383,18 +466,23 @@ const Chat = () => {
             );
         } else {
             return (
-                    <a 
-                        href={getFileUrl(msg.attachmentUrl)} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="flex items-center gap-2 mt-2 p-2 bg-brand-sidebar rounded text-brand-accent hover:underline"
-                    >
-                        {msg.attachmentType === 'PDF' ? <FileText className="w-4 h-4" /> : <Paperclip className="w-4 h-4" />}
-                        <span>Voir la pièce jointe</span>
-                    </a>
+                <a 
+                    href={getFileUrl(msg.attachmentUrl)} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 mt-2 p-2 bg-brand-sidebar rounded text-brand-accent hover:underline"
+                >
+                    {msg.attachmentType === 'PDF' ? <FileText className="w-4 h-4" /> : <Paperclip className="w-4 h-4" />}
+                    <span>Voir la pièce jointe</span>
+                </a>
             );
         }
     };
+
+    const getInitials = (fName?: string, lName?: string) => `${fName?.[0] || ''}${lName?.[0] || ''}`.toUpperCase();
+
+    const roleBadge = getRoleLabel(detailedProfile?.role || selectedContact?.role);
+    const RoleIcon = roleBadge.icon;
 
     return (
         <div className="flex h-[calc(100vh-120px)] md:h-[calc(100vh-100px)] bg-brand-card rounded-xl shadow-sm overflow-hidden border border-brand-border/50 relative">
@@ -431,15 +519,21 @@ const Chat = () => {
                                 className={`p-4 border-b border-brand-border/30 cursor-pointer transition-all ${selectedContact?.id === contact.id ? 'bg-brand-accent/10 border-l-2 border-l-brand-accent' : 'hover:bg-white/5 border-l-2 border-l-transparent'}`}
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="bg-brand-accent/20 p-2 rounded-full shrink-0">
-                                        {contact.type === 'class' ? <Users className="w-5 h-5 text-brand-accent" /> : <User className="w-5 h-5 text-brand-accent" />}
+                                    <div className="w-10 h-10 rounded-full bg-brand-accent/20 flex items-center justify-center font-bold text-brand-accent text-sm shrink-0 overflow-hidden">
+                                        {contact.type === 'class' ? (
+                                            <Users className="w-5 h-5 text-brand-accent" />
+                                        ) : contact.avatarUrl ? (
+                                            <img src={getFileUrl(contact.avatarUrl)} alt="Avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                            getInitials(contact.firstName, contact.lastName)
+                                        )}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="font-medium text-brand-text truncate">
                                             {contact.type === 'class' ? contact.name : `${contact.firstName} ${contact.lastName}`}
                                         </p>
                                         <p className="text-xs text-brand-text-muted truncate">
-                                            {contact.type === 'class' ? 'Classe' : (contact.role === 'ENSEIGNANT' ? 'Professeur' : 'Élève')}
+                                            {contact.type === 'class' ? 'Classe' : (getRoleLabel(contact.role).label)}
                                         </p>
                                     </div>
                                     {contact.isOnline && <Circle className="w-2.5 h-2.5 text-emerald-500 fill-current shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />}
@@ -461,22 +555,61 @@ const Chat = () => {
             `}>
                 {selectedContact ? (
                     <>
-                        {/* Header */}
-                        <div className="p-3 md:p-4 bg-brand-card border-b border-brand-border/50 flex items-center gap-2 md:gap-3 sticky top-0 z-10">
-                             <button 
-                                onClick={() => setSelectedContact(null)}
-                                className="md:hidden p-2 hover:bg-white/10 rounded-full transition-colors"
-                             >
-                                <ArrowLeft className="w-5 h-5 text-brand-text-muted hover:text-brand-text" />
-                             </button>
-                             <div className="flex items-center gap-3 min-w-0">
-                                <div className="bg-brand-accent/20 p-2 rounded-full shrink-0">
-                                    {selectedContact.type === 'class' ? <Users className="w-5 h-5 text-brand-accent" /> : <User className="w-5 h-5 text-brand-accent" />}
+                        {/* Interactive Header with Interlocutor Profile Trigger */}
+                        <div className="p-3 md:p-4 bg-brand-card border-b border-brand-border/50 flex items-center justify-between sticky top-0 z-10">
+                            <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                                <button 
+                                    onClick={() => setSelectedContact(null)}
+                                    className="md:hidden p-2 hover:bg-white/10 rounded-full transition-colors"
+                                >
+                                    <ArrowLeft className="w-5 h-5 text-brand-text-muted hover:text-brand-text" />
+                                </button>
+                                
+                                {/* Clickable interlocutor zone */}
+                                <div 
+                                    onClick={handleOpenContactProfile}
+                                    className="flex items-center gap-3 min-w-0 cursor-pointer p-1.5 -m-1.5 rounded-xl hover:bg-white/5 transition-all group"
+                                    title="Cliquer pour afficher la fiche profil détaillée"
+                                >
+                                    <div className="w-10 h-10 rounded-full bg-brand-accent/20 flex items-center justify-center font-bold text-brand-accent text-sm shrink-0 overflow-hidden border border-brand-accent/30 group-hover:scale-105 transition-transform">
+                                        {selectedContact.type === 'class' ? (
+                                            <Users className="w-5 h-5 text-brand-accent" />
+                                        ) : selectedContact.avatarUrl ? (
+                                            <img src={getFileUrl(selectedContact.avatarUrl)} alt="Avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                            getInitials(selectedContact.firstName, selectedContact.lastName)
+                                        )}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-bold text-brand-text truncate group-hover:text-brand-accent transition-colors">
+                                                {selectedContact.type === 'class' ? selectedContact.name : `${selectedContact.firstName} ${selectedContact.lastName}`}
+                                            </h3>
+                                            <Info className="w-3.5 h-3.5 text-brand-text-muted group-hover:text-brand-accent transition-colors" />
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs text-brand-text-muted">
+                                            <span>{selectedContact.type === 'class' ? 'Discussion de classe' : getRoleLabel(selectedContact.role).label}</span>
+                                            {selectedContact.isOnline && (
+                                                <span className="flex items-center gap-1 text-emerald-400 font-medium text-[11px]">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                    En ligne
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                                <h3 className="font-bold text-brand-text truncate">
-                                    {selectedContact.type === 'class' ? selectedContact.name : `${selectedContact.firstName} ${selectedContact.lastName}`}
-                                </h3>
-                             </div>
+                            </div>
+
+                            {/* Quick Action in Header */}
+                            {selectedContact.type === 'user' && (
+                                <button
+                                    onClick={handleOpenContactProfile}
+                                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-brand-sidebar hover:bg-white/10 text-brand-text text-xs font-semibold rounded-lg border border-brand-border/40 transition-colors"
+                                >
+                                    <Info className="w-4 h-4 text-brand-accent" />
+                                    <span>Fiche contact</span>
+                                </button>
+                            )}
                         </div>
 
                         {/* Messages */}
@@ -564,6 +697,269 @@ const Chat = () => {
                     </div>
                 )}
             </div>
+
+            {/* ══════════════════════════════════════════════════════════════════ */}
+            {/* MODAL / POPUP DESCRIPTION PROFIL INTERLOCUTEUR                    */}
+            {/* ══════════════════════════════════════════════════════════════════ */}
+            {isProfileModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <div 
+                        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+                        onClick={() => setIsProfileModalOpen(false)}
+                    />
+
+                    {/* Modal Content */}
+                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative z-10 overflow-hidden border border-slate-200 animate-fade-in-down">
+                        {/* Header Gradient */}
+                        <div className="h-28 bg-gradient-to-r from-brand-accent via-indigo-600 to-purple-600 p-4 relative flex justify-end items-start">
+                            <button
+                                onClick={() => setIsProfileModalOpen(false)}
+                                className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 text-white flex items-center justify-center transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Profile Body */}
+                        <div className="px-6 pb-6 pt-0 relative">
+                            {/* Large Avatar */}
+                            <div className="-mt-14 mb-4 flex items-end justify-between">
+                                <div className="w-24 h-24 rounded-2xl bg-white p-1 shadow-lg border border-slate-100 overflow-hidden relative">
+                                    <div className="w-full h-full rounded-xl bg-slate-100 flex items-center justify-center font-black text-brand-accent text-2xl overflow-hidden">
+                                        {selectedContact?.type === 'class' ? (
+                                            <Users className="w-10 h-10 text-brand-accent" />
+                                        ) : (detailedProfile?.avatarUrl || selectedContact?.avatarUrl) ? (
+                                            <img 
+                                                src={getFileUrl(detailedProfile?.avatarUrl || selectedContact?.avatarUrl || '')} 
+                                                alt="Avatar" 
+                                                className="w-full h-full object-cover" 
+                                            />
+                                        ) : (
+                                            getInitials(detailedProfile?.firstName || selectedContact?.firstName, detailedProfile?.lastName || selectedContact?.lastName)
+                                        )}
+                                    </div>
+                                    {selectedContact?.isOnline && (
+                                        <span className="absolute bottom-2 right-2 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
+                                    )}
+                                </div>
+
+                                {/* Role Badge */}
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border ${roleBadge.color}`}>
+                                    <RoleIcon className="w-3.5 h-3.5" />
+                                    {selectedContact?.type === 'class' ? 'Groupe de Classe' : roleBadge.label}
+                                </span>
+                            </div>
+
+                            {/* Name & Title */}
+                            <div className="mb-5">
+                                <h2 className="text-xl font-black text-slate-900 leading-tight">
+                                    {selectedContact?.type === 'class' 
+                                        ? selectedContact.name 
+                                        : `${detailedProfile?.firstName || selectedContact?.firstName || ''} ${detailedProfile?.lastName || selectedContact?.lastName || ''}`}
+                                </h2>
+                                <p className="text-xs font-medium text-slate-400 mt-0.5">
+                                    {detailedProfile?.school?.name || (selectedContact?.type === 'class' ? 'Espace collaboratif' : 'Membre de l\'établissement')}
+                                    {detailedProfile?.school?.ville && ` • ${detailedProfile.school.ville}`}
+                                </p>
+                            </div>
+
+                            {/* Details List */}
+                            {isLoadingProfile ? (
+                                <div className="py-8 text-center text-slate-400 text-sm flex flex-col items-center gap-2">
+                                    <div className="w-6 h-6 border-2 border-brand-accent border-t-transparent rounded-full animate-spin"></div>
+                                    Chargement des informations...
+                                </div>
+                            ) : (
+                                <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    {/* 1. ÉLÈVE : Afficher Classe + Téléphone */}
+                                    {(detailedProfile?.role === 'APPRENANT' || selectedContact?.role === 'APPRENANT') && (
+                                        <>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-700 shrink-0 mt-0.5">
+                                                    <GraduationCap className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Classe</p>
+                                                    <p className="text-sm font-bold text-slate-900">
+                                                        {detailedProfile?.className || "Classe non assignée"}
+                                                        {detailedProfile?.niveauName && <span className="text-xs font-normal text-slate-500"> ({detailedProfile.niveauName})</span>}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {detailedProfile?.matricule && (
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700 shrink-0 mt-0.5">
+                                                        <IdCard className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Matricule</p>
+                                                        <p className="text-sm font-bold text-slate-900">{detailedProfile.matricule}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5">
+                                                    <Phone className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Numéro de téléphone</p>
+                                                    {detailedProfile?.phone ? (
+                                                        <a href={`tel:${detailedProfile.phone}`} className="text-sm font-bold text-emerald-700 hover:underline flex items-center gap-1.5">
+                                                            {detailedProfile.phone}
+                                                        </a>
+                                                    ) : (
+                                                        <p className="text-sm text-slate-500 italic">Non renseigné</p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {detailedProfile?.parentPhone && (
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-800 shrink-0 mt-0.5">
+                                                        <PhoneCall className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Téléphone du Parent / Tuteur</p>
+                                                        <a href={`tel:${detailedProfile.parentPhone}`} className="text-sm font-bold text-amber-800 hover:underline">
+                                                            {detailedProfile.parentPhone}
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* 2. PROFESSEUR : Afficher Matières enseignées + Téléphone */}
+                                    {(detailedProfile?.role === 'ENSEIGNANT' || selectedContact?.role === 'ENSEIGNANT') && (
+                                        <>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5">
+                                                    <BookOpen className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Matière(s) enseignée(s)</p>
+                                                    <p className="text-sm font-bold text-slate-900">
+                                                        {detailedProfile?.teacherSubjects && detailedProfile.teacherSubjects.length > 0 
+                                                            ? detailedProfile.teacherSubjects.join(', ') 
+                                                            : "Professeur de l'établissement"}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {detailedProfile?.teacherClasses && detailedProfile.teacherClasses.length > 0 && (
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-700 shrink-0 mt-0.5">
+                                                        <GraduationCap className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Classes assignées</p>
+                                                        <p className="text-sm font-semibold text-slate-800">
+                                                            {detailedProfile.teacherClasses.join(', ')}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700 shrink-0 mt-0.5">
+                                                    <Phone className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Numéro de téléphone</p>
+                                                    {detailedProfile?.phone ? (
+                                                        <a href={`tel:${detailedProfile.phone}`} className="text-sm font-bold text-purple-700 hover:underline">
+                                                            {detailedProfile.phone}
+                                                        </a>
+                                                    ) : (
+                                                        <p className="text-sm text-slate-500 italic">Non renseigné</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* 3. ADMINISTRATION / AUTRES RÔLES */}
+                                    {detailedProfile?.role && !['APPRENANT', 'ENSEIGNANT'].includes(detailedProfile.role) && (
+                                        <>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700 shrink-0 mt-0.5">
+                                                    <Building2 className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Fonction / Rôle</p>
+                                                    <p className="text-sm font-bold text-slate-900">{roleBadge.label}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0 mt-0.5">
+                                                    <Phone className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Numéro de téléphone</p>
+                                                    {detailedProfile?.phone ? (
+                                                        <a href={`tel:${detailedProfile.phone}`} className="text-sm font-bold text-emerald-700 hover:underline">
+                                                            {detailedProfile.phone}
+                                                        </a>
+                                                    ) : (
+                                                        <p className="text-sm text-slate-500 italic">Non renseigné</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Email générique */}
+                                    {detailedProfile?.email && (
+                                        <div className="flex items-start gap-3 pt-2 border-t border-slate-200/60">
+                                            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 shrink-0 mt-0.5">
+                                                <Mail className="w-4 h-4" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Adresse e-mail</p>
+                                                <a href={`mailto:${detailedProfile.email}`} className="text-xs font-semibold text-slate-700 hover:text-brand-accent truncate block">
+                                                    {detailedProfile.email}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="mt-5 flex items-center gap-3">
+                                {detailedProfile?.phone && (
+                                    <a 
+                                        href={`tel:${detailedProfile.phone}`}
+                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors shadow-sm"
+                                    >
+                                        <Phone className="w-4 h-4" />
+                                        Appeler
+                                    </a>
+                                )}
+                                {detailedProfile?.email && (
+                                    <a 
+                                        href={`mailto:${detailedProfile.email}`}
+                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-colors shadow-sm"
+                                    >
+                                        <Mail className="w-4 h-4" />
+                                        Envoyer email
+                                    </a>
+                                )}
+                                <button
+                                    onClick={() => setIsProfileModalOpen(false)}
+                                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                                >
+                                    Fermer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

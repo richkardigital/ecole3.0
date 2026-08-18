@@ -87,7 +87,10 @@ const ConfirmationModal = ({
             </div>
             
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-black text-slate-900 mb-1.5">
+              <h3 
+                className="text-lg font-black text-[#4D3E90] mb-1.5"
+                style={{ color: '#4D3E90' }}
+              >
                 {title}
               </h3>
               <p className="text-sm text-slate-600 leading-relaxed font-medium">

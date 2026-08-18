@@ -1,622 +1,530 @@
 import { useState, useEffect } from 'react';
-import { ClipboardList, Plus, Calendar, XCircle, Trash2, Edit, Filter, Award } from 'lucide-react';
+import { ClipboardList, Plus, Calendar, XCircle, Trash2, Edit, Filter, Award, Zap, Save, CheckCircle, Clock, AlertTriangle, ShieldCheck, CheckCheck } from 'lucide-react';
 import api from '@/lib/api';
-import { useForm } from 'react-hook-form';
-import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 
 interface Student {
   id: string;
   firstName: string;
   lastName: string;
+  matricule?: string;
 }
 
-interface Class {
+interface ClassItem {
   id: string;
   name: string;
 }
 
-interface Term {
+interface TermItem {
   id: string;
   name: string;
+  status: string;
 }
 
-interface Conduct {
-  id: string;
-  appreciation: string | null;
-  comment: string | null;
-  grade?: number;
-  student: {
-    id: string;
-    firstName: string;
-    lastName: string;
-  };
-  term: {
-    id: string;
-    name: string;
-  };
-  createdAt: string;
+interface StudentAbsenceSummary {
+  studentId: string;
+  totalHours: number;
+  justifiedHours: number;
+  unjustifiedHours: number;
 }
 
-const Conduct = () => {
-  const [conducts, setConducts] = useState<Conduct[]>([]);
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [terms, setTerms] = useState<Term[]>([]);
+export default function ConductPage() {
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [terms, setTerms] = useState<TermItem[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [selectedTermId, setSelectedTermId] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const { toast, success, error } = useToast();
   
-  // Modals state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [selectedConduct, setSelectedConduct] = useState<Conduct | null>(null);
+  const [conductsMap, setConductsMap] = useState<Record<string, { grade: string; appreciation: string; comment: string }>>({});
+  const [absenceSummaries, setAbsenceSummaries] = useState<Record<string, StudentAbsenceSummary>>({});
+  
+  const [loading, setLoading] = useState(false);
+  const [calculatingClass, setCalculatingClass] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
+  const [savingStudentId, setSavingStudentId] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, setValue } = useForm<{
-    studentId: string;
-    termId: string;
-    appreciation: string;
-    comment: string;
-  }>();
-
-  // Grid editing state
-  const [editingConducts, setEditingConducts] = useState<Record<string, { appreciation: string, comment: string, grade: string }>>({});
-
-  const handleGridChange = (studentId: string, field: 'appreciation' | 'comment' | 'grade', value: string) => {
-    setEditingConducts(prev => ({
-        ...prev,
-        [studentId]: {
-            ...prev[studentId],
-            [field]: value
-        }
-    }));
-  };
-
-  const handleGridSave = async (studentId: string) => {
-      if (!selectedTermId) return;
-      const data = editingConducts[studentId];
-      if (!data) return;
-      
-      try {
-          await api.post('/conducts', {
-              studentId,
-              termId: selectedTermId,
-              appreciation: data.appreciation,
-              comment: data.comment,
-              grade: data.grade ? Number(data.grade) : null
-          });
-          success("Enregistré avec succès !");
-          fetchConducts();
-      } catch (err) {
-          error("Erreur lors de l'enregistrement");
-      }
-  };
-
-  useEffect(() => {
-    // Populate editingConducts when conducts change
-    if (selectedClassId && selectedTermId && students.length > 0) {
-        const newEditingState: Record<string, { appreciation: string, comment: string, grade: string }> = {};
-        students.forEach(student => {
-            const existing = conducts.find(c => c.student.id === student.id);
-            newEditingState[student.id] = {
-                appreciation: existing?.appreciation || '',
-                comment: existing?.comment || '',
-                grade: existing?.grade ? String(existing.grade) : ''
-            };
-        });
-        setEditingConducts(newEditingState);
-    }
-  }, [conducts, students, selectedClassId, selectedTermId]);
+  const { success, error, info } = useToast();
 
   useEffect(() => {
     fetchClasses();
     fetchTerms();
-    fetchConducts();
   }, []);
 
   useEffect(() => {
     if (selectedClassId) {
-      fetchStudents(selectedClassId);
+      fetchClassData(selectedClassId, selectedTermId);
     } else {
       setStudents([]);
+      setConductsMap({});
+      setAbsenceSummaries({});
     }
-  }, [selectedClassId]);
-
-  useEffect(() => {
-    fetchConducts();
   }, [selectedClassId, selectedTermId]);
 
   const fetchClasses = async () => {
     try {
       const res = await api.get('/classes');
-      setClasses(res.data);
+      const cls = res.data || [];
+      setClasses(cls);
+      if (cls.length > 0 && !selectedClassId) {
+        setSelectedClassId(cls[0].id);
+      }
     } catch (err) {
-      console.error("Error fetching classes", err);
+      console.error("Erreur chargement classes:", err);
     }
   };
 
   const fetchTerms = async () => {
     try {
-      // Fetch academic years and flatten terms
       const res = await api.get('/academic/years');
-      const allTerms = res.data.flatMap((year: any) => year.terms);
+      const allTerms = (res.data || []).flatMap((y: any) => y.terms || []);
       setTerms(allTerms);
-      if (allTerms.length > 0 && !selectedTermId) {
-        // Optionnel: sélectionner le terme ouvert par défaut
-        const openTerm = allTerms.find((t: any) => t.status === 'OPEN');
-        if (openTerm) setSelectedTermId(openTerm.id);
+      const openTerm = allTerms.find((t: any) => t.status === 'OPEN') || allTerms[0];
+      if (openTerm && !selectedTermId) {
+        setSelectedTermId(openTerm.id);
       }
     } catch (err) {
-      console.error("Error fetching terms", err);
+      console.error("Erreur chargement trimestres:", err);
     }
   };
 
-  const fetchStudents = async (classId: string) => {
-    try {
-      const res = await api.get(`/classes/${classId}/students`);
-      setStudents(res.data);
-    } catch (err) {
-      console.error("Error fetching students", err);
-    }
-  };
-
-  const fetchConducts = async () => {
+  const fetchClassData = async (classId: string, termId: string) => {
+    if (!classId) return;
     setLoading(true);
     try {
-      const params: any = {};
-      if (selectedClassId) params.classId = selectedClassId;
-      if (selectedTermId) params.termId = selectedTermId;
-      
-      const res = await api.get('/conducts', { params });
-      setConducts(res.data);
+      // 1. Récupérer les élèves de la classe
+      const studentsRes = await api.get(`/classes/${classId}/students`);
+      const studentList: Student[] = studentsRes.data || [];
+      setStudents(studentList);
+
+      // 2. Récupérer les conduites existantes pour cette classe et ce trimestre
+      const conductParams: any = { classId };
+      if (termId) conductParams.termId = termId;
+      const conductsRes = await api.get('/conducts', { params: conductParams });
+      const conducts: any[] = conductsRes.data || [];
+
+      // 3. Récupérer les absences pour calculer le résumé par élève
+      const absenceParams: any = { classId };
+      if (termId) absenceParams.termId = termId;
+      const absencesRes = await api.get('/absences', { params: absenceParams });
+      const absences: any[] = absencesRes.data || [];
+
+      // Agréger les absences par élève
+      const absMap: Record<string, StudentAbsenceSummary> = {};
+      studentList.forEach(s => {
+        absMap[s.id] = {
+          studentId: s.id,
+          totalHours: 0,
+          justifiedHours: 0,
+          unjustifiedHours: 0,
+        };
+      });
+
+      absences.forEach(a => {
+        const sid = a.student?.id || a.studentId;
+        if (absMap[sid]) {
+          const h = a.hours || 1;
+          absMap[sid].totalHours += h;
+          if (a.justified) {
+            absMap[sid].justifiedHours += h;
+          } else {
+            absMap[sid].unjustifiedHours += h;
+          }
+        }
+      });
+      setAbsenceSummaries(absMap);
+
+      // Mapper les conduites dans le state
+      const map: Record<string, { grade: string; appreciation: string; comment: string }> = {};
+      studentList.forEach(s => {
+        const existing = conducts.find((c: any) => (c.student?.id || c.studentId) === s.id);
+        if (existing) {
+          map[s.id] = {
+            grade: existing.grade !== null && existing.grade !== undefined ? String(existing.grade) : '',
+            appreciation: existing.appreciation || '',
+            comment: existing.comment || '',
+          };
+        } else {
+          // Calculer la note théorique par défaut si pas encore enregistrée
+          const studentAbs = absMap[s.id];
+          const penalty = (studentAbs?.unjustifiedHours || 0) * 1.0 + (studentAbs?.justifiedHours || 0) * 0.25;
+          const defaultGrade = Math.max(0, Math.min(20, parseFloat((20 - penalty).toFixed(2))));
+          
+          let defaultApprec = "Excellente assiduité et conduite irréprochable.";
+          if (defaultGrade < 10) defaultApprec = "Conduite insuffisante. Trop d'absences injustifiées constatées.";
+          else if (defaultGrade < 12) defaultApprec = "Conduite moyenne. Avertissement d'assiduité.";
+          else if (defaultGrade < 15) defaultApprec = "Conduite passable. Des absences à justifier et limiter.";
+          else if (defaultGrade < 18) defaultApprec = "Bonne assiduité et comportement satisfaisant.";
+
+          map[s.id] = {
+            grade: String(defaultGrade),
+            appreciation: defaultApprec,
+            comment: studentAbs?.totalHours ? `${studentAbs.unjustifiedHours}h injustifiées, ${studentAbs.justifiedHours}h justifiées.` : 'Aucune absence constatée.',
+          };
+        }
+      });
+
+      setConductsMap(map);
     } catch (err) {
-      console.error("Error fetching conducts", err);
+      console.error("Erreur chargement données classe conduite:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const onSubmitAdd = async (data: any) => {
+  const handleFieldChange = (studentId: string, field: 'grade' | 'appreciation' | 'comment', value: string) => {
+    setConductsMap(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        [field]: value,
+      }
+    }));
+  };
+
+  // 1. Calcul Automatique Individuel
+  const handleCalculateSingle = async (studentId: string) => {
+    if (!selectedTermId) {
+      error("Veuillez sélectionner une période / trimestre");
+      return;
+    }
     try {
-      await api.post('/conducts', data);
-      setIsAddModalOpen(false);
-      reset();
-      fetchConducts();
-      success("Appréciation enregistrée avec succès");
-    } catch (err) {
-      console.error("Error creating conduct", err);
-      error("Erreur lors de l'enregistrement de la conduite");
+      const res = await api.post('/conducts/calculate-student', {
+        studentId,
+        termId: selectedTermId,
+      });
+      const cond = res.data?.conduct;
+      if (cond) {
+        setConductsMap(prev => ({
+          ...prev,
+          [studentId]: {
+            grade: String(cond.grade),
+            appreciation: cond.appreciation || '',
+            comment: cond.comment || '',
+          }
+        }));
+        success(`Conduite calculée pour l'élève : ${cond.grade}/20 et synchronisée avec le bulletin !`);
+      }
+    } catch (err: any) {
+      error(err.response?.data?.message || "Erreur lors du calcul automatique");
     }
   };
 
-  const onSubmitEdit = async (data: any) => {
-    if (!selectedConduct) return;
+  // 2. Calcul Automatique pour TOUTE la classe
+  const handleCalculateClass = async () => {
+    if (!selectedClassId || !selectedTermId) {
+      error("Veuillez sélectionner une classe et un trimestre");
+      return;
+    }
+    setCalculatingClass(true);
     try {
-      await api.put(`/conducts/${selectedConduct.id}`, data);
-      setIsEditModalOpen(false);
-      setSelectedConduct(null);
-      fetchConducts();
-      success("Appréciation mise à jour avec succès");
-    } catch (err) {
-      console.error("Error updating conduct", err);
-      error("Erreur lors de la mise à jour");
+      const res = await api.post('/conducts/calculate-class', {
+        classId: selectedClassId,
+        termId: selectedTermId,
+      });
+      success(res.data?.message || "Conduite calculée pour toute la classe avec succès !");
+      await fetchClassData(selectedClassId, selectedTermId);
+    } catch (err: any) {
+      error(err.response?.data?.message || "Erreur lors du calcul de la classe");
+    } finally {
+      setCalculatingClass(false);
     }
   };
 
-  const handleDeleteClick = (conduct: Conduct) => {
-    setSelectedConduct(conduct);
-    setIsDeleteModalOpen(true);
-  };
+  // 3. Enregistrement Individuel
+  const handleSaveSingle = async (studentId: string) => {
+    if (!selectedTermId) {
+      error("Sélectionnez un trimestre");
+      return;
+    }
+    const data = conductsMap[studentId];
+    if (!data) return;
 
-  const confirmDelete = async () => {
-    if (!selectedConduct) return;
+    setSavingStudentId(studentId);
     try {
-      await api.delete(`/conducts/${selectedConduct.id}`);
-      setIsDeleteModalOpen(false);
-      setSelectedConduct(null);
-      fetchConducts();
-      success("Appréciation supprimée avec succès");
-    } catch (err) {
-      console.error("Error deleting conduct", err);
-      error("Erreur lors de la suppression");
+      await api.post('/conducts/save-class', {
+        classId: selectedClassId,
+        termId: selectedTermId,
+        conducts: [{
+          studentId,
+          grade: data.grade !== '' ? parseFloat(data.grade) : null,
+          appreciation: data.appreciation || null,
+          comment: data.comment || null,
+        }]
+      });
+      success("Note de conduite enregistrée et synchronisée avec le bulletin !");
+    } catch (err: any) {
+      error(err.response?.data?.message || "Erreur lors de la sauvegarde");
+    } finally {
+      setSavingStudentId(null);
     }
   };
 
-  const openEditModal = (conduct: Conduct) => {
-    setSelectedConduct(conduct);
-    setValue('appreciation', conduct.appreciation || '');
-    setValue('comment', conduct.comment || '');
-    setIsEditModalOpen(true);
-  };
+  // 4. Enregistrement Global de TOUTE la classe
+  const handleSaveAll = async () => {
+    if (!selectedTermId || !selectedClassId || students.length === 0) {
+      error("Veuillez sélectionner une classe et un trimestre valides");
+      return;
+    }
+    setSavingAll(true);
+    try {
+      const conductsPayload = students.map(s => {
+        const data = conductsMap[s.id] || { grade: '', appreciation: '', comment: '' };
+        return {
+          studentId: s.id,
+          grade: data.grade !== '' ? parseFloat(data.grade) : null,
+          appreciation: data.appreciation || null,
+          comment: data.comment || null,
+        };
+      });
 
-  const getAppreciationStyle = (appreciation: string | null) => {
-    if (!appreciation) return 'bg-brand-sidebar text-brand-text-muted';
-    const lower = appreciation.toLowerCase();
-    if (lower.includes('bien') || lower.includes('excellent') || lower.includes('félicitation')) 
-      return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-    if (lower.includes('avertissement') || lower.includes('blâme') || lower.includes('mauvais'))
-      return 'bg-red-500/10 text-red-500 border-red-500/20';
-    return 'bg-brand-accent/10 text-brand-accent border-brand-accent/20';
+      const res = await api.post('/conducts/save-class', {
+        classId: selectedClassId,
+        termId: selectedTermId,
+        conducts: conductsPayload,
+      });
+
+      success(res.data?.message || "Toutes les notes de conduite ont été enregistrées et transmises aux bulletins !");
+      await fetchClassData(selectedClassId, selectedTermId);
+    } catch (err: any) {
+      error(err.response?.data?.message || "Erreur lors de l'enregistrement de la classe");
+    } finally {
+      setSavingAll(false);
+    }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 md:p-8 space-y-6 animate-in fade-in duration-300">
       <PageHeader 
-        title="Gestion de la Conduite"
-        subtitle="Appréciations et suivi disciplinaire par période"
-        icon={<ClipboardList className="w-6 h-6 text-brand-accent" />}
+        title="Gestion de la Conduite & Discipline"
+        subtitle="Barème officiel de conduite sur 20/20 calculé à partir des absences. Matière Coefficient 1 sur les bulletins scolaires."
+        icon={<ClipboardList className="w-8 h-8 text-brand-accent" />}
         action={
-          <Button
-            variant="primary"
-            onClick={() => {
-              reset({ termId: selectedTermId });
-              setIsAddModalOpen(true);
-            }}
-            leftIcon={<Plus className="w-4 h-4" />}
-          >
-            Saisir une appréciation
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={handleCalculateClass}
+              isLoading={calculatingClass}
+              leftIcon={<Zap className="w-4 h-4 text-amber-500" />}
+              className="border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+            >
+              Calcul Automatique (Toute la classe)
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSaveAll}
+              isLoading={savingAll}
+              leftIcon={<Save className="w-4 h-4" />}
+            >
+              Enregistrer Toute la Classe
+            </Button>
+          </div>
         }
       />
 
-      {/* Filters */}
-      <div className="bg-brand-card p-5 rounded-xl shadow-sm border border-brand-border/50 flex flex-wrap items-center gap-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-brand-accent/10 rounded-lg">
-            <Filter className="w-5 h-5 text-brand-accent" />
+      {/* Règle de calcul & Barème officiel */}
+      <div className="bg-brand-card p-5 rounded-2xl border border-brand-border/70 shadow-sm">
+        <div className="flex items-start gap-3.5">
+          <div className="p-2.5 bg-brand-accent/15 text-brand-accent rounded-xl shrink-0 mt-0.5">
+            <Award className="w-5 h-5" />
           </div>
-          <span className="font-semibold text-brand-text">Filtrer par :</span>
+          <div className="space-y-1">
+            <h4 className="font-bold text-brand-text text-sm flex items-center gap-2">
+              Règle Officielle de Calcul de la Conduite (MENA / SEEEC)
+            </h4>
+            <p className="text-xs text-brand-text-muted leading-relaxed">
+              • Chaque élève débute avec une <strong>note de conduite de départ fixée à 20.00 / 20</strong> au début du trimestre.<br />
+              • Déductions d'assiduité : <strong>-1.0 point par heure d'absence injustifiée</strong> | <strong>-0.25 point par heure justifiée</strong>.<br />
+              • La note de conduite est comptabilisée comme une <strong>matière à part entière de Coefficient 1</strong> sur le bulletin scolaire officiel.
+            </p>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-4 flex-1">
+      </div>
+
+      {/* Barre de sélection de la classe et du trimestre */}
+      <div className="bg-brand-card p-5 rounded-2xl shadow-sm border border-brand-border/60 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2 text-brand-text font-semibold text-sm">
+          <Filter className="w-4 h-4 text-brand-accent" />
+          <span>Sélection :</span>
+        </div>
+
+        <div className="min-w-[220px]">
           <select
             value={selectedClassId}
             onChange={(e) => setSelectedClassId(e.target.value)}
-            className="flex-1 bg-brand-sidebar border border-brand-border/50 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-accent/50 transition-all text-brand-text cursor-pointer"
+            className="w-full bg-brand-sidebar border border-brand-border/60 rounded-xl px-3 py-2 text-sm text-brand-text outline-none focus:ring-2 focus:ring-brand-accent/50 cursor-pointer font-medium"
           >
-            <option value="">Toutes les classes</option>
             {classes.map(cls => (
               <option key={cls.id} value={cls.id}>{cls.name}</option>
             ))}
           </select>
+        </div>
 
+        <div className="min-w-[220px]">
           <select
             value={selectedTermId}
             onChange={(e) => setSelectedTermId(e.target.value)}
-            className="flex-1 bg-brand-sidebar border border-brand-border/50 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-accent/50 transition-all text-brand-text cursor-pointer"
+            className="w-full bg-brand-sidebar border border-brand-border/60 rounded-xl px-3 py-2 text-sm text-brand-text outline-none focus:ring-2 focus:ring-brand-accent/50 cursor-pointer font-medium"
           >
-            <option value="">Toutes les périodes</option>
-            {terms.map(term => (
-              <option key={term.id} value={term.id}>{term.name}</option>
+            {terms.map(t => (
+              <option key={t.id} value={t.id}>{t.name} {t.status === 'OPEN' ? '(En cours)' : ''}</option>
             ))}
           </select>
         </div>
 
-        <div className="text-sm text-brand-text-muted font-medium">
-          {conducts.length} appréciation{conducts.length > 1 ? 's' : ''}
+        <div className="ml-auto text-xs text-brand-text-muted font-medium">
+          {students.length} élève{students.length > 1 ? 's' : ''} dans la classe
         </div>
       </div>
 
-      {/* Content */}
+      {/* Tableau des notes de conduite */}
       {loading ? (
         <div className="flex justify-center items-center py-20">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-accent"></div>
         </div>
-      ) : selectedClassId && selectedTermId ? (
-          <div className="bg-brand-card rounded-xl shadow-sm border border-brand-border/50 overflow-hidden">
-              <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                      <thead className="bg-brand-sidebar">
-                          <tr>
-                              <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50">Élève</th>
-                              <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50 w-24">Note /20</th>
-                              <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50 w-64">Appréciation</th>
-                              <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50">Commentaire</th>
-                              <th className="p-4 font-semibold text-brand-text-muted border-b border-brand-border/50 w-32">Action</th>
-                          </tr>
-                      </thead>
-                      <tbody className="divide-y divide-brand-border/50">
-                          {students.map(student => {
-                              const existing = conducts.find(c => c.student.id === student.id);
-                              const isSaved = existing?.appreciation === editingConducts[student.id]?.appreciation && 
-                                              existing?.comment === editingConducts[student.id]?.comment;
-                              
-                              return (
-                                  <tr key={student.id} className="hover:bg-brand-sidebar/30 transition-colors">
-                                      <td className="p-4">
-                                          <div className="font-bold text-brand-text">{student.firstName} {student.lastName}</div>
-                                      </td>
-                                      <td className="p-4">
-                                          <input 
-                                              type="number"
-                                              value={editingConducts[student.id]?.grade || ''}
-                                              onChange={(e) => handleGridChange(student.id, 'grade', e.target.value)}
-                                              placeholder="/20"
-                                              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand-accent/50 text-sm"
-                                          />
-                                      </td>
-                                      <td className="p-4">
-                                          <select 
-                                              value={editingConducts[student.id]?.appreciation || ''}
-                                              onChange={(e) => handleGridChange(student.id, 'appreciation', e.target.value)}
-                                              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand-accent/50 text-sm"
-                                          >
-                                              <option value="">Choisir...</option>
-                                              <option value="Excellent">Excellent</option>
-                                              <option value="Très Bien">Très Bien</option>
-                                              <option value="Bien">Bien</option>
-                                              <option value="Assez Bien">Assez Bien</option>
-                                              <option value="Passable">Passable</option>
-                                              <option value="Insuffisant">Insuffisant</option>
-                                              <option value="Avertissement">Avertissement de conduite</option>
-                                              <option value="Blâme">Blâme de conduite</option>
-                                          </select>
-                                      </td>
-                                      <td className="p-4">
-                                          <input 
-                                              type="text"
-                                              value={editingConducts[student.id]?.comment || ''}
-                                              onChange={(e) => handleGridChange(student.id, 'comment', e.target.value)}
-                                              placeholder="Commentaire..."
-                                              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand-accent/50 text-sm"
-                                          />
-                                      </td>
-                                      <td className="p-4">
-                                          <Button 
-                                              variant={isSaved ? "secondary" : "primary"} 
-                                              onClick={() => handleGridSave(student.id)}
-                                              disabled={isSaved}
-                                              className="text-xs py-1.5"
-                                          >
-                                              {isSaved ? 'À jour' : 'Sauvegarder'}
-                                          </Button>
-                                      </td>
-                                  </tr>
-                              );
-                          })}
-                          {students.length === 0 && (
-                              <tr>
-                                  <td colSpan={5} className="p-8 text-center text-brand-text-muted">
-                                      Aucun élève dans cette classe.
-                                  </td>
-                              </tr>
-                          )}
-                      </tbody>
-                  </table>
-              </div>
-          </div>
-      ) : conducts.length === 0 ? (
-        <div className="bg-brand-card rounded-xl p-12 text-center border border-dashed border-brand-border/50 shadow-sm">
-          <div className="bg-brand-accent/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-brand-accent/20">
-            <Award className="w-8 h-8 text-brand-accent" />
-          </div>
-          <h3 className="text-xl font-bold text-brand-text mb-2">Aucune appréciation</h3>
-          <p className="text-brand-text-muted max-w-sm mx-auto">
-            Sélectionnez une classe et une période pour voir la grille de saisie, ou consultez les enregistrements récents.
-          </p>
+      ) : students.length === 0 ? (
+        <div className="bg-brand-card rounded-2xl p-12 text-center border border-dashed border-brand-border/60 shadow-sm">
+          <Award className="w-10 h-10 text-brand-accent/40 mx-auto mb-3" />
+          <h3 className="font-bold text-brand-text">Aucun élève trouvé</h3>
+          <p className="text-sm text-brand-text-muted">Sélectionnez une classe comportant des élèves inscrits.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {conducts.map((conduct) => (
-            <div key={conduct.id} className="bg-brand-card rounded-xl p-5 shadow-sm border border-brand-border/50 hover:border-brand-accent/30 hover:shadow-md transition-all group flex flex-col">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-brand-accent/10 border border-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-lg shadow-sm">
-                    {conduct.student.firstName[0]}{conduct.student.lastName[0]}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-brand-text leading-tight">
-                      {conduct.student.firstName} {conduct.student.lastName}
-                    </h3>
-                    <div className="flex items-center gap-1.5 text-xs text-brand-text-muted mt-1">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {conduct.term.name}
-                    </div>
-                  </div>
-                </div>
-                <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getAppreciationStyle(conduct.appreciation)}`}>
-                  {conduct.appreciation || 'N/A'}
-                </div>
-              </div>
+        <div className="bg-brand-card rounded-2xl shadow-sm border border-brand-border/60 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-brand-sidebar/80 border-b border-brand-border/60">
+                <tr>
+                  <th className="p-4 font-semibold text-brand-text-muted text-xs uppercase tracking-wider">Élève</th>
+                  <th className="p-4 font-semibold text-brand-text-muted text-xs uppercase tracking-wider text-center">Absences du Trimestre</th>
+                  <th className="p-4 font-semibold text-brand-text-muted text-xs uppercase tracking-wider w-28 text-center">Note /20</th>
+                  <th className="p-4 font-semibold text-brand-text-muted text-xs uppercase tracking-wider min-w-[220px]">Appréciation</th>
+                  <th className="p-4 font-semibold text-brand-text-muted text-xs uppercase tracking-wider min-w-[220px]">Observations / Justificatifs</th>
+                  <th className="p-4 font-semibold text-brand-text-muted text-xs uppercase tracking-wider text-right w-44">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-border/40 text-sm">
+                {students.map((student) => {
+                  const state = conductsMap[student.id] || { grade: '', appreciation: '', comment: '' };
+                  const abs = absenceSummaries[student.id] || { totalHours: 0, justifiedHours: 0, unjustifiedHours: 0 };
+                  const gradeNum = parseFloat(state.grade);
 
-              {conduct.comment && (
-                <div className="bg-brand-sidebar border border-brand-border/30 rounded-lg p-3 mb-4 flex-1">
-                  <p className="text-sm text-brand-text-muted italic">
-                    "{conduct.comment}"
-                  </p>
-                </div>
-              )}
+                  return (
+                    <tr key={student.id} className="hover:bg-brand-sidebar/30 transition-colors">
+                      {/* Élève */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-brand-accent/10 border border-brand-accent/20 flex items-center justify-center text-brand-accent font-bold text-xs shrink-0">
+                            {student.firstName[0]}{student.lastName[0]}
+                          </div>
+                          <div>
+                            <p className="font-bold text-brand-text leading-snug">
+                              {student.lastName} {student.firstName}
+                            </p>
+                            {student.matricule && (
+                              <p className="text-xs text-brand-text-muted">Matr. {student.matricule}</p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
 
-              <div className="flex items-center justify-between pt-4 border-t border-brand-border/30 mt-auto">
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => openEditModal(conduct)}
-                    className="p-2 text-brand-text-muted hover:text-brand-accent hover:bg-brand-accent/10 rounded-lg transition-colors"
-                  >
-                    <Edit className="w-4.5 h-4.5" />
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteClick(conduct)}
-                    className="p-2 text-brand-text-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4.5 h-4.5" />
-                  </button>
-                </div>
-                <div className="text-[10px] text-brand-text-muted/70">
-                  Saisi le {new Date(conduct.createdAt).toLocaleDateString()}
-                </div>
-              </div>
-            </div>
-          ))}
+                      {/* Résumé des Absences */}
+                      <td className="p-4 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="font-black text-brand-text text-sm">
+                            {abs.totalHours}h <span className="text-[11px] font-normal text-brand-text-muted">totales</span>
+                          </span>
+                          <div className="flex items-center gap-1 text-[10px]">
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-bold">
+                              {abs.justifiedHours}h just.
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-600 font-bold">
+                              {abs.unjustifiedHours}h injust.
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Note sur 20 */}
+                      <td className="p-4">
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="0.25"
+                            min="0"
+                            max="20"
+                            value={state.grade}
+                            onChange={(e) => handleFieldChange(student.id, 'grade', e.target.value)}
+                            placeholder="20"
+                            className={`w-full text-center font-black text-base py-2 rounded-xl border outline-none transition-all ${
+                              !isNaN(gradeNum) && gradeNum >= 14 
+                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 focus:border-emerald-500' 
+                                : !isNaN(gradeNum) && gradeNum >= 10
+                                ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 focus:border-amber-500'
+                                : 'bg-red-500/10 text-red-600 border-red-500/30 focus:border-red-500'
+                            }`}
+                          />
+                        </div>
+                      </td>
+
+                      {/* Appréciation */}
+                      <td className="p-4">
+                        <select
+                          value={state.appreciation}
+                          onChange={(e) => handleFieldChange(student.id, 'appreciation', e.target.value)}
+                          className="w-full bg-brand-sidebar border border-brand-border/60 rounded-xl px-3 py-2 text-xs text-brand-text outline-none focus:ring-2 focus:ring-brand-accent/50 cursor-pointer"
+                        >
+                          <option value="">Sélectionner une appréciation...</option>
+                          <option value="Excellente assiduité et conduite irréprochable.">Excellente assiduité et conduite irréprochable (≥ 18)</option>
+                          <option value="Bonne assiduité et comportement satisfaisant.">Bonne assiduité et comportement satisfaisant (15 - 17.9)</option>
+                          <option value="Conduite passable. Des absences à justifier et limiter.">Conduite passable (12 - 14.9)</option>
+                          <option value="Conduite moyenne. Avertissement d'assiduité.">Conduite moyenne, avertissement (10 - 11.9)</option>
+                          <option value="Conduite insuffisante. Trop d'absences injustifiées constatées.">Conduite insuffisante (&lt; 10)</option>
+                          <option value="Félicitations du conseil pour son exemplarité.">Félicitations pour son exemplarité</option>
+                          <option value="Blâme de conduite et retenues scolaires.">Blâme de conduite</option>
+                        </select>
+                      </td>
+
+                      {/* Observations */}
+                      <td className="p-4">
+                        <input
+                          type="text"
+                          value={state.comment}
+                          onChange={(e) => handleFieldChange(student.id, 'comment', e.target.value)}
+                          placeholder="Observations particulières..."
+                          className="w-full bg-brand-sidebar border border-brand-border/60 rounded-xl px-3 py-2 text-xs text-brand-text outline-none focus:ring-2 focus:ring-brand-accent/50"
+                        />
+                      </td>
+
+                      {/* Actions */}
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleCalculateSingle(student.id)}
+                            title="Recalculer automatiquement depuis les absences"
+                            className="p-2 text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors border border-amber-500/20"
+                          >
+                            <Zap className="w-4 h-4" />
+                          </button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleSaveSingle(student.id)}
+                            isLoading={savingStudentId === student.id}
+                            className="text-xs px-2.5 py-1.5 h-8"
+                          >
+                            Enregistrer
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
-
-      {/* Add Modal */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title="Saisir une appréciation"
-      >
-        <form onSubmit={handleSubmit(onSubmitAdd)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-brand-text-muted ml-1">Classe</label>
-              <select
-                onChange={(e) => fetchStudents(e.target.value)}
-                className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-accent/50 transition-all text-brand-text text-sm cursor-pointer"
-              >
-                <option value="">Sélectionner une classe</option>
-                {classes.map(cls => (
-                  <option key={cls.id} value={cls.id}>{cls.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-brand-text-muted ml-1">Période</label>
-              <select
-                {...register('termId', { required: true })}
-                className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-accent/50 transition-all text-brand-text text-sm cursor-pointer"
-              >
-                <option value="">Sélectionner une période</option>
-                {terms.map(term => (
-                  <option key={term.id} value={term.id}>{term.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-brand-text-muted ml-1">Élève</label>
-            <select
-              {...register('studentId', { required: true })}
-              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-accent/50 transition-all text-brand-text text-sm cursor-pointer"
-            >
-              <option value="">Sélectionner un élève</option>
-              {students.map(student => (
-                <option key={student.id} value={student.id}>{student.firstName} {student.lastName}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-brand-text-muted ml-1">Appréciation globale</label>
-            <select
-              {...register('appreciation')}
-              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-accent/50 transition-all text-brand-text text-sm cursor-pointer"
-            >
-              <option value="">Choisir une appréciation</option>
-              <option value="Excellent">Excellent</option>
-              <option value="Très Bien">Très Bien</option>
-              <option value="Bien">Bien</option>
-              <option value="Assez Bien">Assez Bien</option>
-              <option value="Passable">Passable</option>
-              <option value="Insuffisant">Insuffisant</option>
-              <option value="Avertissement de conduite">Avertissement de conduite</option>
-              <option value="Blâme de conduite">Blâme de conduite</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-brand-text-muted ml-1">Commentaire détaillé</label>
-            <textarea
-              {...register('comment')}
-              rows={4}
-              placeholder="Détails sur le comportement, les progrès ou les points à améliorer..."
-              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-accent/50 transition-all text-brand-text text-sm resize-none"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-brand-border/30">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsAddModalOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-            >
-              Enregistrer
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Edit Modal */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Modifier l'appréciation"
-      >
-        <div className="mb-4 text-sm text-brand-text-muted">
-          <span className="font-semibold text-brand-text">{selectedConduct?.student.firstName} {selectedConduct?.student.lastName}</span> - {selectedConduct?.term.name}
-        </div>
-        
-        <form onSubmit={handleSubmit(onSubmitEdit)} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-brand-text-muted ml-1">Appréciation globale</label>
-            <select
-              {...register('appreciation')}
-              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-accent/50 transition-all text-brand-text text-sm cursor-pointer"
-            >
-              <option value="">Choisir une appréciation</option>
-              <option value="Excellent">Excellent</option>
-              <option value="Très Bien">Très Bien</option>
-              <option value="Bien">Bien</option>
-              <option value="Assez Bien">Assez Bien</option>
-              <option value="Passable">Passable</option>
-              <option value="Insuffisant">Insuffisant</option>
-              <option value="Avertissement de conduite">Avertissement de conduite</option>
-              <option value="Blâme de conduite">Blâme de conduite</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-brand-text-muted ml-1">Commentaire détaillé</label>
-            <textarea
-              {...register('comment')}
-              rows={4}
-              className="w-full bg-brand-sidebar border border-brand-border/50 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-brand-accent/50 transition-all text-brand-text text-sm resize-none"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-brand-border/30">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsEditModalOpen(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-            >
-              Mettre à jour
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <ConfirmationModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={confirmDelete}
-        title="Supprimer l'appréciation"
-        message="Êtes-vous sûr de vouloir supprimer cet enregistrement de conduite ? Cette action est irréversible."
-        confirmText="Supprimer"
-        variant="danger"
-      />
     </div>
   );
-};
-
-export default Conduct;
+}

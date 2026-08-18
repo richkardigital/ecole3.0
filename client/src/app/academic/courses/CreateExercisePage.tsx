@@ -407,7 +407,7 @@ export const CreateExercisePage: React.FC<CreateExercisePageProps> = ({
               <span>•</span>
               <span>{courseNiveau || 'Niveau Global'}</span>
             </div>
-            <h1 className="text-2xl font-black text-brand-text tracking-tight mt-0.5 flex items-center gap-2.5">
+            <h1 className="text-2xl font-black text-[#4D3E90] tracking-tight mt-0.5 flex items-center gap-2.5">
               <GraduationCap className="w-6 h-6 text-brand-accent" />
               {exerciseId ? "Modifier l'Exercice" : "Créer un Nouvel Exercice"}
             </h1>

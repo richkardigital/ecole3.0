@@ -313,13 +313,43 @@ export const saveGrade = async (req: AuthRequest, res: Response) => {
         where: whereClause
     });
 
+    let assignmentObj = null;
+    if (assignmentId) {
+      assignmentObj = await prisma.assignment.findUnique({
+        where: { id: assignmentId }
+      });
+    }
+
+    let finalCourseId = courseId || assignmentObj?.courseId || null;
+    if (!finalCourseId && assignmentObj?.niveauId && assignmentObj?.subjectId) {
+      const enrollment = await prisma.enrollment.findFirst({
+        where: { studentId, status: "ACTIVE", class: { niveauId: assignmentObj.niveauId } }
+      });
+      if (enrollment) {
+        const course = await prisma.course.findFirst({
+          where: { niveauId: assignmentObj.niveauId, subjectId: assignmentObj.subjectId }
+        });
+        finalCourseId = course?.id ?? null;
+      }
+    }
+
+    const termId = assignmentObj?.termId || activeTerm?.id || null;
+    const coefficient = assignmentObj?.coefficient || 1;
+    const resolvedType = assignmentObj?.type ? ((assignmentObj.type.startsWith('COMPOSITION') || assignmentObj.type.startsWith('COMPO')) ? 'EXAMEN' : 'DEVOIR') : 'DEVOIR';
+    const isTeacher = (req.user?.role as string) === "ENSEIGNANT";
+
     let result;
     if (existingGrade) {
         result = await prisma.grade.update({
             where: { id: existingGrade.id },
             data: {
                 value,
-                comment: comment || null
+                comment: comment || null,
+                courseId: finalCourseId,
+                termId: termId || existingGrade.termId,
+                coefficient: coefficient || existingGrade.coefficient,
+                validated: true,
+                isGraded: true
             }
         });
     } else {
@@ -327,12 +357,15 @@ export const saveGrade = async (req: AuthRequest, res: Response) => {
             data: {
                 studentId,
                 assignmentId: assignmentId || null,
-                courseId: courseId || null,
+                courseId: finalCourseId,
                 value,
                 comment: comment || null,
-                termId: activeTerm?.id || null,
+                termId,
+                coefficient,
+                type: resolvedType as any,
                 submissionId: submission?.id || null,
-                source: ((req.user?.role as string) === "ENSEIGNANT") ? "ENSEIGNANT" : "ADMIN",
+                source: isTeacher ? "ENSEIGNANT" : "ADMIN",
+                validated: true,
                 isGraded: true
             }
         });
