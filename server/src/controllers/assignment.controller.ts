@@ -389,9 +389,18 @@ export const getAgenda = async (req: AuthRequest, res: Response) => {
             }
         };
 
-        // If APPRENANT, only show published assignments
+        // If APPRENANT, only show published assignments from OPEN terms
         if (req.user?.role === 'APPRENANT') {
             assignmentWhere.published = true;
+            assignmentWhere.workflowStatus = { not: 'CLOTURE' };
+            assignmentWhere.AND = [
+                {
+                    OR: [
+                        { termId: null },
+                        { term: { status: 'OPEN' } }
+                    ]
+                }
+            ];
         }
 
         const assignments = await prisma.assignment.findMany({
@@ -666,10 +675,20 @@ export const submitAssignment = async (req: AuthRequest, res: Response) => {
 
     const assignment = await prisma.assignment.findUnique({
       where: { id },
-      include: { questions: { include: { options: true } } }
+      include: { 
+        term: true,
+        questions: { include: { options: true } } 
+      }
     });
 
     if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+
+    // Bloquer les soumissions si le trimestre est clôturé ou le devoir clôturé
+    if (assignment.term?.status === 'CLOSED' || assignment.workflowStatus === 'CLOTURE') {
+      return res.status(400).json({ 
+        message: "Ce trimestre est clôturé. Aucune évaluation ne peut plus être passée ou soumise." 
+      });
+    }
 
     // Auto-grading logic for QCM
     let finalContent = content;

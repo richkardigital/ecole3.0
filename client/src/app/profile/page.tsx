@@ -648,10 +648,10 @@ export default function UserProfilePage() {
             <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col items-center justify-center space-y-6">
               <div className="text-center max-w-md space-y-1.5">
                 <span className="text-xs font-black uppercase tracking-wider text-pink-600">
-                  Badge Numérique Officiel
+                  Document Officiel Sécurisé
                 </span>
                 <h3 className="text-xl font-black text-slate-900">
-                  Ma Carte d'Apprenant École 3.0
+                  Ma Carte Scolaire
                 </h3>
                 <p className="text-xs text-slate-500">
                   Cette carte officielle certifiée contient votre QR code sécurisé de scolarité. Vous pouvez la retourner en 3D ou la télécharger au format PDF.

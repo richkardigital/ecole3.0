@@ -150,11 +150,14 @@ const AssignmentDetails = () => {
   };
 
   const handleBack = () => {
-    if (location.state?.from) {
+    const targetCourseId = assignment?.courseId || assignment?.course?.id;
+    if (location.state?.from && (location.state.from.includes('tab=ASSIGNMENTS') || location.state.from.includes('courses'))) {
       navigate(location.state.from);
-    } else if (assignment?.courseId) {
+    } else if (targetCourseId) {
       const courseBase = user?.role === 'SUPER_ADMIN' ? '/admin/courses' : user?.role === 'DIRECTEUR' ? '/directeur/courses' : user?.role === 'ENSEIGNANT' ? '/enseignant/courses' : user?.role === 'EDUCATEUR' ? '/educateur/courses' : '/courses';
-      navigate(`${courseBase}/${assignment.courseId}?tab=ASSIGNMENTS`);
+      navigate(`${courseBase}/${targetCourseId}?tab=ASSIGNMENTS`);
+    } else if (location.state?.from) {
+      navigate(location.state.from);
     } else {
       navigate(getBackPath());
     }
@@ -360,7 +363,7 @@ const AssignmentDetails = () => {
         >
           <ArrowLeft className="w-4 h-4" />
           <span>
-            {location.state?.fromLabel || (location.state?.from?.includes('courses') ? "Retour au cours" : "Retour aux devoirs")}
+            {location.state?.fromLabel || ((assignment?.courseId || assignment?.course?.id) ? "Retour aux évaluations du cours" : "Retour aux devoirs")}
           </span>
         </button>
 

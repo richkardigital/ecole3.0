@@ -370,6 +370,14 @@ export const toggleTermStatus = async (req: Request, res: Response) => {
       data: { status },
     });
 
+    // Si le trimestre est clôturé, clôturer automatiquement toutes les évaluations et devoirs liés
+    if (status === 'CLOSED') {
+      await prisma.assignment.updateMany({
+        where: { termId: id as string },
+        data: { workflowStatus: 'CLOTURE' }
+      });
+    }
+
     res.json(term);
   } catch (error) {
     res.status(500).json({ message: "Erreur lors de la mise à jour du statut de la période" });

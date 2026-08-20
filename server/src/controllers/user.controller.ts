@@ -197,10 +197,20 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
                 },
                 subject: true
             }
+        },
+        documents: {
+          where: { fileType: 'CARD_STATUS' },
+          select: { fileUrl: true }
         }
       },
     });
-    res.json(users);
+
+    const formattedUsers = users.map(u => ({
+      ...u,
+      cardStatus: (u.documents && u.documents[0]?.fileUrl) ? u.documents[0].fileUrl : 'EN_COURS'
+    }));
+
+    res.json(formattedUsers);
   } catch (error) {
     console.error("Error fetching users:", error);
     res.status(500).json({ message: "Error fetching users", error });
@@ -601,5 +611,79 @@ export const getUserById = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error("Get User By ID Error:", error);
     res.status(500).json({ message: "Erreur lors de la récupération de l'utilisateur" });
+  }
+};
+
+// Valider / Mettre en attente la carte scolaire d'un élève (Super Admin / Directeur)
+export const toggleStudentCardValidation = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'VALIDEE' | 'EN_COURS'
+    
+    if (!id) return res.status(400).json({ message: "ID élève requis" });
+    
+    const targetStatus = status === 'VALIDEE' ? 'VALIDEE' : 'EN_COURS';
+
+    // Supprimer l'ancien statut
+    await prisma.userDocument.deleteMany({
+      where: {
+        userId: String(id),
+        fileType: 'CARD_STATUS'
+      }
+    });
+
+    // Enregistrer le nouveau statut
+    const doc = await prisma.userDocument.create({
+      data: {
+        userId: String(id),
+        title: 'STATUT_CARTE_SCOLAIRE',
+        fileUrl: targetStatus,
+        fileType: 'CARD_STATUS'
+      }
+    });
+
+    res.json({ 
+      message: targetStatus === 'VALIDEE' ? "Carte scolaire validée avec succès !" : "Carte scolaire mise en attente.", 
+      cardStatus: targetStatus 
+    });
+  } catch (error) {
+    console.error("Toggle Card Validation Error:", error);
+    res.status(500).json({ message: "Erreur lors de la mise à jour du statut de la carte", error });
+  }
+};
+
+// Validation en lot des cartes scolaires (Super Admin)
+export const batchValidateStudentCards = async (req: AuthRequest, res: Response) => {
+  try {
+    const { studentIds, status } = req.body;
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({ message: "Liste des IDs requise" });
+    }
+
+    const targetStatus = status === 'VALIDEE' ? 'VALIDEE' : 'EN_COURS';
+
+    await prisma.userDocument.deleteMany({
+      where: {
+        userId: { in: studentIds },
+        fileType: 'CARD_STATUS'
+      }
+    });
+
+    await prisma.userDocument.createMany({
+      data: studentIds.map((id: string) => ({
+        userId: id,
+        title: 'STATUT_CARTE_SCOLAIRE',
+        fileUrl: targetStatus,
+        fileType: 'CARD_STATUS'
+      }))
+    });
+
+    res.json({ 
+      message: `${studentIds.length} cartes scolaires mises à jour vers ${targetStatus === 'VALIDEE' ? 'Validée' : 'En attente'}.`, 
+      cardStatus: targetStatus 
+    });
+  } catch (error) {
+    console.error("Batch Card Validation Error:", error);
+    res.status(500).json({ message: "Erreur validation en lot", error });
   }
 };

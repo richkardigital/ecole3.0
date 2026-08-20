@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { BookOpen, ArrowLeft, Paperclip, CheckCircle2, Clock, Check, XCircle, Download, Save, Users, FileText, Upload } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -37,6 +37,8 @@ interface AssignmentData {
   subject?: { id: string, name: string };
   academicYear?: { id: string; name: string };
   term?: { id: string; name: string };
+  courseId?: string;
+  course?: { id: string; subject?: { name: string }; niveau?: { nom: string } };
   dueDate: string;
   description: string;
   published: boolean;
@@ -58,6 +60,7 @@ interface AssignmentData {
 
 export default function GlobalAssignmentDetailsPage() {
   const { user } = useAuth();
+  const location = useLocation();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const canAccess = user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR' || user?.role === 'ENSEIGNANT' || user?.role === 'EDUCATEUR';
   const navigate = useNavigate();
@@ -93,6 +96,27 @@ export default function GlobalAssignmentDetailsPage() {
     if (user?.role === 'ENSEIGNANT') return '/enseignant/assignments';
     if (user?.role === 'EDUCATEUR') return '/educateur/evaluations';
     return '/assignments';
+  };
+
+  const handleBack = () => {
+    if (location.state?.from && (location.state.from.includes('courses') || location.state.from.includes('tab=ASSIGNMENTS'))) {
+      navigate(location.state.from);
+      return;
+    }
+
+    const targetCourseId = (assignment as any)?.courseId || (assignment as any)?.course?.id;
+    if (targetCourseId) {
+      const courseBase = user?.role === 'SUPER_ADMIN' ? '/admin/courses' : user?.role === 'DIRECTEUR' ? '/directeur/courses' : user?.role === 'ENSEIGNANT' ? '/enseignant/courses' : user?.role === 'EDUCATEUR' ? '/educateur/courses' : '/courses';
+      navigate(`${courseBase}/${targetCourseId}?tab=ASSIGNMENTS`);
+      return;
+    }
+
+    if (location.state?.from) {
+      navigate(location.state.from);
+      return;
+    }
+
+    navigate(getListPath());
   };
 
   useEffect(() => {
@@ -255,8 +279,8 @@ export default function GlobalAssignmentDetailsPage() {
 
   return (
     <div className="p-6 md:p-8 lg:p-10 max-w-6xl mx-auto space-y-8 animate-in fade-in zoom-in duration-500 pb-32">
-      <Button variant="ghost" onClick={() => navigate(getListPath())} className="mb-4 text-brand-text-muted hover:text-brand-text cursor-pointer">
-        <ArrowLeft className="w-4 h-4 mr-2" /> Retour aux devoirs
+      <Button variant="ghost" onClick={handleBack} className="mb-4 text-brand-text-muted hover:text-brand-text cursor-pointer">
+        <ArrowLeft className="w-4 h-4 mr-2" /> Retour aux évaluations du cours
       </Button>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

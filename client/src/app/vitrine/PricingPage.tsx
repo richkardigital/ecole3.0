@@ -105,9 +105,7 @@ export default function PricingPage() {
           {plans.map((plan) => {
             const isPro = plan.planKey === 'pro' || plan.name?.toLowerCase().includes('pro');
             const isElite = plan.planKey === 'elite' || plan.name?.toLowerCase().includes('élite') || plan.name?.toLowerCase().includes('complexe');
-            const isStandard = !isPro && !isElite;
-            
-            const displayPrice = Math.round(plan.price * 3 * 0.85);
+            const displayPrice = plan.price;
             const displayPeriod = 'par an (année scolaire complète)';
 
             // Styling variants per plan

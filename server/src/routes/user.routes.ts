@@ -12,7 +12,9 @@ import {
   updateMyProfile,
   uploadUserDocument,
   deleteUserDocument,
-  getUserById 
+  getUserById,
+  toggleStudentCardValidation,
+  batchValidateStudentCards
 } from "../controllers/user.controller.js";
 import { upload } from "../middleware/upload.js";
 
@@ -26,6 +28,10 @@ router.put("/profile/me", upload.single('avatar'), updateMyProfile);
 router.put("/profile/password", updateUserPassword);
 router.post("/profile/documents", upload.single('file'), uploadUserDocument);
 router.delete("/profile/documents/:docId", deleteUserDocument);
+
+// Validation des cartes scolaires (Super Admin & Directeur)
+router.post("/cards/batch-validate", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), batchValidateStudentCards);
+router.patch("/:id/card-validation", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR]), toggleStudentCardValidation);
 
 // Management endpoints
 router.post("/", requireRole([ROLES.SUPER_ADMIN, ROLES.DIRECTEUR, ROLES.EDUCATEUR]), upload.single('avatar'), createUser);

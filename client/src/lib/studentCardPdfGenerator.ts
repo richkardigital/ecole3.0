@@ -24,6 +24,7 @@ export interface StudentCardData {
   emergencyContact?: string;
   issuedAt?: string;
   expiresAt?: string;
+  isValidated?: boolean;
 }
 
 // Convert image URL to Base64 safely

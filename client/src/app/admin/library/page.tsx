@@ -368,7 +368,7 @@ export default function LibraryPage() {
                     </td>
                     <td className="py-4 px-4">
                       <p className="font-bold text-slate-900">{resource.title}</p>
-                      {resource.createdBy && (
+                      {!isApprenant && resource.createdBy && (
                         <p className="text-[11px] text-slate-400 mt-0.5">
                           Par {resource.createdBy.firstName} {resource.createdBy.lastName}
                         </p>
@@ -638,12 +638,14 @@ export default function LibraryPage() {
                 <span className="text-slate-500">Niveau d'étude</span>
                 <span className="font-semibold text-slate-900">{selectedResource.niveau?.nom || 'N/A'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Ajouté par</span>
-                <span className="font-semibold text-slate-900">
-                  {selectedResource.createdBy ? `${selectedResource.createdBy.firstName} ${selectedResource.createdBy.lastName}` : 'Système'}
-                </span>
-              </div>
+              {!isApprenant && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Ajouté par</span>
+                  <span className="font-semibold text-slate-900">
+                    {selectedResource.createdBy ? `${selectedResource.createdBy.firstName} ${selectedResource.createdBy.lastName}` : 'Système'}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-500">Date d'ajout</span>
                 <span className="font-semibold text-slate-900">

@@ -41,8 +41,10 @@ import {
   TrendingUp,
   BarChart3,
   CheckSquare,
-  MessageCircle
+  MessageCircle,
+  FileSpreadsheet
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import Gradebook from '@/components/Gradebook';
 import QuizList from '@/components/QuizList';
 import ExerciseTake from '@/components/ExerciseTake';
@@ -408,23 +410,17 @@ const CourseDetails = () => {
             .catch(err => console.error("Error fetching course stats", err));
       }
 
-      const isStudent = user?.role === 'APPRENANT' || user?.role === 'PARENT';
-
-      const fetchStudents = !isStudent
-        ? api.get(`/courses/${id}/students`)
-            .then(res => setCourseStudents(res.data))
-            .catch(err => console.error("Error fetching students", err))
-        : Promise.resolve();
+      const fetchStudents = api.get(`/courses/${id}/students`)
+        .then(res => setCourseStudents(res.data || []))
+        .catch(err => console.error("Error fetching students", err));
 
       const fetchTeachers = api.get(`/courses/${id}/teachers`)
-        .then(res => setCourseTeachers(res.data))
+        .then(res => setCourseTeachers(res.data || []))
         .catch(err => console.error("Error fetching teachers", err));
 
-      const fetchSchools = !isStudent
-        ? api.get(`/courses/${id}/schools`)
-            .then(res => setCourseSchools(res.data))
-            .catch(err => console.error("Error fetching schools", err))
-        : Promise.resolve();
+      const fetchSchools = api.get(`/courses/${id}/schools`)
+        .then(res => setCourseSchools(res.data || []))
+        .catch(err => console.error("Error fetching schools", err));
 
       const fetchTerms = api.get('/academic/years')
         .then(res => {
@@ -673,6 +669,10 @@ const CourseDetails = () => {
                 <ArrowLeft className="w-4 h-4" />
                 <span>Retour</span>
               </Link>
+              <span className="bg-brand-accent/25 text-brand-accent text-xs font-black px-3 py-1.5 rounded-xl border border-brand-accent/40 backdrop-blur-md flex items-center gap-1.5 shadow-sm">
+                <Building2 className="w-3.5 h-3.5" />
+                {course.class?.school?.name || (course as any).school?.name || (course as any).schoolName || 'Établissement Principal'}
+              </span>
               <span className="bg-emerald-500/25 text-emerald-300 text-xs font-black px-3 py-1.5 rounded-xl border border-emerald-500/40 backdrop-blur-md flex items-center gap-1.5 shadow-sm">
                 <GraduationCap className="w-4 h-4 text-emerald-400" />
                 {(course as any).niveau?.name || (course as any).niveau?.nom || (course as any).niveauName || course.class?.name || 'Niveau Global'}
@@ -741,27 +741,28 @@ const CourseDetails = () => {
               )}
             </h1>
             <p className="text-xs sm:text-sm font-medium text-emerald-200/90 mt-2 flex flex-wrap items-center gap-2 drop-shadow">
+              <Building2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{course.class?.school?.name || (course as any).school?.name || 'Établissement Principal'}</span>
+              <span>•</span>
               <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>{chapters.length} chapitre{chapters.length > 1 ? 's' : ''} configuré{chapters.length > 1 ? 's' : ''}</span>
               <span>•</span>
+              <Layers className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>{assignments.length} devoir{assignments.length > 1 ? 's' : ''} & évaluation{assignments.length > 1 ? 's' : ''}</span>
-              {courseTeachers && courseTeachers.length > 0 && (
-                <>
-                  <span>•</span>
-                  <span>{courseTeachers.length} enseignant{courseTeachers.length > 1 ? 's' : ''}</span>
-                </>
-              )}
+              <span>•</span>
+              <Users className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{courseStudents.length} élève{courseStudents.length > 1 ? 's' : ''} inscrit{courseStudents.length > 1 ? 's' : ''}</span>
             </p>
           </div>
         </div>
       </div>
 
-      <div className={`grid ${user?.role === 'APPRENANT' ? 'grid-cols-1 sm:grid-cols-3 gap-4' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5'}`}>
-          {/* 1. Chapitres & Cours */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* 1. Chapitres de cours */}
           <button
               type="button"
               onClick={() => setActiveTab('CONTENT')}
-              className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden ${
+              className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden cursor-pointer ${
                   activeTab === 'CONTENT'
                       ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
                       : 'bg-brand-card hover:bg-slate-100/70 dark:hover:bg-slate-800/60 border-brand-border/80 hover:border-emerald-500/40'
@@ -781,10 +782,10 @@ const CourseDetails = () => {
                   {chapters.length}
               </div>
               <div className="text-xs font-extrabold text-brand-text truncate">
-                  {user?.role === 'APPRENANT' ? 'Mes Cours & Chapitres' : 'Chapitres'}
+                  {user?.role === 'APPRENANT' ? 'Mes Cours & Chapitres' : 'Chapitres de cours'}
               </div>
               <div className="text-[11px] text-brand-muted truncate mt-0.5">
-                  {user?.role === 'APPRENANT' ? 'Supports, leçons & révisions' : 'Pédagogie & Supports'}
+                  {user?.role === 'APPRENANT' ? 'Supports, leçons & révisions' : 'Supports, leçons & pédagogie'}
               </div>
           </button>
 
@@ -792,7 +793,7 @@ const CourseDetails = () => {
           <button
               type="button"
               onClick={() => setActiveTab('ASSIGNMENTS')}
-              className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden ${
+              className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden cursor-pointer ${
                   activeTab === 'ASSIGNMENTS'
                       ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
                       : 'bg-brand-card hover:bg-slate-100/70 dark:hover:bg-slate-800/60 border-brand-border/80 hover:border-emerald-500/40'
@@ -812,126 +813,43 @@ const CourseDetails = () => {
                   {assignments.length}
               </div>
               <div className="text-xs font-extrabold text-brand-text truncate">
-                  {user?.role === 'APPRENANT' ? 'Concours & Évaluations' : 'Compo & Évaluations'}
+                  {user?.role === 'APPRENANT' ? 'Concours & Évaluations' : 'Compositions & Évaluations'}
               </div>
               <div className="text-[11px] text-brand-muted truncate mt-0.5">
-                  {user?.role === 'APPRENANT' ? 'Devoirs, concours & quiz' : 'Épreuves & Devoirs'}
+                  {user?.role === 'APPRENANT' ? 'Devoirs, concours & quiz' : 'Devoirs, compositions & épreuves'}
               </div>
           </button>
 
-          {/* 3. Élèves inscrits (Masqué pour APPRENANT) */}
-          {user?.role !== 'APPRENANT' && (
-            <button
-                type="button"
-                onClick={() => setActiveTab('STUDENTS')}
-                className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden ${
-                    activeTab === 'STUDENTS'
-                        ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
-                        : 'bg-brand-card hover:bg-slate-100/70 dark:hover:bg-slate-800/60 border-brand-border/80 hover:border-emerald-500/40'
-                }`}
-            >
-                <div className="flex items-center justify-between mb-2">
-                    <div className={`p-2 rounded-xl transition-colors ${activeTab === 'STUDENTS' ? 'bg-emerald-500 text-white shadow-xs' : 'bg-brand-surface text-brand-muted group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30'}`}>
-                        <Users className="w-5 h-5" />
-                    </div>
-                    {activeTab === 'STUDENTS' && (
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-xs uppercase tracking-wider">
-                            Actif
-                        </span>
-                    )}
-                </div>
-                <div className="text-2xl font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    {courseStudents.length}
-                </div>
-                <div className="text-xs font-extrabold text-brand-text truncate">
-                    Élèves inscrits
-                </div>
-                <div className="text-[11px] text-brand-muted truncate mt-0.5">
-                    Apprenants concernés
-                </div>
-            </button>
-          )}
-
-          {/* 4. Mon Professeur / Professeurs associés */}
+          {/* 3. Liste de la classe / Élèves inscrits */}
           <button
               type="button"
-              onClick={() => setActiveTab('TEACHERS')}
-              className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden ${
-                  activeTab === 'TEACHERS'
+              onClick={() => setActiveTab('STUDENTS')}
+              className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden cursor-pointer ${
+                  activeTab === 'STUDENTS'
                       ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
                       : 'bg-brand-card hover:bg-slate-100/70 dark:hover:bg-slate-800/60 border-brand-border/80 hover:border-emerald-500/40'
               }`}
           >
               <div className="flex items-center justify-between mb-2">
-                  <div className={`p-2 rounded-xl transition-colors ${activeTab === 'TEACHERS' ? 'bg-emerald-500 text-white shadow-xs' : 'bg-brand-surface text-brand-muted group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30'}`}>
-                      <GraduationCap className="w-5 h-5" />
+                  <div className={`p-2 rounded-xl transition-colors ${activeTab === 'STUDENTS' ? 'bg-emerald-500 text-white shadow-xs' : 'bg-brand-surface text-brand-muted group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30'}`}>
+                      <Users className="w-5 h-5" />
                   </div>
-                  {activeTab === 'TEACHERS' && (
+                  {activeTab === 'STUDENTS' && (
                       <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-xs uppercase tracking-wider">
                           Actif
                       </span>
                   )}
               </div>
-              {user?.role === 'APPRENANT' ? (
-                <>
-                  <div className="text-base font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors truncate">
-                      {courseTeachers.length > 0 ? `${courseTeachers[0].firstName} ${courseTeachers[0].lastName}` : 'Enseignant assigné'}
-                  </div>
-                  <div className="text-xs font-extrabold text-brand-text truncate">
-                      Mon Professeur
-                  </div>
-                  <div className="text-[11px] text-brand-muted truncate mt-0.5 flex items-center gap-1">
-                      <MessageCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Discuter & poser des questions</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-2xl font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                      {courseTeachers.length}
-                  </div>
-                  <div className="text-xs font-extrabold text-brand-text truncate">
-                      Professeurs associés
-                  </div>
-                  <div className="text-[11px] text-brand-muted truncate mt-0.5">
-                      Corps professoral
-                  </div>
-                </>
-              )}
+              <div className="text-2xl font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  {courseStudents.length}
+              </div>
+              <div className="text-xs font-extrabold text-brand-text truncate">
+                  {user?.role === 'APPRENANT' ? 'Mes Camarades de Classe' : 'Liste de la Classe'}
+              </div>
+              <div className="text-[11px] text-brand-muted truncate mt-0.5">
+                  {user?.role === 'APPRENANT' ? 'Effectif & messagerie directe' : 'Effectif, notes & participation'}
+              </div>
           </button>
-
-          {/* 5. Écoles associées (Masqué pour APPRENANT) */}
-          {user?.role !== 'APPRENANT' && (
-            <button
-                type="button"
-                onClick={() => setActiveTab('SCHOOLS')}
-                className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group overflow-hidden ${
-                    activeTab === 'SCHOOLS'
-                        ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
-                        : 'bg-brand-card hover:bg-slate-100/70 dark:hover:bg-slate-800/60 border-brand-border/80 hover:border-emerald-500/40'
-                }`}
-            >
-                <div className="flex items-center justify-between mb-2">
-                    <div className={`p-2 rounded-xl transition-colors ${activeTab === 'SCHOOLS' ? 'bg-emerald-500 text-white shadow-xs' : 'bg-brand-surface text-brand-muted group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950/30'}`}>
-                        <Building2 className="w-5 h-5" />
-                    </div>
-                    {activeTab === 'SCHOOLS' && (
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-xs uppercase tracking-wider">
-                            Actif
-                        </span>
-                    )}
-                </div>
-                <div className="text-2xl font-black text-brand-text tracking-tight mb-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    {courseSchools.length}
-                </div>
-                <div className="text-xs font-extrabold text-brand-text truncate">
-                    Écoles associées
-                </div>
-                <div className="text-[11px] text-brand-muted truncate mt-0.5">
-                    Réseau d'écoles
-                </div>
-            </button>
-          )}
       </div>
 
       {activeTab === 'CONTENT' ? (
@@ -1665,6 +1583,37 @@ const CourseDetails = () => {
                   Suivez la progression, les devoirs, interrogations, et le taux de participation de chaque élève.
                 </p>
               </div>
+
+              {/* Bouton Export Excel / CSV */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!courseStudents || courseStudents.length === 0) {
+                    alert("Aucun élève à exporter.");
+                    return;
+                  }
+                  const dataToExport = courseStudents.map((s: any) => ({
+                    "Matricule": s.matricule || 'N/A',
+                    "Nom": s.lastName,
+                    "Prénoms": s.firstName,
+                    "Établissement": s.school?.name || (course as any)?.class?.school?.name || '',
+                    "Classe": s.className || (course as any)?.class?.name || '',
+                    "Participation (%)": `${s.participationRate || 0}%`,
+                    "Chapitres complétés": `${s.completedChaptersCount || 0} / ${s.totalChaptersCount || chapters.length}`,
+                    "Moyenne": s.overallAverage !== null && s.overallAverage !== undefined ? `${s.overallAverage}/20` : 'N/A',
+                    "Notes aux devoirs": (s.grades || []).map((g: any) => `${g.assignment?.title || 'Évaluation'}: ${g.value}/20`).join(' | ')
+                  }));
+                  const ws = XLSX.utils.json_to_sheet(dataToExport);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Élèves");
+                  const subjectName = (course?.subject?.name || 'classe').replace(/[^a-zA-Z0-9]/g, '_');
+                  XLSX.writeFile(wb, `liste_eleves_${subjectName}.xlsx`);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer shrink-0"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Exporter la liste (Excel)</span>
+              </button>
             </div>
 
             {/* 4 KPI Summary Cards */}
@@ -1795,6 +1744,7 @@ const CourseDetails = () => {
                         <th className="px-5 py-4 min-w-[200px]">Notes & Devoirs</th>
                         <th className="px-5 py-4 text-center">Moyenne</th>
                         <th className="px-5 py-4 text-center">Statut</th>
+                        <th className="px-5 py-4 text-center">Contact</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-brand-border/40 font-medium">
@@ -1809,14 +1759,24 @@ const CourseDetails = () => {
                           ? student.termAverages[selectedStudentTerm]
                           : student.overallAverage;
 
+                        const targetUserId = student.studentId || student.id || student.userId;
+
                         return (
                           <tr key={student.id || student.studentId} className="hover:bg-white/5 transition-colors">
                             {/* Élève */}
                             <td className="px-5 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-brand-accent/15 text-brand-accent font-black text-sm flex items-center justify-center border border-brand-accent/25 shrink-0">
-                                  {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
-                                </div>
+                                {student.avatarUrl ? (
+                                  <img 
+                                    src={getFileUrl(student.avatarUrl)} 
+                                    alt={`${student.firstName} ${student.lastName}`}
+                                    className="w-10 h-10 rounded-xl object-cover border border-brand-accent/25 shrink-0 bg-brand-surface"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-xl bg-brand-accent/15 text-brand-accent font-black text-sm flex items-center justify-center border border-brand-accent/25 shrink-0">
+                                    {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
+                                  </div>
+                                )}
                                 <div>
                                   <h4 className="font-bold text-brand-text text-sm">
                                     {student.lastName} {student.firstName}
@@ -1926,6 +1886,19 @@ const CourseDetails = () => {
                                 </span>
                               )}
                             </td>
+
+                            {/* Action Messagerie Directe */}
+                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/chat?userId=${targetUserId}`)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/30 font-bold text-xs shadow-xs transition-all cursor-pointer group"
+                                title={`Envoyer un message à ${student.firstName} ${student.lastName}`}
+                              >
+                                <MessageCircle className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                                <span>Message</span>
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1936,172 +1909,9 @@ const CourseDetails = () => {
             );
           })()}
         </div>
-      ) : activeTab === 'TEACHERS' ? (
-        <div className="space-y-6">
-          <div className="bg-brand-card p-6 rounded-2xl border border-brand-border/60 shadow-sm flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-brand-text flex items-center gap-2.5">
-                <GraduationCap className="w-6 h-6 text-brand-accent" />
-                {user?.role === 'APPRENANT' 
-                  ? (courseTeachers.length > 1 ? `Mes Professeurs (${courseTeachers.length})` : 'Mon Professeur') 
-                  : `Corps professoral associé (${courseTeachers.length})`}
-              </h2>
-              <p className="text-xs text-brand-text-muted mt-1">
-                {user?.role === 'APPRENANT'
-                  ? "Retrouvez votre professeur pour ce cours et contactez-le directement par messagerie."
-                  : "Professeurs affectés à l'enseignement de cette matière pour ce niveau."}
-              </p>
-            </div>
-          </div>
-
-          {courseTeachers.length === 0 ? (
-            <div className="p-12 text-center text-brand-muted bg-brand-card rounded-2xl border border-brand-border/60 flex flex-col items-center gap-3">
-              <GraduationCap className="w-12 h-12 text-brand-border opacity-50" />
-              <p className="text-base font-semibold text-brand-text">
-                {user?.role === 'APPRENANT' ? "Aucun professeur affecté pour le moment" : "Aucun professeur affecté"}
-              </p>
-              <p className="text-xs text-brand-muted">
-                {user?.role === 'APPRENANT' ? "L'administration affectera un enseignant prochainement." : "Assignez des enseignants via la gestion des classes."}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {courseTeachers.map((teacher: any) => (
-                <div key={teacher.id} className="bg-brand-card p-5 rounded-2xl border border-brand-border/70 hover:border-emerald-500/50 transition-all space-y-4 shadow-sm flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 font-black text-base flex items-center justify-center border border-emerald-500/30 shrink-0 shadow-xs">
-                        {teacher.firstName?.charAt(0)}{teacher.lastName?.charAt(0)}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-base text-brand-text">
-                          {teacher.firstName} {teacher.lastName}
-                        </h4>
-                        <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block mt-0.5">
-                          {course?.subject?.name ? `Professeur de ${course.subject.name}` : 'Enseignant titulaire'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 text-xs text-brand-text-muted pt-2 border-t border-brand-border/40">
-                      {teacher.email && (
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-3.5 h-3.5 text-brand-muted" />
-                          <a href={`mailto:${teacher.email}`} className="hover:text-brand-accent truncate">{teacher.email}</a>
-                        </div>
-                      )}
-                      {teacher.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-3.5 h-3.5 text-brand-muted" />
-                          <a href={`tel:${teacher.phone}`} className="hover:text-emerald-400">{teacher.phone}</a>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Classes & Schools */}
-                    <div className="pt-2 border-t border-brand-border/40 space-y-2 text-xs">
-                      <div>
-                        <span className="text-[11px] font-bold text-brand-muted block mb-1">Classe(s) assignée(s) :</span>
-                        <div className="flex flex-wrap gap-1">
-                          {teacher.classes && teacher.classes.length > 0 ? (
-                            teacher.classes.map((cls: string, idx: number) => (
-                              <span key={idx} className="bg-brand-accent/10 text-brand-accent border border-brand-accent/20 px-2 py-0.5 rounded text-[11px] font-bold">
-                                {cls}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-brand-muted italic text-[11px]">Toutes les classes du niveau</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Direct Action: Chat with teacher */}
-                  <div className="pt-3 border-t border-brand-border/40">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/chat?userId=${teacher.id}`)}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Discuter avec mon professeur</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : activeTab === 'SCHOOLS' ? (
-        <div className="space-y-6">
-          <div className="bg-brand-card p-6 rounded-2xl border border-brand-border/60 shadow-sm flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-brand-text flex items-center gap-2.5">
-                <Building2 className="w-6 h-6 text-brand-accent" />
-                Établissements partenaires ({courseSchools.length})
-              </h2>
-              <p className="text-xs text-brand-text-muted mt-1">
-                Établissements et complexes scolaires ayant activé ce cours dans leurs classes.
-              </p>
-            </div>
-          </div>
-
-          {courseSchools.length === 0 ? (
-            <div className="p-12 text-center text-brand-muted bg-brand-card rounded-2xl border border-brand-border/60 flex flex-col items-center gap-3">
-              <Building2 className="w-12 h-12 text-brand-border opacity-50" />
-              <p className="text-base font-semibold text-brand-text">Aucune école associée</p>
-              <p className="text-xs text-brand-muted">Ce cours n'a pas encore été déployé dans les établissements.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {courseSchools.map((sch: any) => (
-                <div key={sch.id} className="bg-brand-card p-5 rounded-2xl border border-brand-border/70 hover:border-brand-accent/50 transition-all space-y-4 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-purple-500/15 text-purple-400 font-black text-base flex items-center justify-center border border-purple-500/30 shrink-0">
-                      <School className="w-6 h-6 text-purple-400" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-base text-brand-text">{sch.name}</h4>
-                      {sch.code && (
-                        <span className="text-[10px] font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20 inline-block mt-0.5">
-                          Code: {sch.code}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 text-xs text-brand-text-muted pt-2 border-t border-brand-border/40">
-                    {sch.ville && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-brand-muted font-semibold">Ville :</span>
-                        <span className="text-brand-text font-bold">{sch.ville}</span>
-                      </div>
-                    )}
-                    {sch.address && (
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="text-brand-muted font-semibold">Adresse :</span>
-                        <span className="text-brand-text truncate">{sch.address}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-3 border-t border-brand-border/40 flex items-center justify-between text-xs">
-                    <span className="text-brand-muted">
-                      Classes : <strong className="text-brand-text">{sch.classCount || 1}</strong>
-                    </span>
-                    <span className="text-brand-muted">
-                      Élèves inscrits : <strong className="text-brand-accent font-black">{sch.studentCount || 0}</strong>
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       ) : (
         <div className="space-y-6">
-            <Gradebook courseId={id!} />
+          <Gradebook courseId={id!} />
         </div>
       )}
 

@@ -272,8 +272,8 @@ export default function LibraryPage() {
               
               <p className="text-xs text-slate-500 font-medium mb-4">
                 {material.course?.class?.name ? `Classe : ${material.course.class.name}` : material.niveau?.nom ? `Niveau : ${material.niveau.nom}` : 'Niveau'}
-                {material.course?.teacher && ` • Prof. ${material.course.teacher.lastName}`}
-                {material.source && <span className="block text-[11px] mt-1 italic text-slate-400">Source : {material.source}</span>}
+                {user?.role !== 'APPRENANT' && material.course?.teacher && ` • Prof. ${material.course.teacher.lastName}`}
+                {user?.role !== 'APPRENANT' && material.source && <span className="block text-[11px] mt-1 italic text-slate-400">Source : {material.source}</span>}
               </p>
 
               <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
