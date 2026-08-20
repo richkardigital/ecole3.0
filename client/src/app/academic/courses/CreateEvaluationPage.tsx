@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { EvaluationPreviewModal } from '@/components/EvaluationPreviewModal';
 import api, { getFileUrl } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 interface QuestionOption {
   text: string;
@@ -62,11 +63,14 @@ export const CreateEvaluationPage: React.FC<CreateEvaluationPageProps> = ({
   onBack,
   onSuccess,
 }) => {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
   // Mode: Document (File) vs Interactive Questionnaire
   const [evaluationFormat, setEvaluationFormat] = useState<'DOCUMENT' | 'QUESTIONNAIRE'>('DOCUMENT');
 
   // Form Basic Info
-  const [evalType, setEvalType] = useState<string>('COMPOSITION_NIVEAU');
+  const [evalType, setEvalType] = useState<string>(isSuperAdmin ? 'COMPOSITION_NIVEAU' : 'DEVOIR_CLASSE');
   const [title, setTitle] = useState<string>('');
   const [termId, setTermId] = useState<string>(availableTerms[0]?.id || 'TRIMESTRE_1');
   const [coefficient, setCoefficient] = useState<number>(defaultCoefficient || 1);
@@ -533,11 +537,16 @@ export const CreateEvaluationPage: React.FC<CreateEvaluationPageProps> = ({
                 onChange={(e) => setEvalType(e.target.value)}
                 className="w-full px-4 py-3 bg-brand-sidebar border border-brand-border/80 rounded-xl text-brand-text font-semibold text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition cursor-pointer"
               >
-                <option value="COMPOSITION_NIVEAU">Composition de Niveau (Harmonisée)</option>
-                <option value="DEVOIR_NIVEAU">Devoir de Niveau</option>
-                <option value="EXAMEN">Examen Blanc / National</option>
-                <option value="DEVOIR_CLASSE">Devoir de Classe</option>
-                <option value="DEVOIR_MAISON">Devoir Maison</option>
+                {isSuperAdmin && (
+                  <>
+                    <option value="COMPOSITION_NIVEAU">Composition de Niveau (Harmonisée Super Admin)</option>
+                    <option value="DEVOIR_NIVEAU">Devoir de Niveau (Super Admin)</option>
+                    <option value="EXAMEN">Examen Blanc / National (Super Admin)</option>
+                  </>
+                )}
+                <option value="DEVOIR_CLASSE">Devoir de Classe (Noté)</option>
+                <option value="DEVOIR_MAISON">Devoir Maison (Noté)</option>
+                <option value="EXERCICE_MAISON">Exercice de Maison (Non Noté / Entraînement)</option>
               </select>
             </div>
           </div>

@@ -140,6 +140,7 @@ const AssignmentDetails = () => {
   const { register: registerGrade, handleSubmit: handleSubmitGrade, reset: resetGrade } = useForm();
 
   const isStaff = user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR' || user?.role === 'ENSEIGNANT' || user?.role === 'EDUCATEUR';
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const getBackPath = () => {
     if (user?.role === 'SUPER_ADMIN') return '/admin/assignments';
@@ -369,24 +370,28 @@ const AssignmentDetails = () => {
 
         {isStaff && (
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate(getEditPath(), { state: { from: location.state?.from || location.pathname } })}
-              leftIcon={<Edit className="w-4 h-4" />}
-              className="cursor-pointer"
-            >
-              Modifier
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => setIsDeleteModalOpen(true)}
-              leftIcon={<Trash2 className="w-4 h-4" />}
-              className="cursor-pointer"
-            >
-              Supprimer
-            </Button>
+            {(isSuperAdmin || (user?.role === 'ENSEIGNANT' && assignment.type !== 'DEVOIR_NIVEAU' && !assignment.type?.startsWith('COMPOSITION') && !assignment.type?.startsWith('COMPO'))) && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(getEditPath(), { state: { from: location.state?.from || location.pathname } })}
+                  leftIcon={<Edit className="w-4 h-4" />}
+                  className="cursor-pointer"
+                >
+                  Modifier
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  leftIcon={<Trash2 className="w-4 h-4" />}
+                  className="cursor-pointer"
+                >
+                  Supprimer
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>

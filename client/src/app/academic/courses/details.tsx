@@ -95,6 +95,10 @@ interface AssignmentModel {
   fileUrl?: string;
   correctionUrl?: string;
   questions?: any[];
+  isNiveauWide?: boolean;
+  creatorId?: string;
+  createdById?: string;
+  teacherId?: string;
   _count?: {
     submissions: number;
   };
@@ -1367,10 +1371,21 @@ const CourseDetails = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filtered.map(assignment => {
                             const isCompo = assignment.type.startsWith('COMPOSITION') || assignment.type.startsWith('COMPO');
+                            const isLevelWide = assignment.isNiveauWide || 
+                                                assignment.type === 'DEVOIR_NIVEAU' || 
+                                                isCompo || 
+                                                assignment.type.startsWith('EXAMEN');
+                            const isAuthor = assignment.creatorId === user?.id || assignment.createdById === user?.id || assignment.teacherId === user?.id;
+                            
+                            // Seul le Super Admin peut modifier/supprimer les devoirs de niveau et compositions
+                            // L'enseignant peut modifier/supprimer uniquement ses propres devoirs de classe/maison
+                            const canEditThis = isSuperAdmin || (user?.role === 'ENSEIGNANT' && !isLevelWide && (isAuthor || (!assignment.creatorId && !assignment.createdById)));
+                            const canDeleteThis = isSuperAdmin || (user?.role === 'ENSEIGNANT' && !isLevelWide && (isAuthor || (!assignment.creatorId && !assignment.createdById)));
+                            const canViewRendus = isTeacher || isSuperAdmin;
+
                             const hasQuestions = assignment.questions && assignment.questions.length > 0;
                             const hasFile = (assignment.attachments && assignment.attachments.length > 0) || assignment.fileUrl;
                             const subjectUrl = assignment.attachments?.[0] || assignment.fileUrl;
-                            const canEdit = canCreateContent || isTeacher || isSuperAdmin;
                             const detailPath = user?.role === 'SUPER_ADMIN' 
                                 ? `/admin/assignments/${assignment.id}`
                                 : user?.role === 'DIRECTEUR'
@@ -1385,7 +1400,9 @@ const CourseDetails = () => {
                                     className={`bg-brand-card p-6 rounded-2xl border transition-all duration-300 hover:shadow-xl group relative flex flex-col justify-between ${
                                         isCompo 
                                             ? 'border-indigo-500/30 hover:border-indigo-500/60' 
-                                            : 'border-amber-500/30 hover:border-amber-500/60'
+                                            : isLevelWide
+                                            ? 'border-amber-500/30 hover:border-amber-500/60'
+                                            : 'border-emerald-500/30 hover:border-emerald-500/60'
                                     }`}
                                 >
                                     <div>
@@ -1394,9 +1411,19 @@ const CourseDetails = () => {
                                             <span className={`text-[10px] uppercase font-black px-2.5 py-1 rounded-full ${
                                                 isCompo 
                                                     ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30' 
-                                                    : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                                                    : isLevelWide
+                                                    ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                                                    : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                                             }`}>
-                                                {isCompo ? 'Composition d\'examen' : 'Devoir de niveau'}
+                                                {isCompo 
+                                                    ? 'Composition de niveau' 
+                                                    : isLevelWide 
+                                                    ? 'Devoir de niveau' 
+                                                    : assignment.type === 'DEVOIR_MAISON' 
+                                                    ? 'Devoir Maison' 
+                                                    : assignment.type === 'EXERCICE_MAISON' 
+                                                    ? 'Exercice Maison' 
+                                                    : 'Devoir de classe'}
                                             </span>
                                             
                                             <div className="flex items-center gap-1.5">
@@ -1510,7 +1537,7 @@ const CourseDetails = () => {
                                                 Aperçu
                                             </button>
 
-                                            {canEdit && (
+                                            {canEditThis && (
                                                 <button
                                                     type="button"
                                                     onClick={() => {
@@ -1531,12 +1558,12 @@ const CourseDetails = () => {
                                             onClick={() => navigate(detailPath, { state: { from: `${location.pathname}?tab=ASSIGNMENTS`, fromLabel: 'Retour au cours' } })}
                                             className="font-bold text-brand-text-muted hover:text-brand-text transition cursor-pointer"
                                         >
-                                            {canEdit ? `${assignment._count?.submissions || 0} rendus` : 'Participer'} &rarr;
+                                            {canViewRendus ? `${assignment._count?.submissions || 0} rendus & notes` : 'Participer'} &rarr;
                                         </button>
                                     </div>
 
-                                    {/* Edit & Delete Top-Right Actions */}
-                                    {canEdit && (
+                                    {/* Edit & Delete Top-Right Actions (if authorized) */}
+                                    {canEditThis && (
                                         <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button 
                                                 type="button"
@@ -1550,14 +1577,16 @@ const CourseDetails = () => {
                                             >
                                                 <Pencil className="w-4 h-4" />
                                             </button>
-                                            <button 
-                                                type="button"
-                                                onClick={(e) => openDeleteAssignmentModal(assignment.id, e)}
-                                                className="p-1.5 text-brand-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition cursor-pointer"
-                                                title="Supprimer cette évaluation"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            {canDeleteThis && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={(e) => openDeleteAssignmentModal(assignment.id, e)}
+                                                    className="p-1.5 text-brand-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition cursor-pointer"
+                                                    title="Supprimer cette évaluation"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -2039,9 +2068,15 @@ const CourseDetails = () => {
                 {...registerAssign('type', { required: 'Le type est requis' })}
                 className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text cursor-pointer"
             >
-                <option value="DEVOIR_NIVEAU">Devoir de niveau</option>
-                <option value="EVALUATION">Évaluation</option>
-                <option value="COMPOSITION">Composition (Compo)</option>
+                {isSuperAdmin && (
+                  <>
+                    <option value="COMPOSITION_NIVEAU">Composition de niveau (Super Admin)</option>
+                    <option value="DEVOIR_NIVEAU">Devoir de niveau (Super Admin)</option>
+                  </>
+                )}
+                <option value="DEVOIR_CLASSE">Devoir de classe (Noté)</option>
+                <option value="DEVOIR_MAISON">Devoir maison (Noté)</option>
+                <option value="EXERCICE_MAISON">Exercice de maison (Entraînement)</option>
             </select>
             </div>
 

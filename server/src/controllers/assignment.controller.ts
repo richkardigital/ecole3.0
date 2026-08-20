@@ -837,14 +837,15 @@ export const deleteAssignment = async (req: AuthRequest, res: Response) => {
 
     // Verify permission
     if ((req.user?.role as string) === "ENSEIGNANT") {
-      if (assignment.createdById !== req.user.id && assignment.correctorId !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
+      const isLevelWide = assignment.type === 'DEVOIR_NIVEAU' || assignment.type.startsWith('COMPOSITION') || assignment.type.startsWith('COMPO') || assignment.type.startsWith('EXAMEN');
+      if (isLevelWide || (assignment.createdById && assignment.createdById !== req.user.id)) {
+        return res.status(403).json({ message: "Action non autorisée. Seul le Super Admin peut modifier ou supprimer un devoir de niveau." });
       }
     } else if (req.user?.role !== "SUPER_ADMIN" && req.user?.role !== "DIRECTEUR") {
         return res.status(403).json({ message: "Access denied" });
     }
 
-    if (assignment.published) {
+    if (assignment.published && req.user?.role !== "SUPER_ADMIN") {
       return res.status(400).json({ message: "Vous ne pouvez pas supprimer une évaluation publiée." });
     }
 
@@ -874,12 +875,20 @@ export const updateAssignment = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: "Assignment not found" });
     }
 
+    // Role check for teachers
+    if ((req.user?.role as string) === "ENSEIGNANT") {
+      const isLevelWide = existing.type === 'DEVOIR_NIVEAU' || existing.type.startsWith('COMPOSITION') || existing.type.startsWith('COMPO') || existing.type.startsWith('EXAMEN');
+      if (isLevelWide || (existing.createdById && existing.createdById !== req.user.id)) {
+        return res.status(403).json({ message: "Action non autorisée. Seul le Super Admin peut modifier un devoir de niveau." });
+      }
+    }
+
     // Check if modifying is allowed:
     // If published, check if it has already started and has submissions
     const submissionsCount = await prisma.submission.count({ where: { assignmentId: id } });
     const isStarted = existing.startDate && new Date() > new Date(existing.startDate);
 
-    if (existing.published && isStarted && submissionsCount > 0 && req.user?.role !== ROLES.SUPER_ADMIN) {
+    if (existing.published && isStarted && submissionsCount > 0 && req.user?.role !== "SUPER_ADMIN") {
       return res.status(400).json({ message: "Vous ne pouvez plus modifier une évaluation en cours ayant déjà des participations." });
     }
 

@@ -10,58 +10,68 @@ import {
 
 const FEATURES_BENTO = [
   {
-    title: "Bulletins Automatisés & Zéro Erreur",
+    title: "Bulletins Automatisés",
     desc: "Calculs instantanés des moyennes pondérées par coefficient, rangs, moyennes de classe et appréciations. Export PDF officiel prêt à imprimer en 1 clic.",
     icon: FileText,
     iconColor: "text-[#189CD8]",
     iconBg: "bg-[#189CD8]/10 border-[#189CD8]/25",
-    colSpan: "lg:col-span-2",
-    tag: "🏆 Fonctionnalité #1",
-    tagClass: "chip-brand",
+    tag: "🏆 Conforme MENA",
   },
   {
-    title: "Supervision & Gestion des Classes",
-    desc: "Création des classes (ex: 6ème A, 4ème B), suivi des effectifs en direct et affectation complète des enseignants avec toutes leurs matières enseignées.",
+    title: "Supervision des Classes",
+    desc: "Création des structures de classes de la 6ème à la Terminale, suivi en temps réel des effectifs d'apprenants et affectation précise des enseignants par matière.",
     icon: GraduationCap,
     iconColor: "text-[#4D3E90]",
     iconBg: "bg-[#4D3E90]/10 border-[#4D3E90]/25",
-    colSpan: "",
-    tag: "Nouveau",
-    tagClass: "chip-violet",
+    tag: "Multi-Filières",
   },
   {
-    title: "Migration & Transfert d'Élèves Sécurisé",
-    desc: "Transférez vos élèves d'une classe à une autre pour l'année scolaire sans doublon et sans suppression de compte. Données et historiques 100% préservés.",
+    title: "Migration d'Apprenants",
+    desc: "Transférez vos apprenants d'une classe à une autre pour l'année scolaire active sans doublon ni perte de notes. Données et historiques 100% préservés.",
     icon: ArrowRightLeft,
     iconColor: "text-[#189CD8]",
     iconBg: "bg-[#189CD8]/10 border-[#189CD8]/25",
-    colSpan: "",
+    tag: "Sécurisé",
   },
   {
-    title: "Programmes & Cours Officiels par Niveau",
-    desc: "Accédez aux cours structurés par niveau et matières, chapitres interactifs, devoirs et suivi de progression des apprenants.",
+    title: "Gestion des Cours",
+    desc: "Espace pédagogique multimédia structuré par niveau et matière : déposez et consultez cours textuels, documents PDF, vidéos et fiches synthétiques.",
     icon: BookOpen,
-    iconColor: "text-indigo-600",
-    iconBg: "bg-indigo-50 border-indigo-200",
-    colSpan: "",
+    iconColor: "text-indigo-400",
+    iconBg: "bg-indigo-500/10 border-indigo-500/25",
+    tag: "Multimédia",
   },
   {
-    title: "Réseau Inter-Écoles SEEEC & Épreuves",
-    desc: "Mutualisez vos ressources pédagogiques avec plus de 150+ établissements partenaires : banques d'épreuves, fiches de révision et forum national.",
+    title: "Évaluations & Devoirs",
+    desc: "Devoirs de classe notés, devoirs maison, exercices d'entraînement et devoirs de niveau harmonisés par le Super Admin avec barèmes et corrections.",
+    icon: Award,
+    iconColor: "text-amber-400",
+    iconBg: "bg-amber-500/10 border-amber-500/25",
+    tag: "Pédagogie",
+  },
+  {
+    title: "Cartes Scolaires QR Code",
+    desc: "Génération et validation centralisée des cartes scolaires officielles par le Super Admin avec QR Code sécurisé et téléchargeables par les apprenants.",
+    icon: ShieldCheck,
+    iconColor: "text-emerald-400",
+    iconBg: "bg-emerald-500/10 border-emerald-500/25",
+    tag: "Officiel",
+  },
+  {
+    title: "Registre des Absences",
+    desc: "Pointage numérique en temps réel des présences, retards et justifications par heure de cours avec report automatique du cumul sur le bulletin trimestriel.",
+    icon: Clock,
+    iconColor: "text-rose-400",
+    iconBg: "bg-rose-500/10 border-rose-500/25",
+    tag: "Vie Scolaire",
+  },
+  {
+    title: "Réseau Inter-Écoles 3.0",
+    desc: "Mutualisez vos ressources pédagogiques avec plus de 150+ établissements partenaires : banques d'épreuves officielles, annales corrigées et forum national.",
     icon: Network,
     iconColor: "text-[#189CD8]",
     iconBg: "bg-[#189CD8]/10 border-[#189CD8]/25",
-    colSpan: "lg:col-span-2",
-    tag: "🌐 SEEEC Platform",
-    tagClass: "chip-brand",
-  },
-  {
-    title: "Espaces Dédiés & Permissions Sécurisées",
-    desc: "Portails distincts et personnalisés pour Directeurs, Éducateurs, Enseignants, Élèves et Parents avec conformité stricte aux standards MENA.",
-    icon: ShieldCheck,
-    iconColor: "text-amber-600",
-    iconBg: "bg-amber-50 border-amber-200",
-    colSpan: "",
+    tag: "SEEEC Network",
   },
 ];
 
@@ -76,13 +86,13 @@ const AUDIENCE_BENEFITS = [
     iconBg: "bg-[#4D3E90]/10 border-[#4D3E90]/25",
     points: [
       "Édition et validation des bulletins trimestriels en 1 clic sans risque d'erreur de calcul",
-      "Gestion des classes, effectifs d'élèves et affectation des professeurs par matière",
-      "Migration fluide des élèves d'une classe à l'autre pour l'année académique active",
-      "Tableau de bord de pilotage, annonces flash et suivi des abonnements"
+      "Gestion des classes, effectifs d'apprenants et affectation des professeurs par matière",
+      "Migration fluide des apprenants d'une classe à l'autre pour l'année académique active",
+      "Tableau de bord de pilotage, validation des cartes et suivi des abonnements"
     ]
   },
   {
-    role: "Enseignants & Professeurs",
+    role: "Enseignants",
     subtitle: "Gagnez des dizaines d'heures chaque trimestre",
     badge: "Espace Enseignant",
     badgeClass: "chip-brand",
@@ -91,13 +101,13 @@ const AUDIENCE_BENEFITS = [
     iconBg: "bg-[#189CD8]/10 border-[#189CD8]/25",
     points: [
       "Saisie ultra-rapide des notes avec coefficients automatiques et calculs en temps réel",
-      "Affichage clair de toutes vos classes et de toutes vos matières assignées",
-      "Création de devoirs de niveau, exercices et corrections individualisées",
+      "Création de devoirs de classe notés, devoirs maison et exercices d'entraînement",
+      "Aperçu et notation des devoirs de niveau et compositions créés par le Super Admin",
       "Accès à la Librairie 3.0 et aux épreuves partagées du réseau SEEEC"
     ]
   },
   {
-    role: "Éducateurs & Vie Scolaire",
+    role: "Éducateurs",
     subtitle: "Discipline, présences et sérénité de l'établissement",
     badge: "Espace Vie Scolaire",
     badgeClass: "chip-cyan",
@@ -107,12 +117,12 @@ const AUDIENCE_BENEFITS = [
     points: [
       "Registre numérique des absences et retards par cours ou par créneau",
       "Édition des bulletins de conduite, sanctions et mentions disciplinaires",
-      "Supervision des classes affectées et consultation des registres d'élèves",
+      "Supervision des classes affectées et consultation des registres des apprenants",
       "Diffusion instantanée des annonces de vie scolaire à toute l'école"
     ]
   },
   {
-    role: "Parents d'Élèves",
+    role: "Parents d'Apprenants",
     subtitle: "Suivez la scolarité de vos enfants en toute sérénité",
     badge: "Espace Parents",
     badgeClass: "chip-amber",
@@ -123,11 +133,11 @@ const AUDIENCE_BENEFITS = [
       "Consultation en direct des notes, moyennes et bulletins dès leur validation",
       "Alertes instantanées en cas d'absence ou de retard notifié par la vie scolaire",
       "Messagerie directe avec l'école et suivi des actualités & communiqués",
-      "Suivi de plusieurs enfants depuis un compte parent unique et centralisé"
+      "Suivi de plusieurs apprenants depuis un compte parent unique et centralisé"
     ]
   },
   {
-    role: "Élèves & Apprenants",
+    role: "Apprenants",
     subtitle: "Révisez, progressez et réussissez votre année",
     badge: "Espace Apprenant",
     badgeClass: "chip-violet",
@@ -136,13 +146,13 @@ const AUDIENCE_BENEFITS = [
     iconBg: "bg-indigo-50 border-indigo-200",
     points: [
       "Accès aux cours et chapitres officiels de votre niveau (6ème à Terminale)",
-      "Remise des devoirs en ligne, quiz chronométrés et corrections immédiates",
-      "Suivi de votre agenda scolaire, dates des compositions et examens",
+      "Remise des devoirs en ligne, quiz chronométrés et consultation des corrigés",
+      "Carte scolaire numérique certifiée avec QR Code officiel téléchargeable",
       "Bibliothèque numérique, forum d'entraide et ressources partagées"
     ]
   },
   {
-    role: "Super Admin & Réseau SEEEC",
+    role: "Super Admin",
     subtitle: "Gouvernance globale et interconnexion nationale",
     badge: "Espace Super Admin",
     badgeClass: "chip-rose",
@@ -151,23 +161,23 @@ const AUDIENCE_BENEFITS = [
     iconBg: "bg-rose-50 border-rose-200",
     points: [
       "Administration multi-établissements (Général, Technique, Mixte)",
-      "Paramétrage national des années académiques, niveaux et matières officielles",
-      "Mutualisation sécurisée de banques d'épreuves et ressources entre 150+ écoles",
-      "Reporting analytique global et gestion des licences du réseau"
+      "Création et harmonisation des devoirs de niveau et examens blancs nationaux",
+      "Validation centralisée des cartes scolaires des apprenants pour tout le réseau",
+      "Mutualisation sécurisée de banques d'épreuves et ressources entre 150+ écoles"
     ]
   }
 ];
 
 const STATS = [
   { value: '25+', label: 'Établissements Connectés', icon: Building2, color: 'text-[#189CD8]' },
-  { value: '15 000+', label: 'Élèves & Apprenants', icon: Users, color: 'text-[#4D3E90]' },
+  { value: '15 000+', label: 'Apprenants Actifs', icon: Users, color: 'text-[#4D3E90]' },
   { value: '2 ans', label: "Années d'Innovation", icon: Sparkles, color: 'text-amber-600' },
   { value: '8', label: 'Villes Couvertes', icon: Globe, color: 'text-indigo-600' },
 ];
 
 const STEPS = [
   { n: '01', title: 'Inscrivez votre école', desc: 'Créez votre compte Directeur en 2 minutes et sélectionnez votre type d\'enseignement (Général, Technique ou Mixte).' },
-  { n: '02', title: 'Configurez vos classes & profs', desc: 'Créez vos classes (6ème A, 4ème B...), inscrivez vos élèves et affectez vos enseignants avec leurs matières.' },
+  { n: '02', title: 'Configurez vos classes & profs', desc: 'Créez vos classes (6ème A, 4ème B...), inscrivez vos apprenants et affectez vos enseignants avec leurs matières.' },
   { n: '03', title: 'Générez vos bulletins en 1 clic', desc: 'Saisissez les notes et générez automatiquement des bulletins officiels conformes, prêts pour l\'impression PDF.' },
 ];
 
@@ -199,7 +209,7 @@ export default function LandingPage() {
               {/* Subtitle */}
               <p className="text-sm sm:text-base text-slate-600 leading-relaxed mb-6 font-medium max-w-xl">
                 Un LMS (Learning Management System) offre de nombreux avantages pour la formation et la gestion des connaissances au sein d’une école.<br className="hidden sm:block" />
-                Un outil conçu pour les <strong>Directeurs d’étude</strong>, <strong>Enseignants</strong>, <strong>Parents</strong> et <strong>Élèves</strong>. Bulletins automatisés, gestion complète des classes, banque des meilleurs sujets avec corrigés, accès aux ressources des écoles connectées.
+                Un outil conçu pour les <strong>Directeurs d’étude</strong>, <strong>Enseignants</strong>, <strong>Parents</strong> et <strong>Apprenants</strong>. Bulletins automatisés, gestion complète des classes, banque des meilleurs sujets avec corrigés, accès aux ressources des écoles connectées.
               </p>
 
               {/* CTA Group */}
@@ -263,13 +273,13 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch">
           {AUDIENCE_BENEFITS.map((item, idx) => {
             const Icon = item.icon;
             return (
               <div 
                 key={idx} 
-                className="p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1"
+                className="h-full p-8 rounded-3xl bg-white border border-slate-200/90 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1"
               >
                 <div>
                   <div className="flex items-center justify-between mb-5">
@@ -307,7 +317,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ───────────────────────── BENTO FEATURES ───────────────────────── */}
+      {/* ───────────────────────── BENTO FEATURES (8 CARTES HARMONISÉES) ───────────────────────── */}
       <section className="py-12 sm:py-16 bg-slate-900 text-white relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-3xl mx-auto mb-10">
@@ -321,29 +331,29 @@ export default function LandingPage() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 items-stretch">
             {FEATURES_BENTO.map((f, i) => (
               <div 
                 key={i} 
-                className={`p-6 sm:p-8 rounded-3xl bg-slate-800/80 border border-slate-700/80 hover:border-[#189CD8]/50 transition-all flex flex-col justify-between ${f.colSpan}`}
+                className="h-full p-6 rounded-3xl bg-slate-800/80 border border-slate-700/80 hover:border-[#189CD8]/50 hover:bg-slate-800 transition-all duration-300 flex flex-col justify-between group shadow-lg hover:-translate-y-1"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-5">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-900 border border-slate-700">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${f.iconBg}`}>
                       <f.icon className={`w-6 h-6 ${f.iconColor}`} />
                     </div>
                     {f.tag && (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#189CD8]/20 text-[#38bdf8] border border-[#189CD8]/30">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-900/80 text-slate-300 border border-slate-700">
                         {f.tag}
                       </span>
                     )}
                   </div>
-                  <h3 className="text-lg sm:text-xl font-black text-white mb-2 tracking-tight">{f.title}</h3>
-                  <p className="text-sm text-slate-300 leading-relaxed font-medium">{f.desc}</p>
+                  <h3 className="text-base sm:text-lg font-black text-white mb-2 tracking-tight">{f.title}</h3>
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">{f.desc}</p>
                 </div>
-                <div className="pt-5 mt-5 border-t border-slate-700/60 flex items-center text-xs font-bold text-[#38bdf8] hover:text-[#7dd3fc] cursor-pointer group">
+                <div className="pt-4 mt-5 border-t border-slate-700/60 flex items-center text-xs font-bold text-[#38bdf8] hover:text-[#7dd3fc] cursor-pointer group">
                   <Link to="/fonctionnalites" className="flex items-center gap-1">
-                    En savoir plus <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                    En savoir plus <ChevronRight className="w-4 h-4 ml-0.5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </div>
               </div>

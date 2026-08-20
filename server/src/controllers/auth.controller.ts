@@ -124,15 +124,11 @@ export const registerSchool = async (req: Request, res: Response) => {
 
       // Calculer la date de fin d'abonnement selon la période
       let endDate = new Date();
-      if (subscription?.period.toLowerCase().includes('trimestre')) {
-        endDate.setMonth(endDate.getMonth() + 3);
-      } else if (subscription?.period.toLowerCase().includes('an')) {
+      const isAnnual = req.body.billingPeriod === 'annuel' || (subscription && subscription.period.toLowerCase().includes('an'));
+      if (isAnnual) {
         endDate.setFullYear(endDate.getFullYear() + 1);
-      } else if (subscription?.period.toLowerCase().includes('essai') || subscription?.period.toLowerCase().includes('14')) {
-        endDate.setDate(endDate.getDate() + 14);
       } else {
-        // Par défaut (Mensuel ou sur-mesure si on bloque pas), +1 mois
-        endDate.setMonth(endDate.getMonth() + 1);
+        endDate.setMonth(endDate.getMonth() + 3); // 1 trimestre (3 mois)
       }
 
       // 2. Créer l'école en lui associant le directeur et l'abonnement
@@ -142,6 +138,8 @@ export const registerSchool = async (req: Request, res: Response) => {
           code: schoolCode,
           ville: schoolVille,
           address: schoolAddress,
+          phone: phone || null,
+          email: email || null,
           teachingTypeId: validTeachingTypeId,
           schoolTypeId: validSchoolTypeId,
           managerId: newManager.id,

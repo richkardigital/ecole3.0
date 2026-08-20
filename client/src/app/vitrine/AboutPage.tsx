@@ -45,7 +45,7 @@ const TIMELINE = [
 
 const STATS = [
   { value: '25+', label: 'Écoles Partenaires', icon: GraduationCap },
-  { value: '15 000+', label: 'Élèves & Apprenants', icon: Users },
+  { value: '15 000+', label: 'Apprenants Actifs', icon: Users },
   { value: 'Depuis 2019', label: "d'Innovation & R&D", icon: Zap },
   { value: '8', label: 'Villes Couvertes', icon: Globe },
 ];

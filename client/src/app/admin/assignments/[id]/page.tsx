@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import api from '@/lib/api';
+import api, { getFileUrl } from '@/lib/api';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { BookOpen, ArrowLeft, Paperclip, CheckCircle2, Clock, Check, XCircle, Download, Save, Users, FileText, Upload } from 'lucide-react';
@@ -381,7 +381,7 @@ export default function GlobalAssignmentDetailsPage() {
                     assignment.attachments.map((url, index) => (
                       <a 
                         key={index}
-                        href={`${import.meta.env.VITE_API_URL}${url}`}
+                        href={getFileUrl(url)}
                         target="_blank"
                         rel="noreferrer"
                         className="flex items-center gap-2 bg-brand-surface px-4 py-3 rounded-lg border border-brand-border hover:border-brand-primary transition-colors inline-flex"
@@ -399,7 +399,7 @@ export default function GlobalAssignmentDetailsPage() {
                   <h4 className="text-sm font-bold text-blue-900 mb-3">Fichier de correction</h4>
                   {assignment.correctionUrl ? (
                     <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-blue-200">
-                      <a href={`${import.meta.env.VITE_API_URL}${assignment.correctionUrl}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline text-sm font-medium">
+                      <a href={getFileUrl(assignment.correctionUrl)} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline text-sm font-medium">
                         <Download className="w-4 h-4" /> Télécharger le corrigé actuel
                       </a>
                       <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} isLoading={uploadingCorrection}>
@@ -419,10 +419,12 @@ export default function GlobalAssignmentDetailsPage() {
             {(!assignment.attachments || assignment.attachments.length === 0 || (assignment.questions && assignment.questions.length > 0)) && (
               <div className="p-6 border-t border-brand-border/50 bg-slate-50/50">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-bold text-brand-text">Questionnaire & Correction</h3>
-                  <Button variant="primary" onClick={saveQuizCorrection} isLoading={savingQuiz}>
-                    <Save className="w-4 h-4 mr-2" /> Enregistrer la correction
-                  </Button>
+                  <h3 className="text-lg font-bold text-brand-text">Questionnaire & Éléments de Correction</h3>
+                  {(isSuperAdmin || (!assignment.type.startsWith('COMPOSITION') && !assignment.type.startsWith('COMPO') && assignment.type !== 'DEVOIR_NIVEAU')) && (
+                    <Button variant="primary" onClick={saveQuizCorrection} isLoading={savingQuiz}>
+                      <Save className="w-4 h-4 mr-2" /> Enregistrer la correction
+                    </Button>
+                  )}
                 </div>
 
                 <div className="space-y-6">
@@ -543,7 +545,7 @@ export default function GlobalAssignmentDetailsPage() {
                             <div>
                               <div className="font-medium text-brand-text text-sm">{p.firstName} {p.lastName}</div>
                               {hasSubmitted && submission.fileUrl && (
-                                <a href={`${import.meta.env.VITE_API_URL}${submission.fileUrl}`} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline flex items-center mt-1">
+                                <a href={getFileUrl(submission.fileUrl)} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline flex items-center mt-1">
                                   <Download className="w-3 h-3 mr-1" /> Voir la copie
                                 </a>
                               )}

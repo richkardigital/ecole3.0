@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import { Plus, Trash2, User, Edit2, Lock, Unlock, School as SchoolIcon, Loader2, BookOpen, FileSpreadsheet, Eye, Search } from 'lucide-react';
+import { Plus, Trash2, User, Edit2, Lock, Unlock, School as SchoolIcon, Loader2, BookOpen, FileSpreadsheet, Eye, Search, Phone, Mail, MapPin } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -27,6 +27,7 @@ interface School {
     firstName: string;
     lastName: string;
     email: string;
+    phone?: string;
   };
   _count?: {
     users: number;
@@ -223,21 +224,47 @@ const Schools = () => {
                                 </div>
                                 <div>
                                     <div className="text-sm font-bold text-brand-text">{school.name}</div>
-                                    {!school.isActive && <span className="text-[10px] uppercase font-bold tracking-wider text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full mt-1 inline-block">Suspendue</span>}
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                      {school.teachingType && (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-sidebar text-brand-accent border border-brand-border/60">
+                                          {school.teachingType.name}
+                                        </span>
+                                      )}
+                                      {!school.isActive && <span className="text-[10px] uppercase font-bold tracking-wider text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full inline-block">Suspendue</span>}
+                                    </div>
                                 </div>
                             </div>
                         </td>
-                        <td className="px-6 py-5 whitespace-nowrap text-sm text-brand-text-muted">{school.address || '-'}</td>
+                        <td className="px-6 py-5 whitespace-nowrap text-sm text-brand-text-muted">
+                          <div className="flex items-center gap-1 font-bold text-brand-text">
+                            <MapPin className="w-3.5 h-3.5 text-brand-accent shrink-0" />
+                            {school.ville || '-'}
+                          </div>
+                          {school.address && <div className="text-xs text-brand-text-muted mt-0.5">{school.address}</div>}
+                        </td>
                         <td className="px-6 py-5 whitespace-nowrap">
                         <div className="flex items-center">
                             <div className="flex-shrink-0 h-9 w-9 bg-brand-accent/20 rounded-full flex items-center justify-center border border-brand-accent/30">
                                 <User className="w-4 h-4 text-brand-accent" />
                             </div>
                             <div className="ml-3">
-                            <div className="text-sm font-semibold text-brand-text">
-                                {school.manager ? `${school.manager.firstName} ${school.manager.lastName}` : 'Non assigné'}
-                            </div>
-                            <div className="text-xs text-brand-text-muted">{school.manager?.email || '-'}</div>
+                              <div className="text-sm font-bold text-brand-text">
+                                  {school.manager ? `${school.manager.firstName} ${school.manager.lastName}` : 'Non assigné'}
+                              </div>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 text-xs text-brand-text-muted mt-0.5">
+                                {school.manager?.email && (
+                                  <span className="flex items-center gap-1">
+                                    <Mail className="w-3 h-3 text-sky-500" />
+                                    {school.manager.email}
+                                  </span>
+                                )}
+                                {(school.manager?.phone || school.phone) && (
+                                  <span className="flex items-center gap-1 text-emerald-500 font-semibold">
+                                    <Phone className="w-3 h-3 text-emerald-500" />
+                                    {school.manager?.phone || school.phone}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                         </div>
                         </td>

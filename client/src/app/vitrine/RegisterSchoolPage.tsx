@@ -543,31 +543,70 @@ export default function RegisterSchoolPage() {
                 </div>
               )}
 
-              {/* ── STEP 3: Récapitulatif ── */}
+              {/* ── STEP 3: Récapitulatif & Choix Période ── */}
               {currentStep === 3 && (
                 <div className="space-y-4 animate-fade-in-up">
                   <div>
-                    <h3 className="text-xl font-black text-[#4D3E90] tracking-tight">3. Récapitulatif & Validation</h3>
-                    <p className="text-xs text-slate-500 font-medium">Vérifiez vos informations avant de valider votre compte.</p>
+                    <h3 className="text-xl font-black text-[#4D3E90] tracking-tight">3. Récapitulatif & Facturation</h3>
+                    <p className="text-xs text-slate-500 font-medium">Vérifiez vos informations et choisissez votre cycle de facturation.</p>
                   </div>
 
                   <div className="space-y-3">
                     <div className="rounded-2xl p-4 bg-slate-50 border border-slate-200 text-xs">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-[#1280B2] mb-2">Directeur</p>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-[#1280B2] mb-1">Directeur / Gérant</p>
                       <p className="font-black text-slate-900 text-sm">{formData.firstName} {formData.lastName}</p>
                       <p className="text-slate-600 font-medium">{formData.email} {formData.phone && `• ${formData.phone}`}</p>
                     </div>
 
                     <div className="rounded-2xl p-4 bg-slate-50 border border-slate-200 text-xs">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-sky-700 mb-2">Établissement</p>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-sky-700 mb-1">Établissement</p>
                       <p className="font-black text-slate-900 text-sm">{formData.schoolName}</p>
                       <p className="text-slate-600 font-medium">{formData.schoolVille} {formData.schoolAddress && `(${formData.schoolAddress})`}</p>
-                      <p className="text-slate-500 text-[11px] mt-1 font-semibold">Type: {selectedTypeName}</p>
+                      <p className="text-slate-500 text-[11px] mt-1 font-semibold">Type : {selectedTypeName}</p>
                     </div>
 
-                    <div className={`rounded-2xl p-4 border ${selectedPlanInfo?.color || 'bg-indigo-50 text-indigo-900 border-indigo-200'}`}>
-                      <p className="text-[10px] font-black uppercase tracking-wider mb-1">Formule choisie</p>
-                      <p className="font-black text-slate-900 text-sm">{selectedPlanInfo?.name} — {selectedPlanInfo?.price === 0 ? "Gratuit" : `${selectedPlanInfo?.price} FCFA`}</p>
+                    {/* Billing Period Selector in Step 3 */}
+                    <div className="rounded-2xl p-4 bg-white border-2 border-indigo-200 shadow-sm">
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-[#4D3E90] mb-2.5">
+                        Cycle de Facturation pour {selectedPlanInfo?.name}
+                      </label>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div
+                          onClick={() => setFormData(prev => ({ ...prev, billingPeriod: 'trimestriel' }))}
+                          className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                            formData.billingPeriod === 'trimestriel'
+                              ? 'border-[#189CD8] bg-[#189CD8]/10 text-slate-900 shadow-xs'
+                              : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-black text-xs">Trimestriel</span>
+                            {formData.billingPeriod === 'trimestriel' && <CheckCircle2 className="w-4 h-4 text-[#189CD8]" />}
+                          </div>
+                          <p className="text-xs font-black text-slate-900">
+                            {selectedPlanInfo?.price ? Math.round(selectedPlanInfo.price / 2.5).toLocaleString('fr-FR') : '65 000'} FCFA
+                          </p>
+                          <span className="text-[10px] text-slate-500 font-semibold block">Par trimestre</span>
+                        </div>
+
+                        <div
+                          onClick={() => setFormData(prev => ({ ...prev, billingPeriod: 'annuel' }))}
+                          className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                            formData.billingPeriod === 'annuel'
+                              ? 'border-indigo-600 bg-indigo-50 text-slate-900 shadow-xs'
+                              : 'border-slate-200 hover:border-slate-300 bg-slate-50 text-slate-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-black text-xs">Annuel</span>
+                            <span className="text-[9px] uppercase font-black px-1 rounded bg-amber-400 text-slate-950">-30%</span>
+                          </div>
+                          <p className="text-xs font-black text-slate-900">
+                            {selectedPlanInfo?.price ? selectedPlanInfo.price.toLocaleString('fr-FR') : '150 000'} FCFA
+                          </p>
+                          <span className="text-[10px] text-slate-500 font-semibold block">Année scolaire complète</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

@@ -20,6 +20,7 @@ import {
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 interface QuestionOption {
   text: string;
@@ -58,11 +59,14 @@ export const CreateEvaluationModal: React.FC<CreateEvaluationModalProps> = ({
   availableTerms,
   onSuccess,
 }) => {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
   // Mode: Document (File) vs Interactive Questionnaire
   const [evaluationFormat, setEvaluationFormat] = useState<'DOCUMENT' | 'QUESTIONNAIRE'>('DOCUMENT');
 
   // Form Basic Info
-  const [evalType, setEvalType] = useState<string>('COMPOSITION_NIVEAU');
+  const [evalType, setEvalType] = useState<string>(isSuperAdmin ? 'COMPOSITION_NIVEAU' : 'DEVOIR_CLASSE');
   const [title, setTitle] = useState<string>('');
   const [termId, setTermId] = useState<string>(availableTerms[0]?.id || 'TRIMESTRE_1');
   const [coefficient, setCoefficient] = useState<number>(defaultCoefficient || 1);
@@ -339,46 +343,150 @@ export const CreateEvaluationModal: React.FC<CreateEvaluationModalProps> = ({
             1. Type d'évaluation <span className="text-red-500">*</span>
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div
-              onClick={() => setEvalType('COMPOSITION_NIVEAU')}
-              className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
-                evalType === 'COMPOSITION_NIVEAU' || evalType === 'COMPO_NIVEAU'
-                  ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400 shadow-md ring-1 ring-indigo-500/30'
-                  : 'border-brand-border/60 hover:border-brand-border bg-brand-sidebar text-brand-text-muted'
-              }`}
-            >
-              <div className={`p-2 rounded-lg ${evalType.startsWith('COMPOSITION') ? 'bg-indigo-500 text-white' : 'bg-brand-card text-brand-text-muted'}`}>
-                <Layers className="w-5 h-5" />
-              </div>
-              <div className="grow">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-brand-text">Composition d'examen</span>
-                  {evalType.startsWith('COMPOSITION') && <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-indigo-500 text-white">Recommandé</span>}
+            {isSuperAdmin ? (
+              <>
+                <div
+                  onClick={() => setEvalType('COMPOSITION_NIVEAU')}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
+                    evalType === 'COMPOSITION_NIVEAU' || evalType === 'COMPO_NIVEAU'
+                      ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400 shadow-md ring-1 ring-indigo-500/30'
+                      : 'border-brand-border/60 hover:border-brand-border bg-brand-sidebar text-brand-text-muted'
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${evalType.startsWith('COMPOSITION') ? 'bg-indigo-500 text-white' : 'bg-brand-card text-brand-text-muted'}`}>
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div className="grow">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-sm text-brand-text">Composition de Niveau</span>
+                      <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-indigo-500 text-white">Super Admin</span>
+                    </div>
+                    <p className="text-xs text-brand-text-muted mt-1">
+                      Épreuve d'examen harmonisée pour tout le niveau.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-brand-text-muted mt-1">
-                  Épreuve d'examen périodique (Compo) comptabilisée pour le bulletin.
-                </p>
-              </div>
-            </div>
 
-            <div
-              onClick={() => setEvalType('DEVOIR_NIVEAU')}
-              className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
-                evalType === 'DEVOIR_NIVEAU' || evalType === 'DEVOIR_MAISON'
-                  ? 'border-amber-500 bg-amber-500/10 text-amber-400 shadow-md ring-1 ring-amber-500/30'
-                  : 'border-brand-border/60 hover:border-brand-border bg-brand-sidebar text-brand-text-muted'
-              }`}
-            >
-              <div className={`p-2 rounded-lg ${evalType.startsWith('DEVOIR') ? 'bg-amber-500 text-white' : 'bg-brand-card text-brand-text-muted'}`}>
-                <FileText className="w-5 h-5" />
-              </div>
-              <div className="grow">
-                <span className="font-bold text-sm text-brand-text">Devoir de niveau / Évaluation</span>
-                <p className="text-xs text-brand-text-muted mt-1">
-                  Évaluation continue ou devoir standard programmé pour tous les apprenants.
-                </p>
-              </div>
-            </div>
+                <div
+                  onClick={() => setEvalType('DEVOIR_NIVEAU')}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
+                    evalType === 'DEVOIR_NIVEAU'
+                      ? 'border-amber-500 bg-amber-500/10 text-amber-400 shadow-md ring-1 ring-amber-500/30'
+                      : 'border-brand-border/60 hover:border-brand-border bg-brand-sidebar text-brand-text-muted'
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${evalType === 'DEVOIR_NIVEAU' ? 'bg-amber-500 text-white' : 'bg-brand-card text-brand-text-muted'}`}>
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="grow">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-sm text-brand-text">Devoir de Niveau</span>
+                      <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-amber-500 text-white">Super Admin</span>
+                    </div>
+                    <p className="text-xs text-brand-text-muted mt-1">
+                      Évaluation commune pour tous les apprenants du niveau.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setEvalType('DEVOIR_CLASSE')}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
+                    evalType === 'DEVOIR_CLASSE'
+                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-md ring-1 ring-emerald-500/30'
+                      : 'border-brand-border/60 hover:border-brand-border bg-brand-sidebar text-brand-text-muted'
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${evalType === 'DEVOIR_CLASSE' ? 'bg-emerald-500 text-white' : 'bg-brand-card text-brand-text-muted'}`}>
+                    <FileCheck className="w-5 h-5" />
+                  </div>
+                  <div className="grow">
+                    <span className="font-bold text-sm text-brand-text">Devoir de Classe</span>
+                    <p className="text-xs text-brand-text-muted mt-1">
+                      Contrôle continu noté programmé pour la classe.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setEvalType('DEVOIR_MAISON')}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
+                    evalType === 'DEVOIR_MAISON'
+                      ? 'border-blue-500 bg-blue-500/10 text-blue-400 shadow-md ring-1 ring-blue-500/30'
+                      : 'border-brand-border/60 hover:border-brand-border bg-brand-sidebar text-brand-text-muted'
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${evalType === 'DEVOIR_MAISON' ? 'bg-blue-500 text-white' : 'bg-brand-card text-brand-text-muted'}`}>
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <div className="grow">
+                    <span className="font-bold text-sm text-brand-text">Devoir Maison</span>
+                    <p className="text-xs text-brand-text-muted mt-1">
+                      Travail à rendre à la maison avec date limite.
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div
+                  onClick={() => setEvalType('DEVOIR_CLASSE')}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
+                    evalType === 'DEVOIR_CLASSE'
+                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-md ring-1 ring-emerald-500/30'
+                      : 'border-brand-border/60 hover:border-brand-border bg-brand-sidebar text-brand-text-muted'
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${evalType === 'DEVOIR_CLASSE' ? 'bg-emerald-500 text-white' : 'bg-brand-card text-brand-text-muted'}`}>
+                    <FileCheck className="w-5 h-5" />
+                  </div>
+                  <div className="grow">
+                    <span className="font-bold text-sm text-brand-text">Devoir de Classe (Noté)</span>
+                    <p className="text-xs text-brand-text-muted mt-1">
+                      Contrôle continu noté programmé pour la classe.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setEvalType('DEVOIR_MAISON')}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 ${
+                    evalType === 'DEVOIR_MAISON'
+                      ? 'border-blue-500 bg-blue-500/10 text-blue-400 shadow-md ring-1 ring-blue-500/30'
+                      : 'border-brand-border/60 hover:border-brand-border bg-brand-sidebar text-brand-text-muted'
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${evalType === 'DEVOIR_MAISON' ? 'bg-blue-500 text-white' : 'bg-brand-card text-brand-text-muted'}`}>
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <div className="grow">
+                    <span className="font-bold text-sm text-brand-text">Devoir Maison (Noté)</span>
+                    <p className="text-xs text-brand-text-muted mt-1">
+                      Travail à rendre à la maison avec date d'échéance.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setEvalType('EXERCICE_MAISON')}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3 sm:col-span-2 ${
+                    evalType === 'EXERCICE_MAISON'
+                      ? 'border-purple-500 bg-purple-500/10 text-purple-400 shadow-md ring-1 ring-purple-500/30'
+                      : 'border-brand-border/60 hover:border-brand-border bg-brand-sidebar text-brand-text-muted'
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${evalType === 'EXERCICE_MAISON' ? 'bg-purple-500 text-white' : 'bg-brand-card text-brand-text-muted'}`}>
+                    <HelpCircle className="w-5 h-5" />
+                  </div>
+                  <div className="grow">
+                    <span className="font-bold text-sm text-brand-text">Exercice de Maison (Entraînement)</span>
+                    <p className="text-xs text-brand-text-muted mt-1">
+                      Exercice d'entraînement non noté pour renforcer les acquis.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

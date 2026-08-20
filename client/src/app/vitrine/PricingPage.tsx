@@ -9,10 +9,12 @@ const DEFAULT_PLANS = [
     id: 'plan-standard',
     name: 'Pack Standard',
     planKey: 'standard',
-    description: "Idéal pour les collèges et établissements de proximité (jusqu'à 500 élèves)",
+    description: "Idéal pour les collèges et établissements de proximité (jusqu'à 500 apprenants)",
+    annualPrice: 75000,
+    termPrice: 35000,
     price: 75000,
     features: [
-      "Gestion complète des élèves & classes",
+      "Gestion complète des apprenants & classes",
       "Notes, évaluations & relevés officiels",
       "Bulletins automatisés certifiés SEEEC",
       "Agenda scolaire & planning synchronisé",
@@ -25,11 +27,13 @@ const DEFAULT_PLANS = [
     name: 'Pack Pro Établissement',
     planKey: 'pro',
     description: "La solution complète pour tout le secondaire (collèges & lycées d'excellence)",
+    annualPrice: 150000,
+    termPrice: 65000,
     price: 150000,
     features: [
       "Tous les avantages du Pack Standard",
       "Collèges & Lycées (1er et 2nd cycles complets)",
-      "Effectifs élèves & professeurs illimités",
+      "Effectifs apprenants & professeurs illimités",
       "Bulletins officiels SEEEC + Registre de Conduite",
       "Messagerie directe & Annonces Flash News",
       "Librairie numérique 3.0 (Manuels & Annales)",
@@ -41,6 +45,8 @@ const DEFAULT_PLANS = [
     name: 'Pack Élite Complexe',
     planKey: 'elite',
     description: "Pour les grands groupes scolaires, complexes mixtes et réseaux multi-établissements",
+    annualPrice: 250000,
+    termPrice: 110000,
     price: 250000,
     features: [
       "Tous les avantages du Pack Pro",
@@ -56,6 +62,7 @@ const DEFAULT_PLANS = [
 
 export default function PricingPage() {
   const [plans, setPlans] = useState<any[]>(DEFAULT_PLANS);
+  const [billingCycle, setBillingCycle] = useState<'annuel' | 'trimestriel'>('annuel');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -63,7 +70,21 @@ export default function PricingPage() {
       try {
         const res = await api.get('/subscriptions');
         if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-          setPlans(res.data);
+          // Merge fetched data with annual/term prices
+          const merged = res.data.map((p: any) => {
+            const def = DEFAULT_PLANS.find(d => d.planKey === p.planKey);
+            return {
+              ...p,
+              annualPrice: p.price || def?.annualPrice || 150000,
+              termPrice: p.price ? Math.round(p.price / 2.5) : def?.termPrice || 65000,
+              features: def?.features || [
+                "Gestion complète des apprenants & classes",
+                "Bulletins automatisés certifiés",
+                "Suivi des notes & évaluations"
+              ]
+            };
+          });
+          setPlans(merged);
         }
       } catch (err) {
         console.error('Utilisation des plans de secours:', err);
@@ -85,16 +106,39 @@ export default function PricingPage() {
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-[#4D3E90] mb-6 leading-[1.08]">
             Choisissez votre formule et <span className="gradient-text">commencez immédiatement.</span>
           </h1>
-          <p className="text-sm sm:text-base md:text-lg text-slate-600 leading-relaxed max-w-3xl mx-auto mb-6 font-medium">
-            Profitez du meilleur rapport qualité-prix ! Toutes les formules sont dotées des fonctionnalités LMS standard. Personnalisez votre formule en fonction de votre école et enrichissez-la d'options supplémentaires pour simplifier votre quotidien. Profitez d'un tarif fixe qui vous permet de mieux contrôler votre budget.
+          <p className="text-sm sm:text-base md:text-lg text-slate-600 leading-relaxed max-w-3xl mx-auto mb-8 font-medium">
+            Profitez du meilleur rapport qualité-prix ! Toutes les formules sont dotées des fonctionnalités LMS standard. Personnalisez votre formule en fonction de votre école et choisissez votre cycle de facturation selon vos préférences.
           </p>
 
-          {/* Unified Annual Billing Badge */}
-          <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-amber-50 border-2 border-amber-300 shadow-xs">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
-            <span className="text-xs sm:text-sm font-extrabold text-amber-950 tracking-tight">
-              Facturation Annuelle — <span className="text-amber-800 underline decoration-amber-400 decoration-2">Économisez jusqu'à 50%</span>
-            </span>
+          {/* Billing Cycle Switcher */}
+          <div className="inline-flex items-center p-1.5 bg-slate-200/80 rounded-2xl border border-slate-300 shadow-inner max-w-md mx-auto">
+            <button
+              type="button"
+              onClick={() => setBillingCycle('trimestriel')}
+              className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+                billingCycle === 'trimestriel'
+                  ? 'bg-white text-[#4D3E90] shadow-md'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Par Trimestre
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingCycle('annuel')}
+              className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center gap-2 ${
+                billingCycle === 'annuel'
+                  ? 'bg-gradient-to-r from-[#4D3E90] to-[#189CD8] text-white shadow-md'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span>Annuel (Année Scolaire)</span>
+              <span className={`text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md ${
+                billingCycle === 'annuel' ? 'bg-amber-400 text-slate-950' : 'bg-emerald-500 text-white'
+              }`}>
+                Économie 30%
+              </span>
+            </button>
           </div>
         </div>
       </section>
@@ -105,8 +149,8 @@ export default function PricingPage() {
           {plans.map((plan) => {
             const isPro = plan.planKey === 'pro' || plan.name?.toLowerCase().includes('pro');
             const isElite = plan.planKey === 'elite' || plan.name?.toLowerCase().includes('élite') || plan.name?.toLowerCase().includes('complexe');
-            const displayPrice = plan.price;
-            const displayPeriod = 'par an (année scolaire complète)';
+            const displayPrice = billingCycle === 'annuel' ? (plan.annualPrice || plan.price) : (plan.termPrice || Math.round(plan.price / 2.5));
+            const displayPeriod = billingCycle === 'annuel' ? 'par an (année scolaire complète)' : 'par trimestre (3 mois)';
 
             // Styling variants per plan
             let cardClasses = 'bg-white text-slate-900 border-2 border-slate-200 shadow-md hover:shadow-xl hover:border-[#189CD8]/40';
@@ -191,7 +235,7 @@ export default function PricingPage() {
                   </div>
 
                   <Link 
-                    to={`/inscription?plan=${plan.planKey}&billing=annuel`} 
+                    to={`/inscription?plan=${plan.planKey}&billing=${billingCycle}`} 
                     className="block w-full mb-6"
                   >
                     <button 

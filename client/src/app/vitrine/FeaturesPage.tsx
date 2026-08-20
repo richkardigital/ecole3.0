@@ -14,7 +14,7 @@ const CATEGORIES = [
   { id: 'DIRECTEUR', label: 'Directeur', icon: Building2 },
   { id: 'ENSEIGNANT', label: 'Enseignant', icon: BookOpen },
   { id: 'EDUCATEUR', label: 'Éducateur', icon: ShieldCheck },
-  { id: 'PARENT', label: 'Parent d\'élève', icon: Users },
+  { id: 'PARENT', label: 'Parent d\'Apprenant', icon: Users },
   { id: 'APPRENANT', label: 'Apprenant', icon: GraduationCap },
   { id: 'SUPER_ADMIN', label: 'Super Admin', icon: Network },
 ];
@@ -24,7 +24,7 @@ const FEATURES = [
     id: 'bulletins',
     roles: ['DIRECTEUR', 'ENSEIGNANT', 'EDUCATEUR', 'PARENT', 'APPRENANT'],
     category: 'PEDAGOGIE',
-    title: 'Bulletins Automatisés & Calculs Certifiés MENA',
+    title: 'Bulletins Automatisés',
     desc: 'Génération instantanée des bulletins trimestriels avec calcul automatique des moyennes pondérées, coefficients, rangs et mentions.',
     details: [
       'Calculs stricts conformes aux normes du Ministère de l\'Éducation',
@@ -60,13 +60,13 @@ const FEATURES = [
     id: 'migration',
     roles: ['DIRECTEUR', 'SUPER_ADMIN'],
     category: 'ADMIN',
-    title: 'Migration & Transfert d\'Élèves Sécurisé',
+    title: 'Migration & Transfert d\'Apprenants Sécurisé',
     desc: 'Transférez des apprenants d\'une classe à une autre pour l\'année académique active sans perte de données ni création de doublons.',
     details: [
       'Transfert individuel ou par cohorte en 2 clics',
       'Préservation intégrale des notes antérieures, évaluations et présences',
       'Maintien de l\'identifiant unique (Matricule) et du compte parent lié',
-      'Historique complet des mouvements d\'élèves auditable'
+      'Historique complet des mouvements d\'apprenants auditable'
     ],
     icon: ArrowRightLeft,
     color: 'text-[#189CD8]',
@@ -84,7 +84,7 @@ const FEATURES = [
       'Saisie directe avec validation automatique au clavier',
       'Calcul immédiat des moyennes de classe et détection des écarts',
       'Verrouillage automatique après la clôture officielle du trimestre',
-      'Commentaires et appréciations individualisés par élève'
+      'Commentaires et appréciations individualisés par apprenant'
     ],
     icon: BarChart3,
     color: 'text-[#189CD8]',
@@ -96,7 +96,7 @@ const FEATURES = [
     id: 'cours-chapitres',
     roles: ['ENSEIGNANT', 'APPRENANT', 'EDUCATEUR'],
     category: 'PEDAGOGIE',
-    title: 'Gestion des Cours & Chapitres par Niveau',
+    title: 'Gestion des Cours',
     desc: 'Espace pédagogique multimédia structuré par niveau et matière : déposez et consultez cours, fiches synthétiques et documents officiels.',
     details: [
       'Structure modulaire par chapitres et leçons interactives',
@@ -120,7 +120,7 @@ const FEATURES = [
       'Création rapide de devoirs à rendre avec consignes et pièces jointes',
       'Dépôt numérique des devoirs par les apprenants avant la deadline',
       'Interface de correction enseignant avec barème et annotations',
-      'Notification immédiate de la note et des commentaires à l\'élève'
+      'Notification immédiate de la note et des commentaires à l\'apprenant'
     ],
     icon: PenTool,
     color: 'text-amber-600',
@@ -132,7 +132,7 @@ const FEATURES = [
     id: 'absences-retards',
     roles: ['EDUCATEUR', 'DIRECTEUR', 'PARENT'],
     category: 'VIE_SCOLAIRE',
-    title: 'Registre Numérique des Absences & Retards',
+    title: 'Registre Numérique des Absences',
     desc: 'Pointage numérique en temps réel des présences, retards et justifications par heure de cours ou par journée.',
     details: [
       'Pointage rapide par classe ou par créneau horaire',
@@ -488,7 +488,7 @@ export default function FeaturesPage() {
                 badge: 'Direction',
                 icon: Building2,
                 color: 'text-purple-400',
-                desc: 'Validation des bulletins en 1 clic, gestion des classes, affectations profs, migration d\'élèves et suivi financier.',
+                desc: 'Validation des bulletins en 1 clic, gestion des classes, affectations profs, migration d\'apprenants et suivi financier.',
               },
               {
                 role: 'Enseignants',
@@ -496,10 +496,10 @@ export default function FeaturesPage() {
                 badge: 'Corps Professoral',
                 icon: BookOpen,
                 color: 'text-[#38bdf8]',
-                desc: 'Saisie ultra-rapide des notes, devoirs de niveau, suivi des cours et accès à la bibliothèque de ressources SEEEC.',
+                desc: 'Saisie ultra-rapide des notes, devoirs notés, suivi des cours et accès à la bibliothèque de ressources SEEEC.',
               },
               {
-                role: 'Éducateurs & Vie Scolaire',
+                role: 'Éducateurs',
                 route: '/educateur/dashboard',
                 badge: 'Vie Scolaire',
                 icon: ShieldCheck,
@@ -507,28 +507,28 @@ export default function FeaturesPage() {
                 desc: 'Pointage numérique des absences/retards, édition des bulletins de conduite et gestion de la discipline.',
               },
               {
-                role: 'Parents d\'Élèves',
+                role: 'Parents d\'Apprenants',
                 route: '/parent/dashboard',
                 badge: 'Familles',
                 icon: Users,
                 color: 'text-amber-400',
-                desc: 'Suivi multi-enfants, consultation des moyennes en temps réel, alertes d\'absence et téléchargement des bulletins.',
+                desc: 'Suivi multi-apprenants, consultation des moyennes en temps réel, alertes d\'absence et téléchargement des bulletins.',
               },
               {
-                role: 'Élèves & Apprenants',
+                role: 'Apprenants',
                 route: '/dashboard',
                 badge: 'Apprenants',
                 icon: GraduationCap,
                 color: 'text-indigo-400',
-                desc: 'Cours officiels par niveau, remise des devoirs, passage de quiz chronométrés, agenda et forum d\'entraide.',
+                desc: 'Cours officiels par niveau, remise des devoirs, passage de quiz chronométrés, agenda et carte scolaire avec QR code.',
               },
               {
-                role: 'Super Administrateurs',
+                role: 'Super Admin',
                 route: '/admin/dashboard',
                 badge: 'Réseau SEEEC',
                 icon: Network,
                 color: 'text-rose-400',
-                desc: 'Gestion multi-écoles (Général, Technique, Mixte), référentiel national des matières, années académiques et statistiques.',
+                desc: 'Gestion multi-écoles (Général, Technique, Mixte), devoirs de niveau nationaux, validation des cartes scolaires et statistiques.',
               },
             ].map((space, i) => (
               <div 
