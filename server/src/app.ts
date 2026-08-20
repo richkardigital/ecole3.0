@@ -127,6 +127,7 @@ app.use("/api/bulletins", bulletinRoutes);         // Bulletins individuels (wor
 app.use("/api/calendar", calendarRoutes);          // Calendrier unifié
 app.use("/api/subscriptions", subscriptionRoutes); // Gestion des abonnements
 app.use("/api/parents", parentRoutes);             // Gestion parents-enfants (modèle CNED)
+app.use("/api/parent", parentRoutes);              // Alias singulier pour portail public parent
 app.use("/api/averages", averageRoutes);           // Moyennes trimestrielles et annuelles
 app.use("/api/system-settings", systemSettingsRoutes); // Configuration globale de la plateforme
 app.use("/api", exerciseRoutes);                   // Exercices par chapitre
