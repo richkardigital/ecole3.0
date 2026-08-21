@@ -140,7 +140,11 @@ export default function RegisterSchoolPage() {
     try {
       await api.post('/auth/register-school', formData);
       navigate('/login', {
-        state: { message: `Inscription réussie pour le plan "${selectedPlanInfo?.name}" ! Connectez-vous avec vos identifiants.` }
+        state: { 
+          message: `Demande d'inscription enregistrée avec succès pour l'établissement "${formData.schoolName}" ! Votre compte est actuellement en cours de vérification par nos administrateurs. Vous pourrez vous connecter dès son activation.`,
+          isPendingActivation: true,
+          registeredEmail: formData.email
+        }
       });
     } catch (err: any) {
       setError(err.response?.data?.message || "Une erreur est survenue lors de l'enregistrement de l'école.");

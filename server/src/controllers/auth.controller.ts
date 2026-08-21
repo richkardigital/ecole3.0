@@ -97,7 +97,7 @@ export const registerSchool = async (req: Request, res: Response) => {
 
     // Créer le directeur et l'école dans une transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Créer le compte directeur (sans école pour le moment)
+      // 1. Créer le compte directeur (inactif par défaut en attente de validation par Super Admin)
       const newManager = await tx.user.create({
         data: {
           email: normalizedEmail,
@@ -105,7 +105,8 @@ export const registerSchool = async (req: Request, res: Response) => {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           phone: phone ? phone.trim() : null,
-          role: 'DIRECTEUR'
+          role: 'DIRECTEUR',
+          isActive: false
         }
       });
 
@@ -158,7 +159,7 @@ export const registerSchool = async (req: Request, res: Response) => {
         endDate.setMonth(endDate.getMonth() + 3); // 1 trimestre (3 mois)
       }
 
-      // 4. Créer l'école
+      // 4. Créer l'école (inactive / statut PENDING en attente d'activation Super Admin)
       const newSchool = await tx.school.create({
         data: {
           name: schoolName.trim(),
@@ -171,7 +172,8 @@ export const registerSchool = async (req: Request, res: Response) => {
           schoolTypeId: validSchoolTypeId,
           managerId: newManager.id,
           subscriptionId: subscription?.id || null,
-          subscriptionStatus: "ACTIVE",
+          subscriptionStatus: "PENDING",
+          isActive: false,
           subscriptionStartDate: new Date(),
           subscriptionEndDate: endDate
         }
@@ -226,7 +228,7 @@ export const registerSchool = async (req: Request, res: Response) => {
     });
 
     res.status(201).json({ 
-      message: "École et directeur créés avec succès.",
+      message: "Demande d'inscription enregistrée avec succès. Votre établissement et votre compte directeur sont en cours de validation par nos administrateurs.",
       school: result.school 
     });
 
@@ -257,17 +259,37 @@ export const login = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Identifiants invalides" });
     }
 
-    // Vérification si l'école est active (sauf pour le Super Admin)
-    if (user.school && !user.school.isActive && user.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ 
-        message: "L'accès à cette école a été suspendu. Veuillez contacter l'administrateur." 
-      });
-    }
-
     // Comparaison du mot de passe saisi avec le mot de passe crypté en base
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Identifiants invalides" });
+    }
+
+    // Vérification des statuts d'activation (sauf pour le Super Admin)
+    if (user.role !== 'SUPER_ADMIN') {
+      // 1. Compte ou établissement en attente de validation
+      if (user.school?.subscriptionStatus === 'PENDING' || (!user.isActive && user.role === 'DIRECTEUR')) {
+        return res.status(403).json({ 
+          status: "PENDING_ACTIVATION",
+          message: "Votre compte établissement est en cours de validation par nos administrateurs. Vous recevrez un accès complet dès son activation." 
+        });
+      }
+
+      // 2. Compte utilisateur inactif
+      if (!user.isActive) {
+        return res.status(403).json({ 
+          status: "ACCOUNT_INACTIVE",
+          message: "Votre compte utilisateur a été désactivé ou est en attente d'activation. Veuillez contacter l'administrateur de l'école." 
+        });
+      }
+
+      // 3. École inactive / suspendue
+      if (user.school && !user.school.isActive) {
+        return res.status(403).json({ 
+          status: "SCHOOL_INACTIVE",
+          message: "L'accès à cet établissement est actuellement suspendu ou fermé. Veuillez contacter l'administrateur." 
+        });
+      }
     }
 
     // Génération du token JWT (valable 1 jour)

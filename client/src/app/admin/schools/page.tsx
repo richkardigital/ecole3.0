@@ -17,6 +17,7 @@ interface School {
   email?: string;
   description?: string;
   isActive: boolean;
+  subscriptionStatus?: string;
   createdAt: string;
   managerId?: string;
   teachingTypeId?: string;
@@ -207,12 +208,18 @@ const Schools = () => {
                 </thead>
                 <tbody className="divide-y divide-brand-border bg-brand-card">
                     {sortedSchools.map((school) => (
-                    <tr key={school.id} className={`hover:bg-brand-sidebar/50 transition-colors ${!school.isActive ? 'opacity-75' : ''}`}>
+                    <tr key={school.id} className={`hover:bg-brand-sidebar/50 transition-colors ${!school.isActive ? 'bg-amber-500/[0.02]' : ''}`}>
                         <td className="px-6 py-5 whitespace-nowrap">
                             <button 
                                 onClick={() => toggleStatus(school)}
-                                className={`p-2 rounded-xl transition-colors ${school.isActive ? 'text-green-400 bg-green-500/10 hover:bg-green-500/20' : 'text-red-400 bg-red-500/10 hover:bg-red-500/20'}`}
-                                title={school.isActive ? "Désactiver l'école" : "Activer l'école"}
+                                className={`p-2 rounded-xl transition-all ${
+                                  school.isActive 
+                                    ? 'text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20' 
+                                    : school.subscriptionStatus === 'PENDING'
+                                      ? 'text-amber-500 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 shadow-xs'
+                                      : 'text-red-400 bg-red-500/10 hover:bg-red-500/20'
+                                }`}
+                                title={school.isActive ? "Désactiver l'école" : "Valider et activer l'école"}
                             >
                                 {school.isActive ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                             </button>
@@ -230,7 +237,19 @@ const Schools = () => {
                                           {school.teachingType.name}
                                         </span>
                                       )}
-                                      {!school.isActive && <span className="text-[10px] uppercase font-bold tracking-wider text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full inline-block">Suspendue</span>}
+                                      {school.subscriptionStatus === 'PENDING' ? (
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full inline-block">
+                                          En attente de validation
+                                        </span>
+                                      ) : !school.isActive ? (
+                                        <span className="text-[10px] uppercase font-bold tracking-wider text-red-500 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full inline-block">
+                                          Suspendue
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full inline-block">
+                                          Actif
+                                        </span>
+                                      )}
                                     </div>
                                 </div>
                             </div>
@@ -279,7 +298,17 @@ const Schools = () => {
                             </div>
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex items-center justify-end gap-2">
+                                {(!school.isActive || school.subscriptionStatus === 'PENDING') && (
+                                  <button
+                                    onClick={() => toggleStatus(school)}
+                                    className="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-xs"
+                                    title="Valider et Activer immédiatement cet établissement"
+                                  >
+                                    <Unlock className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Activer</span>
+                                  </button>
+                                )}
                                 <Link to={`/admin/schools/${school.id}/stats`} className="text-emerald-400 hover:text-white bg-brand-sidebar hover:bg-emerald-600/30 p-2 rounded-lg transition-colors border border-transparent hover:border-emerald-500/30" title="Statistiques globales">
                                     <BarChart3 className="w-4 h-4" />
                                 </Link>

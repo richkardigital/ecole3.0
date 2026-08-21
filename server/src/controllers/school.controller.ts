@@ -322,7 +322,10 @@ export const updateSchool = async (req: Request, res: Response) => {
     if (signatureUrl !== undefined) updateData.signatureUrl = signatureUrl;
     if (stampUrl !== undefined) updateData.stampUrl = stampUrl;
     if (description !== undefined) updateData.description = description;
-    if (isActive !== undefined) updateData.isActive = isActive;
+    if (isActive !== undefined) {
+      updateData.isActive = isActive;
+      updateData.subscriptionStatus = isActive ? "ACTIVE" : "INACTIVE";
+    }
     if (managerId !== undefined) updateData.managerId = managerId;
     if (teachingTypeId !== undefined) updateData.teachingTypeId = teachingTypeId;
     if (schoolTypeId !== undefined) updateData.schoolTypeId = schoolTypeId;
@@ -348,10 +351,22 @@ export const updateSchool = async (req: Request, res: Response) => {
          });
       }
 
-      return await prisma.school.update({
+      const updated = await prisma.school.update({
         where: { id: String(id) },
         data: updateData,
       });
+
+      if (isActive !== undefined) {
+        const targetManagerId = updated.managerId || currentSchool.managerId;
+        if (targetManagerId) {
+          await prisma.user.update({
+            where: { id: targetManagerId },
+            data: { isActive: Boolean(isActive) }
+          });
+        }
+      }
+
+      return updated;
     });
 
     res.json(school);

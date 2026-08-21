@@ -158,10 +158,18 @@ export const toggleSchoolStatus = async (req: AuthRequest, res: Response) => {
       }
     });
 
+    // Synchroniser l'état du directeur de l'école
+    if (updatedSchool.managerId) {
+      await prisma.user.update({
+        where: { id: updatedSchool.managerId },
+        data: { isActive: newActiveState }
+      });
+    }
+
     res.json({
       message: newActiveState 
-        ? "Établissement activé et opérationnel sur la plateforme avec succès." 
-        : "Établissement désactivé et fermé sur la plateforme.",
+        ? "Établissement et compte Directeur activés avec succès." 
+        : "Établissement et compte Directeur désactivés.",
       school: updatedSchool
     });
   } catch (error) {

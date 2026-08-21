@@ -338,12 +338,14 @@ export default function SubscriptionsPage() {
       let matchesStatus = true;
       if (statusFilter === 'ACTIVE') {
         matchesStatus = school.isActive && school.subscriptionStatus === 'ACTIVE';
+      } else if (statusFilter === 'PENDING') {
+        matchesStatus = school.subscriptionStatus === 'PENDING' || (!school.isActive && school.subscriptionStatus !== 'INACTIVE');
       } else if (statusFilter === 'EXPIRED') {
         matchesStatus = school.subscriptionStatus === 'EXPIRED' || (
           Boolean(school.subscriptionEndDate && new Date(school.subscriptionEndDate) < new Date())
         );
       } else if (statusFilter === 'INACTIVE') {
-        matchesStatus = !school.isActive || school.subscriptionStatus === 'INACTIVE';
+        matchesStatus = !school.isActive && school.subscriptionStatus === 'INACTIVE';
       }
 
       return matchesSearch && matchesPlan && matchesStatus;
@@ -353,6 +355,7 @@ export default function SubscriptionsPage() {
   // KPIs
   const totalSchools = schools.length;
   const activeSchoolsCount = schools.filter(s => s.isActive && s.subscriptionStatus === 'ACTIVE').length;
+  const pendingSchoolsCount = schools.filter(s => s.subscriptionStatus === 'PENDING' || (!s.isActive && s.subscriptionStatus !== 'INACTIVE')).length;
   const expiredSchoolsCount = schools.filter(s => s.subscriptionStatus === 'EXPIRED' || (!s.isActive && s.subscriptionStatus === 'INACTIVE')).length;
   const activePlansCount = subscriptions.filter(s => s.isActive).length;
 
@@ -528,6 +531,7 @@ export default function SubscriptionsPage() {
                   className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer"
                 >
                   <option value="ALL">Tous les statuts</option>
+                  <option value="PENDING">En attente de validation</option>
                   <option value="ACTIVE">Actifs / En ligne</option>
                   <option value="EXPIRED">Expirés / À renouveler</option>
                   <option value="INACTIVE">Fermés / Inactifs</option>
@@ -679,7 +683,11 @@ export default function SubscriptionsPage() {
 
                           {/* Statut Plateforme */}
                           <td className="px-5 py-4 text-center whitespace-nowrap">
-                            {isClosed ? (
+                            {school.subscriptionStatus === 'PENDING' ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" /> En attente de validation
+                              </span>
+                            ) : isClosed ? (
                               <span className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
                                 <XCircle className="w-3.5 h-3.5 text-slate-500" /> Fermé / Inactif
                               </span>
@@ -717,12 +725,12 @@ export default function SubscriptionsPage() {
                                 className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-bold text-xs border transition cursor-pointer ${
                                   school.isActive 
                                     ? 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200' 
-                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300'
                                 }`}
-                                title={school.isActive ? "Fermer l'accès à la plateforme" : "Activer et rendre opérationnel"}
+                                title={school.isActive ? "Fermer l'accès à la plateforme" : "Valider et activer l'établissement"}
                               >
                                 <Power className="w-3.5 h-3.5" />
-                                <span>{school.isActive ? 'Fermer' : 'Activer'}</span>
+                                <span>{school.isActive ? 'Fermer' : (school.subscriptionStatus === 'PENDING' ? 'Valider' : 'Activer')}</span>
                               </button>
 
                               {/* 3. Changer de plan */}

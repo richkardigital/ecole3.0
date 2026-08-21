@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
-import { Eye, EyeOff, GraduationCap, ArrowRight, ArrowLeft, ShieldCheck, Sparkles, Mail, Lock, Users, BookOpen, Search, UserCheck } from 'lucide-react';
+import { Eye, EyeOff, GraduationCap, ArrowRight, ArrowLeft, ShieldCheck, Sparkles, Mail, Lock, Users, BookOpen, Search, UserCheck, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useSystemSettings } from '@/contexts/SystemSettingsContext';
@@ -29,15 +29,27 @@ const Login = () => {
   const { register, handleSubmit, setValue, formState: { errors } } = useForm();
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState('');
+  const [isPendingNotice, setIsPendingNotice] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
 
+  const registrationNotice = location.state?.message;
+  const registeredEmail = location.state?.registeredEmail;
+
+  useEffect(() => {
+    if (registeredEmail) {
+      setValue('email', registeredEmail);
+    }
+  }, [registeredEmail, setValue]);
+
   const onSubmit = async (data: any) => {
     setIsLoading(true);
     setError('');
+    setIsPendingNotice(false);
     try {
       const response = await api.post('/auth/login', data);
       login(response.data.token, response.data.user);
@@ -46,7 +58,12 @@ const Login = () => {
       if (!err.response) {
         setError('Erreur réseau : Le serveur est injoignable.');
       } else {
-        const message = err.response?.data?.message || err.response?.data || 'Identifiants incorrects.';
+        const errorData = err.response?.data;
+        const message = errorData?.message || errorData || 'Identifiants incorrects.';
+        const status = errorData?.status;
+        if (status === 'PENDING_ACTIVATION') {
+          setIsPendingNotice(true);
+        }
         setError(typeof message === 'string' ? message : JSON.stringify(message));
       }
     } finally {
@@ -178,13 +195,39 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Error */}
-          {error && (
-            <div className="px-4 py-3.5 rounded-xl text-sm text-red-600 font-medium flex items-start gap-3 bg-red-50 border border-red-200">
-              <span className="shrink-0 mt-0.5">⚠️</span>
-              <span>{error}</span>
+          {/* Notice post-inscription */}
+          {registrationNotice && (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300/80 text-amber-900 flex items-start gap-3 shadow-xs animate-fade-in">
+              <div className="p-1.5 bg-amber-100 rounded-xl text-amber-700 shrink-0 mt-0.5">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs font-black text-amber-800 uppercase tracking-wider">Inscription enregistrée</p>
+                <p className="text-xs text-amber-700 font-medium leading-relaxed">{registrationNotice}</p>
+              </div>
             </div>
           )}
+
+          {/* Error / Status */}
+          {error && isPendingNotice ? (
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex items-start gap-3 shadow-sm animate-fade-in">
+              <div className="p-1.5 bg-amber-100 rounded-xl text-amber-700 shrink-0 mt-0.5">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-xs font-black uppercase tracking-wider text-amber-800">Compte en cours d'activation</h4>
+                <p className="text-xs text-amber-800 font-medium leading-relaxed">{error}</p>
+                <p className="text-[11px] text-amber-700 mt-1 font-semibold">
+                  📞 Dès validation par l'administration, vos accès seront automatiquement débloqués.
+                </p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="px-4 py-3.5 rounded-xl text-sm text-red-600 font-medium flex items-start gap-3 bg-red-50 border border-red-200">
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          ) : null}
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
