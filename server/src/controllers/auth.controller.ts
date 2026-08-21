@@ -72,10 +72,16 @@ export const registerSchool = async (req: Request, res: Response) => {
       schoolName, schoolVille, schoolAddress, teachingTypeId, schoolTypeId 
     } = req.body;
 
+    if (!email || !password || !firstName || !lastName || !schoolName) {
+      return res.status(400).json({ message: "Veuillez renseigner tous les champs obligatoires." });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Vérifier si le directeur existe déjà
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
-      return res.status(400).json({ message: "Cet email est déjà utilisé." });
+      return res.status(400).json({ message: "Un compte avec cette adresse email existe déjà." });
     }
 
     // Hasher le mot de passe
@@ -83,18 +89,22 @@ export const registerSchool = async (req: Request, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, salt);
     
     // Générer un code d'école unique
-    const schoolCode = `SCH-${Date.now().toString().slice(-6)}`;
+    let schoolCode = `SCH-${Date.now().toString().slice(-6)}`;
+    const existingSchoolCode = await prisma.school.findUnique({ where: { code: schoolCode } });
+    if (existingSchoolCode) {
+      schoolCode = `SCH-${Math.floor(100000 + Math.random() * 900000)}`;
+    }
 
     // Créer le directeur et l'école dans une transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Créer le directeur (sans école pour le moment)
+      // 1. Créer le compte directeur (sans école pour le moment)
       const newManager = await tx.user.create({
         data: {
-          email,
+          email: normalizedEmail,
           password: hashedPassword,
-          firstName,
-          lastName,
-          phone,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone ? phone.trim() : null,
           role: 'DIRECTEUR'
         }
       });
@@ -102,71 +112,115 @@ export const registerSchool = async (req: Request, res: Response) => {
       // 2. Vérifier et assigner le teachingTypeId & schoolTypeId s'ils sont valides
       let validTeachingTypeId: string | null = null;
       if (teachingTypeId && typeof teachingTypeId === 'string' && teachingTypeId.trim() !== '') {
-        const existingTt = await tx.teachingType.findUnique({ where: { id: teachingTypeId } });
-        if (existingTt) validTeachingTypeId = existingTt.id;
+        try {
+          const existingTt = await tx.teachingType.findFirst({
+            where: { OR: [{ id: teachingTypeId.trim() }, { name: teachingTypeId.trim() }] }
+          });
+          if (existingTt) validTeachingTypeId = existingTt.id;
+        } catch {
+          validTeachingTypeId = null;
+        }
       }
 
       let validSchoolTypeId: string | null = null;
       if (schoolTypeId && typeof schoolTypeId === 'string' && schoolTypeId.trim() !== '') {
-        const existingSt = await tx.schoolType.findUnique({ where: { id: schoolTypeId } });
-        if (existingSt) validSchoolTypeId = existingSt.id;
+        try {
+          const existingSt = await tx.schoolType.findFirst({
+            where: { OR: [{ id: schoolTypeId.trim() }, { name: schoolTypeId.trim() }] }
+          });
+          if (existingSt) validSchoolTypeId = existingSt.id;
+        } catch {
+          validSchoolTypeId = null;
+        }
       }
 
-      // 1.5. Trouver l'abonnement par défaut ou celui sélectionné (planKey dans formData, s'il existe, sinon 'pro')
+      // 3. Trouver l'abonnement
       const planKey = (req.body.selectedPlan && typeof req.body.selectedPlan === 'string') 
           ? (req.body.selectedPlan.toLowerCase().includes('découverte') ? 'decouverte' : 
              req.body.selectedPlan.toLowerCase().includes('mixte') ? 'mixte' : 'pro') 
           : 'pro';
       
-      const subscription = await tx.subscription.findUnique({
-        where: { planKey: planKey }
+      let subscription = await tx.subscription.findUnique({
+        where: { planKey }
       });
+      if (!subscription) {
+        subscription = await tx.subscription.findFirst({
+          where: { isActive: true }
+        });
+      }
 
       // Calculer la date de fin d'abonnement selon la période
       let endDate = new Date();
-      const isAnnual = req.body.billingPeriod === 'annuel' || (subscription && subscription.period.toLowerCase().includes('an'));
+      const isAnnual = req.body.billingPeriod === 'annuel' || Boolean(subscription?.period && subscription.period.toLowerCase().includes('an'));
       if (isAnnual) {
         endDate.setFullYear(endDate.getFullYear() + 1);
       } else {
         endDate.setMonth(endDate.getMonth() + 3); // 1 trimestre (3 mois)
       }
 
-      // 2. Créer l'école en lui associant le directeur et l'abonnement
+      // 4. Créer l'école
       const newSchool = await tx.school.create({
         data: {
-          name: schoolName,
+          name: schoolName.trim(),
           code: schoolCode,
-          ville: schoolVille,
-          address: schoolAddress,
-          phone: phone || null,
-          email: email || null,
+          ville: schoolVille ? schoolVille.trim() : null,
+          address: schoolAddress ? schoolAddress.trim() : null,
+          phone: phone ? phone.trim() : null,
+          email: normalizedEmail,
           teachingTypeId: validTeachingTypeId,
           schoolTypeId: validSchoolTypeId,
           managerId: newManager.id,
-          subscriptionId: subscription?.id,
+          subscriptionId: subscription?.id || null,
           subscriptionStatus: "ACTIVE",
           subscriptionStartDate: new Date(),
           subscriptionEndDate: endDate
         }
       });
 
-      // 3. Mettre à jour le directeur avec le schoolId
+      // 5. Mettre à jour le directeur avec le schoolId
       await tx.user.update({
         where: { id: newManager.id },
         data: { schoolId: newSchool.id }
       });
 
-      // 4. Créer une année académique par défaut (Année en cours)
+      // 6. Associer l'école à l'année académique active (sans créer de doublon de nom d'année)
       const currentYear = new Date().getFullYear();
-      await tx.academicYear.create({
-        data: {
-          name: `${currentYear}-${currentYear + 1}`,
-          startDate: new Date(`${currentYear}-09-01`),
-          endDate: new Date(`${currentYear + 1}-06-30`),
-          isCurrent: true,
-          schools: { connect: { id: newSchool.id } }
-        }
+      const defaultYearName = `${currentYear}-${currentYear + 1}`;
+
+      let activeAcademicYear = await tx.academicYear.findFirst({
+        where: { isCurrent: true }
       });
+
+      if (!activeAcademicYear) {
+        activeAcademicYear = await tx.academicYear.findFirst({
+          where: { name: defaultYearName }
+        });
+      }
+
+      if (!activeAcademicYear) {
+        activeAcademicYear = await tx.academicYear.findFirst({
+          orderBy: { startDate: 'desc' }
+        });
+      }
+
+      if (activeAcademicYear) {
+        await tx.academicYear.update({
+          where: { id: activeAcademicYear.id },
+          data: {
+            schools: { connect: { id: newSchool.id } }
+          }
+        });
+      } else {
+        await tx.academicYear.create({
+          data: {
+            name: defaultYearName,
+            startDate: new Date(`${currentYear}-09-01`),
+            endDate: new Date(`${currentYear + 1}-06-30`),
+            isCurrent: true,
+            schools: { connect: { id: newSchool.id } }
+          }
+        });
+      }
 
       return { manager: newManager, school: newSchool };
     });
@@ -176,9 +230,11 @@ export const registerSchool = async (req: Request, res: Response) => {
       school: result.school 
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erreur registerSchool:", error);
-    res.status(500).json({ message: "Erreur lors de l'inscription de l'école." });
+    res.status(500).json({ 
+      message: error?.message || "Erreur lors de l'inscription de l'école." 
+    });
   }
 };
 
