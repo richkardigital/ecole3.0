@@ -844,7 +844,7 @@ const Forum = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in pb-12">
       <PageHeader
-        title="Forum de Discussion & Entraide"
+        title="Forum de Discussion"
         description="Espace d'échange et d'interaction pour toute la communauté scolaire."
       >
         <Button 

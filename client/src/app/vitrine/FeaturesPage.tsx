@@ -240,7 +240,7 @@ const FEATURES = [
     id: 'librairie',
     roles: ['DIRECTEUR', 'ENSEIGNANT', 'APPRENANT', 'SUPER_ADMIN'],
     category: 'PEDAGOGIE',
-    title: 'Librairie 3.0 & Bibliothèque Numérique',
+    title: 'Bibliothèque Numérique',
     desc: 'Espace de documentation numérique officiel regroupant manuels, annales, fascicules d\'exercices et documents administratifs.',
     details: [
       'Téléchargement sécurisé de documents pédagogiques PDF',

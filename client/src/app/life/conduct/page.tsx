@@ -297,7 +297,7 @@ export default function ConductPage() {
   return (
     <div className="p-6 md:p-8 space-y-6 animate-in fade-in duration-300">
       <PageHeader 
-        title="Gestion de la Conduite & Discipline"
+        title="Gestion de la Conduite"
         subtitle="Barème officiel de conduite sur 20/20 calculé à partir des absences. Matière Coefficient 1 sur les bulletins scolaires."
         icon={<ClipboardList className="w-8 h-8 text-brand-accent" />}
         action={

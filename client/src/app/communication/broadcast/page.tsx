@@ -471,8 +471,8 @@ const Broadcast = () => {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader 
-        title="Flash News & Annonces" 
-        subtitle="Gérez, publiez et diffusez toutes les annonces flash et notifications de l'établissement."
+        title="Nos Annonces" 
+        subtitle="Gérez, publiez et diffusez toutes les annonces et notifications de l'établissement."
         icon={<Zap className="w-6 h-6 text-brand-accent fill-brand-accent/20" />}
         action={
           activeTab === 'LIST' ? (

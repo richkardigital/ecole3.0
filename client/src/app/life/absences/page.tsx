@@ -802,7 +802,7 @@ export default function AbsencesPage() {
   return (
     <div className="p-6 md:p-8 space-y-8 animate-in fade-in zoom-in duration-300">
       <PageHeader 
-        title="Gestion des Absences & Assiduité" 
+        title="Gestion des Absences" 
         subtitle="Registre officiel des absences scolaires et impact direct sur la note de conduite (20/20)."
         icon={<UserX className="w-8 h-8 text-brand-accent" />}
         action={

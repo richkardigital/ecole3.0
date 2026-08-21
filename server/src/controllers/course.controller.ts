@@ -70,10 +70,12 @@ export const getLibrary = async (req: AuthRequest, res: Response) => {
       const niveauIds = Array.from(new Set(teacherClasses.map(tc => tc.class?.niveauId).filter((n): n is string => Boolean(n))));
       resources = await prisma.resource.findMany({
         where: {
+          chapterId: null,
+          courseId: null,
           OR: [
             { createdById: userId },
             { niveauId: { in: niveauIds } },
-            { course: { niveauId: { in: niveauIds } } }
+            { isGlobal: true }
           ]
         },
         include: includeRelation.course.include ? includeRelation : undefined,
@@ -89,9 +91,11 @@ export const getLibrary = async (req: AuthRequest, res: Response) => {
 
       resources = await prisma.resource.findMany({
         where: {
+          chapterId: null,
+          courseId: null,
           OR: [
             { niveauId: { in: levels } },
-            { course: { niveauId: { in: levels } } },
+            { isGlobal: true },
             ...(schoolId ? [{ schoolId }] : [])
           ]
         },
@@ -101,6 +105,8 @@ export const getLibrary = async (req: AuthRequest, res: Response) => {
     } else if ((role as string) === "DIRECTEUR" || (role as string) === "EDUCATEUR") {
          resources = await prisma.resource.findMany({
             where: {
+                chapterId: null,
+                courseId: null,
                 OR: [
                     ...(schoolId ? [{ schoolId }] : []),
                     { isGlobal: true },
@@ -113,6 +119,10 @@ export const getLibrary = async (req: AuthRequest, res: Response) => {
     } else {
         // Super Admin
         resources = await prisma.resource.findMany({
+            where: {
+                chapterId: null,
+                courseId: null
+            },
             include: includeRelation.course.include ? includeRelation : undefined,
             orderBy: { createdAt: 'desc' }
         });

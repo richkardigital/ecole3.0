@@ -164,7 +164,7 @@ const Classes = () => {
   const pageTitle = isSuperAdmin 
     ? "Toutes les Classes du Réseau" 
     : isEducateur 
-      ? "Classes & Vie Scolaire" 
+      ? "Classes" 
       : "Gestion des Classes";
 
   const pageSubtitle = isSuperAdmin

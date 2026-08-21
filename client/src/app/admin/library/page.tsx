@@ -250,7 +250,7 @@ export default function LibraryPage() {
       )}
 
       <PageHeader
-        title="Librairie 3.0 & Bibliothèque Numérique"
+        title="Bibliothèque Numérique"
         description={isApprenant ? "Consultez et téléchargez les manuels, documents et ressources de votre niveau scolaire." : "Gérez la bibliothèque numérique des manuels et ressources pédagogiques par niveau et matière."}
       >
         {canAdd && (

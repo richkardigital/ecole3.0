@@ -70,8 +70,8 @@ export default function News() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Actualités de l'École" 
-        subtitle="Consultez les informations officielles, annonces flash et événements de l'établissement."
+        title="Nos Annonces" 
+        subtitle="Consultez les informations officielles, annonces et événements de l'établissement."
         icon={<Newspaper className="w-7 h-7 text-brand-accent" />}
         action={
           (user?.role === 'SUPER_ADMIN' || user?.role === 'DIRECTEUR' || user?.role === 'EDUCATEUR') ? (

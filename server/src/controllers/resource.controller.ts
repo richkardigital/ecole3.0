@@ -9,7 +9,11 @@ export const getResources = async (req: AuthRequest, res: Response) => {
   try {
     const { niveauId, subjectId } = req.query;
     
-    let whereClause: any = {};
+    // La Bibliothèque Numérique ne doit afficher que les documents autonomes (hors supports de chapitres de cours)
+    let whereClause: any = {
+      chapterId: null,
+      courseId: null
+    };
 
     // Filter by student level if APPRENANT
     if (req.user?.role === "APPRENANT") {

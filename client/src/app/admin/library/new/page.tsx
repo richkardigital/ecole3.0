@@ -106,7 +106,7 @@ export default function NewLibraryDocumentPage() {
         <Button variant="secondary" onClick={() => navigate(-1)} className="p-2">
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <PageHeader title="Ajouter un document" subtitle="Partagez une nouvelle ressource dans la Librairie 3.0" />
+        <PageHeader title="Ajouter un document" subtitle="Partagez une nouvelle ressource dans la Bibliothèque Numérique" />
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">

@@ -229,7 +229,7 @@ const Courses = () => {
             : isDirecteur
               ? "Gestion des Cours de l'Établissement"
               : isEnseignant
-                ? "Mes Cours & Supports Pédagogiques"
+                ? "Mes Cours"
                 : "Catalogue des Cours"
         }
         description={
