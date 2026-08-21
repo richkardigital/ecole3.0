@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useAuth } from '@/context/AuthContext';
 import {
   Plus, BookOpen, Trash2, Edit2, Eye, Search,
-  Building2, CheckCircle2, XCircle, Code, Layers, Sparkles, Image as ImageIcon
+  CheckCircle2, XCircle, Code, Layers, Sparkles, Image as ImageIcon, GraduationCap
 } from 'lucide-react';
 import { PRESET_COVERS, getSubjectIllustration } from '@/lib/subjectIllustrations';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
@@ -14,11 +14,12 @@ import { Modal } from '@/components/ui/Modal';
 
 export { PRESET_COVERS, getSubjectIllustration };
 
-interface SchoolModel {
+interface CourseItem {
   id: string;
-  name: string;
-  ville?: string;
-  code?: string;
+  coefficient?: number;
+  isPublished?: boolean;
+  niveau?: { id?: string; nom: string };
+  _count?: { chapters: number; assignments: number };
 }
 
 interface SubjectModel {
@@ -27,20 +28,22 @@ interface SubjectModel {
   code?: string;
   imageUrl?: string;
   coefficient?: number;
-  schoolId: string;
-  school?: SchoolModel;
-  _count?: { courses: number; grades: number };
+  courses?: CourseItem[];
+  _count?: { courses: number; teacherClasses?: number };
 }
 
-type FormData = { name: string; code?: string; imageUrl?: string; coefficient?: number; schoolId?: string };
+type FormData = {
+  name: string;
+  code?: string;
+  imageUrl?: string;
+  coefficient?: number;
+};
 
 export default function SubjectsPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const [subjects, setSubjects] = useState<SubjectModel[]>([]);
-  const [schools, setSchools] = useState<SchoolModel[]>([]);
-  const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -68,10 +71,7 @@ export default function SubjectsPage() {
   const fetchSubjects = async () => {
     try {
       setLoading(true);
-      const url = isSuperAdmin && selectedSchoolFilter !== 'ALL'
-        ? `/subjects?schoolId=${selectedSchoolFilter}`
-        : '/subjects';
-      const response = await api.get(url);
+      const response = await api.get('/subjects');
       setSubjects(response.data);
     } catch (error) {
       console.error('Error fetching subjects:', error);
@@ -81,27 +81,16 @@ export default function SubjectsPage() {
     }
   };
 
-  const fetchSchools = async () => {
-    if (!isSuperAdmin) return;
-    try {
-      const res = await api.get('/schools');
-      setSchools(res.data);
-    } catch (err) {
-      console.error('Error fetching schools:', err);
-    }
-  };
-
   useEffect(() => {
     fetchSubjects();
-    fetchSchools();
-  }, [selectedSchoolFilter]);
+  }, []);
 
   const generateSlug = (name: string) =>
     name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
   const openCreateModal = () => {
     setEditingSubject(null);
-    reset({ name: '', code: '', imageUrl: '', coefficient: 1, schoolId: schools[0]?.id || '' });
+    reset({ name: '', code: '', imageUrl: '', coefficient: 1 });
     setFormError(null);
     setIsFormModalOpen(true);
   };
@@ -113,7 +102,6 @@ export default function SubjectsPage() {
       code: subject.code || '',
       imageUrl: subject.imageUrl || '',
       coefficient: subject.coefficient || 1,
-      schoolId: subject.schoolId,
     });
     setFormError(null);
     setIsFormModalOpen(true);
@@ -165,9 +153,7 @@ export default function SubjectsPage() {
 
   const filteredSubjects = subjects.filter(s => {
     const q = search.toLowerCase();
-    const matchName = s.name.toLowerCase().includes(q) || (s.code && s.code.toLowerCase().includes(q));
-    const matchSchool = !s.school?.name || s.school.name.toLowerCase().includes(q);
-    return matchName || matchSchool;
+    return s.name.toLowerCase().includes(q) || (s.code && s.code.toLowerCase().includes(q));
   });
 
   const selectedName = watch('name') || '';
@@ -188,7 +174,7 @@ export default function SubjectsPage() {
       {/* Page Header */}
       <PageHeader
         title="Gestion des Matières & Disciplines"
-        description={isSuperAdmin ? "Catalogue et configuration des disciplines enseignées avec illustrations automatiques." : "Consultez les matières disponibles. Seul l'administrateur peut les créer ou les modifier."}
+        description={isSuperAdmin ? "Catalogue national et configuration des disciplines enseignées avec illustrations automatiques." : "Consultez les matières disponibles. Seul l'administrateur peut les créer ou les modifier."}
       >
         {isSuperAdmin && (
           <Button variant="glow" onClick={openCreateModal} leftIcon={<Plus className="w-4 h-4" />}>
@@ -210,20 +196,9 @@ export default function SubjectsPage() {
           />
         </div>
 
-        {isSuperAdmin && schools.length > 0 && (
-          <div className="relative w-full sm:w-auto">
-            <select
-              value={selectedSchoolFilter}
-              onChange={e => setSelectedSchoolFilter(e.target.value)}
-              className="w-full sm:w-auto px-3.5 py-2.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-250 rounded-xl outline-none cursor-pointer focus:border-emerald-500"
-            >
-              <option value="ALL">Toutes les écoles</option>
-              {schools.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="text-xs font-bold text-slate-500">
+          <span className="text-slate-900 font-extrabold">{filteredSubjects.length}</span> matière(s) au catalogue
+        </div>
       </div>
 
       {/* Grid or Empty */}
@@ -280,19 +255,17 @@ export default function SubjectsPage() {
                       <span className="font-mono text-[11px] text-slate-400 font-semibold truncate">
                         slug: {generateSlug(subject.name)}
                       </span>
+                      {subject.coefficient && (
+                        <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                          Coef. {subject.coefficient}
+                        </span>
+                      )}
                     </div>
-
-                    {isSuperAdmin && subject.school && (
-                      <div className="flex items-center gap-1.5 text-xs text-slate-600 font-bold">
-                        <Building2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span className="truncate">{subject.school.name}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-600">
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                     {subject._count?.courses ?? 0} cours rattaché(s)
                   </span>
 
@@ -346,22 +319,6 @@ export default function SubjectsPage() {
             </div>
           )}
 
-          {isSuperAdmin && (
-            <div>
-              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
-                Établissement scolaire <span className="text-emerald-600">*</span>
-              </label>
-              <select
-                {...register('schoolId', { required: true })}
-                className="w-full px-4 py-2.5 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold cursor-pointer"
-              >
-                {schools.map(s => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.ville || 'Abidjan'})</option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
@@ -385,6 +342,20 @@ export default function SubjectsPage() {
                 className="w-full px-4 py-2.5 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 font-bold uppercase"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+              Coefficient par défaut (Optionnel)
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              {...register('coefficient', { valueAsNumber: true })}
+              placeholder="Ex: 1, 2, 3..."
+              className="w-full px-4 py-2.5 text-sm text-slate-900 bg-slate-50 border border-slate-250 rounded-xl outline-none focus:border-emerald-500 font-bold"
+            />
           </div>
 
           {/* Preset / Custom Image Picker */}
@@ -463,25 +434,52 @@ export default function SubjectsPage() {
                 </div>
               </div>
 
-              <div className="p-4 space-y-3">
-                <p className="text-xs font-mono text-emerald-700 font-bold">slug: {generateSlug(viewingSubject.name)}</p>
+              <div className="p-4 space-y-4">
+                <div className="flex items-center justify-between text-xs font-mono text-emerald-700 font-bold bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200/60">
+                  <span>slug: {generateSlug(viewingSubject.name)}</span>
+                  {viewingSubject.coefficient && (
+                    <span className="text-slate-700 font-bold">Coef. par défaut : {viewingSubject.coefficient}</span>
+                  )}
+                </div>
 
-                {viewingSubject.school && (
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex items-center gap-2 font-bold text-slate-700">
-                    <Building2 className="w-4 h-4 text-emerald-600" />
-                    {viewingSubject.school.name} ({viewingSubject.school.ville || 'Abidjan'})
+                {/* Section Cours Rattachés */}
+                <div className="space-y-2 pt-2 border-t border-slate-200/60">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4 text-emerald-600" />
+                      Cours rattachés à cette matière
+                    </span>
+                    <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                      {viewingSubject._count?.courses ?? viewingSubject.courses?.length ?? 0}
+                    </span>
                   </div>
-                )}
 
-                <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t border-slate-200/60">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Cours rattachés</span>
-                    <span className="font-extrabold text-slate-900">{viewingSubject._count?.courses ?? 0}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Évaluations / Notes</span>
-                    <span className="font-extrabold text-slate-900">{viewingSubject._count?.grades ?? 0}</span>
-                  </div>
+                  {viewingSubject.courses && viewingSubject.courses.length > 0 ? (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {viewingSubject.courses.map((course, idx) => (
+                        <div key={course.id || idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span className="font-bold text-slate-800">
+                              {viewingSubject.name} — {course.niveau?.nom || 'Niveau scolaire'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                            {course.coefficient && <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Coef. {course.coefficient}</span>}
+                            {course._count?.chapters !== undefined && (
+                              <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200">
+                                {course._count.chapters} chapitre(s)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl text-center">
+                      Aucun cours spécifique n'a encore été rattaché à cette matière.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

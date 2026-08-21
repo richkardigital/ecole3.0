@@ -145,7 +145,15 @@ export const getSubject = async (req: AuthRequest, res: Response) => {
       where: whereClause,
       include: {
         school: { select: { id: true, name: true, ville: true, code: true } },
-        courses: { select: { id: true, coefficient: true, niveau: { select: { nom: true } } } },
+        courses: { 
+          select: { 
+            id: true, 
+            coefficient: true, 
+            isPublished: true,
+            niveau: { select: { id: true, nom: true } },
+            _count: { select: { chapters: true, assignments: true } }
+          } 
+        },
         _count: { select: { courses: true, teacherClasses: true } }
       }
     });
