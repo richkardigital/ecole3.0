@@ -42,7 +42,9 @@ import {
   BarChart3,
   CheckSquare,
   MessageCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Volume2,
+  Image as ImageIcon
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Gradebook from '@/components/Gradebook';
@@ -112,7 +114,7 @@ interface AssignmentModel {
 interface MaterialModel {
     id: string;
     title: string;
-    type: 'PDF' | 'VIDEO' | 'LINK';
+    type: 'PDF' | 'VIDEO' | 'LINK' | 'LIEN' | 'AUDIO' | 'IMAGE';
     url: string;
     createdAt: string;
     source?: string;
@@ -511,31 +513,37 @@ const CourseDetails = () => {
       }
   }
 
-  const onSubmitMaterial = async (data: { title: string; type: string; url: string; source?: string; chapterId?: string; file?: FileList }) => {
+  const onSubmitMaterial = async (data: { title: string; type: string; url?: string; source?: string; chapterId?: string; file?: FileList }) => {
       try {
           setIsSubmittingMat(true);
           setMaterialError(null);
 
-          if (data.type !== 'LINK' && data.type !== 'VIDEO') {
-            if (data.file && data.file[0] && data.file[0].size > 50 * 1024 * 1024) {
-              setMaterialError("Le fichier est trop volumineux (max 50MB).");
-              setIsSubmittingMat(false);
-              return;
-            }
+          const hasFile = data.file && data.file[0];
+          const hasUrl = data.url && data.url.trim() !== '';
+
+          if (hasFile && data.file![0].size > 100 * 1024 * 1024) {
+            setMaterialError("Le fichier est trop volumineux (maximum 100 Mo).");
+            setIsSubmittingMat(false);
+            return;
+          }
+
+          if (!editingMaterialId && !hasFile && !hasUrl) {
+            setMaterialError("Veuillez soit sélectionner un fichier, soit renseigner un lien/URL.");
+            setIsSubmittingMat(false);
+            return;
           }
 
           const formData = new FormData();
-          formData.append('title', data.title);
-          formData.append('type', data.type);
-          if (data.source) formData.append('source', data.source);
+          formData.append('title', data.title.trim());
+          formData.append('type', data.type || 'PDF');
+          if (data.source) formData.append('source', data.source.trim());
           if (data.chapterId) formData.append('chapterId', data.chapterId);
           
-          if (data.type === 'LINK' || data.type === 'VIDEO') {
-               formData.append('url', data.url);
-          } else {
-               if (data.file && data.file[0]) {
-                   formData.append('file', data.file[0]);
-               }
+          if (hasUrl) {
+            formData.append('url', data.url!.trim());
+          }
+          if (hasFile) {
+            formData.append('file', data.file![0]);
           }
 
           if (editingMaterialId) {
@@ -552,10 +560,10 @@ const CourseDetails = () => {
           setEditingMaterialId(null);
           resetMat();
           fetchCourseDetails();
-      } catch (error) {
-          console.error("Error adding material", error);
+      } catch (error: any) {
+          console.error("Error adding/updating material", error);
           const err = error as { response?: { data?: { message?: string } } };
-          setMaterialError(err.response?.data?.message || "Erreur lors de l'ajout du contenu.");
+          setMaterialError(err.response?.data?.message || "Erreur lors de l'enregistrement du support de cours.");
       } finally {
           setIsSubmittingMat(false);
       }
@@ -575,11 +583,14 @@ const CourseDetails = () => {
   };
 
   const getMaterialIcon = (type: string) => {
-      switch (type) {
-          case 'VIDEO': return <Video className="w-5 h-5 text-red-500" />;
-          case 'PDF': return <File className="w-5 h-5 text-red-500" />;
-          case 'LINK': return <LinkIcon className="w-5 h-5 text-blue-500" />;
-          default: return <FileText className="w-5 h-5 text-brand-text-muted" />;
+      switch (type?.toUpperCase()) {
+          case 'VIDEO': return <Video className="w-5 h-5 text-red-500 shrink-0" />;
+          case 'PDF': return <FileText className="w-5 h-5 text-emerald-500 shrink-0" />;
+          case 'LINK':
+          case 'LIEN': return <LinkIcon className="w-5 h-5 text-blue-500 shrink-0" />;
+          case 'AUDIO': return <Volume2 className="w-5 h-5 text-purple-500 shrink-0" />;
+          case 'IMAGE': return <ImageIcon className="w-5 h-5 text-amber-500 shrink-0" />;
+          default: return <FileText className="w-5 h-5 text-brand-text-muted shrink-0" />;
       }
   }
 
@@ -1085,14 +1096,14 @@ const CourseDetails = () => {
                                             {getMaterialIcon(material.type)}
                                             <div>
                                                 <a 
-                                                    href={material.type === 'PDF' ? `${getFileUrl(material.url)}#toolbar=0` : getFileUrl(material.url)} 
+                                                    href={material.url.startsWith('http') ? material.url : (material.type === 'PDF' ? `${getFileUrl(material.url)}#toolbar=0` : getFileUrl(material.url))} 
                                                     target="_blank" 
                                                     rel="noopener noreferrer"
                                                     className="font-medium text-brand-accent hover:underline"
                                                 >
                                                     {material.title}
                                                 </a>
-                                                {material.type === 'PDF' && <span className="text-xs text-brand-text-muted ml-2">(Lecture seule)</span>}
+                                                {material.type === 'PDF' && <span className="text-xs text-brand-text-muted ml-2">(Document)</span>}
                                             </div>
                                         </div>
                                         {canCreateContent && (
@@ -1102,8 +1113,8 @@ const CourseDetails = () => {
                                                     setEditingMaterialId(material.id);
                                                     resetMat({
                                                         title: material.title,
-                                                        type: material.type,
-                                                        url: material.type === 'LINK' || material.type === 'VIDEO' ? material.url : '',
+                                                        type: material.type === 'LIEN' ? 'LINK' : material.type,
+                                                        url: material.url || '',
                                                         source: material.source || '',
                                                         chapterId: material.chapterId || ''
                                                     });
@@ -2214,40 +2225,82 @@ const CourseDetails = () => {
             </div>
 
             <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-1">Type</label>
+            <label className="block text-sm font-medium text-brand-text-muted mb-1">Format du support</label>
             <select
                 {...registerMat('type', { required: true })}
-                className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text"
+                className="w-full p-2.5 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text cursor-pointer font-medium"
             >
-                <option value="PDF">PDF / Document</option>
-                <option value="VIDEO">Vidéo</option>
-                <option value="LINK">Lien Web</option>
+                <option value="PDF">📄 Fichier joint (PDF, Word, Excel, PowerPoint, Image, ZIP...)</option>
+                <option value="VIDEO">🎥 Vidéo (Lien YouTube / Vimeo / Web ou Fichier MP4)</option>
+                <option value="LINK">🌐 Lien Web (Site internet, article, documentation)</option>
+                <option value="AUDIO">🎵 Audio / Note vocale (MP3, enregistrement)</option>
             </select>
             </div>
 
-            {selectedMatType === 'LINK' || selectedMatType === 'VIDEO' ? (
-            <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1">
-                    {selectedMatType === 'VIDEO' ? 'Lien Vidéo (YouTube, Vimeo...)' : 'URL / Lien'}
+            {selectedMatType === 'LINK' ? (
+              <div>
+                <label className="block text-sm font-medium text-brand-text mb-1">
+                    URL / Lien Web <span className="text-red-500">*</span>
                 </label>
                 <input
-                {...registerMat('url', { required: 'L\'URL est requise' })}
-                className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text"
-                placeholder={selectedMatType === 'VIDEO' ? 'https://www.youtube.com/watch?v=...' : 'https://...'}
+                  {...registerMat('url', { required: 'L\'URL est requise' })}
+                  className="w-full p-2.5 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text font-mono text-sm"
+                  placeholder="https://..."
                 />
-                {errorsMat.url && <span className="text-red-500 text-sm">{errorsMat.url.message as string}</span>}
-            </div>
+                {errorsMat.url && <span className="text-red-500 text-xs mt-1 block">{errorsMat.url.message as string}</span>}
+              </div>
+            ) : selectedMatType === 'VIDEO' ? (
+              <div className="space-y-3 bg-brand-sidebar/50 p-3.5 rounded-xl border border-brand-border/40">
+                <div>
+                  <label className="block text-xs font-bold text-brand-text mb-1">
+                    Option A : Lien Vidéo (YouTube, Vimeo, Web...)
+                  </label>
+                  <input
+                    {...registerMat('url')}
+                    className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text font-mono text-xs"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                  />
+                </div>
+                <div className="text-center text-[11px] font-bold text-brand-text-muted uppercase tracking-wider">— OU —</div>
+                <div>
+                  <label className="block text-xs font-bold text-brand-text mb-1">
+                    Option B : Téléverser un fichier vidéo (MP4, WebM...)
+                  </label>
+                  <input
+                    type="file"
+                    {...registerMat('file')}
+                    className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-brand-accent/15 file:text-brand-accent hover:file:bg-brand-accent/25 cursor-pointer text-xs"
+                    accept="video/*,.mp4,.webm,.mkv,.mov"
+                  />
+                </div>
+              </div>
             ) : (
-            <div>
-                <label className="block text-sm font-medium text-brand-text-muted mb-1">Fichier (PDF, Word...)</label>
-                <input
-                type="file"
-                {...registerMat('file', { required: editingMaterialId ? false : 'Le fichier est requis' })}
-                className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-accent/10 file:text-brand-accent hover:file:bg-brand-accent/20 cursor-pointer"
-                accept=".pdf,.doc,.docx,.ppt,.pptx"
-                />
-                {errorsMat.file && <span className="text-red-500 text-sm">{errorsMat.file.message as string}</span>}
-            </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-brand-text mb-1">
+                    Fichier joint (Tout format accepté)
+                  </label>
+                  <input
+                    type="file"
+                    {...registerMat('file')}
+                    className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-accent/10 file:text-brand-accent hover:file:bg-brand-accent/20 cursor-pointer"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg,.zip,.rar,audio/*,video/*"
+                  />
+                  <p className="text-[11px] text-brand-text-muted mt-1">
+                    Formats supportés : PDF, Word (.doc, .docx), Excel (.xls, .xlsx), PowerPoint (.ppt, .pptx), Images, Audio, ZIP... (Max 100 Mo)
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-brand-text-muted mb-1">
+                    OU Lien externe / Drive (Facultatif)
+                  </label>
+                  <input
+                    {...registerMat('url')}
+                    className="w-full p-2 border border-brand-border/50 rounded-lg focus:ring-2 focus:ring-brand-accent/50 outline-none bg-brand-sidebar text-brand-text text-xs"
+                    placeholder="https://drive.google.com/... ou lien web"
+                  />
+                </div>
+              </div>
             )}
 
             {materialError && (

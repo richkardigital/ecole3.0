@@ -584,6 +584,35 @@ export const deleteChapter = async (req: AuthRequest, res: Response) => {
   }
 };
 
+const normalizeResourceType = (typeStr?: string, mimeType?: string, fileUrl?: string): "PDF" | "VIDEO" | "AUDIO" | "IMAGE" | "LIEN" => {
+  const t = (typeStr || "").toUpperCase().trim();
+  if (t === "LINK" || t === "LIEN" || t === "URL" || t === "WEB") return "LIEN";
+  if (t === "VIDEO" || t === "VIDÉO" || t === "YOUTUBE" || t === "VIMEO") return "VIDEO";
+  if (t === "AUDIO" || t === "MP3" || t === "VOCAL" || t === "VOICE") return "AUDIO";
+  if (t === "IMAGE" || t === "PHOTO" || t === "PNG" || t === "JPG" || t === "JPEG" || t === "SVG") return "IMAGE";
+  
+  if (mimeType) {
+    if (mimeType.includes("video")) return "VIDEO";
+    if (mimeType.includes("audio")) return "AUDIO";
+    if (mimeType.includes("image")) return "IMAGE";
+  }
+
+  if (fileUrl) {
+    const lower = fileUrl.toLowerCase();
+    if (lower.includes('youtube.com') || lower.includes('youtu.be') || lower.includes('vimeo.com') || lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mkv')) {
+      return "VIDEO";
+    }
+    if (lower.endsWith('.mp3') || lower.endsWith('.wav') || lower.endsWith('.ogg') || lower.endsWith('.m4a')) {
+      return "AUDIO";
+    }
+    if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.webp') || lower.endsWith('.svg')) {
+      return "IMAGE";
+    }
+  }
+  
+  return "PDF";
+};
+
 export const addMaterial = async (req: AuthRequest, res: Response) => {
   try {
     if ((req.user?.role as string) === "EDUCATEUR" || (req.user?.role as string) === "APPRENANT" || (req.user?.role as string) === "PARENT") {
@@ -594,37 +623,34 @@ export const addMaterial = async (req: AuthRequest, res: Response) => {
     let { title, type, url, source, chapterId } = req.body;
 
     if (req.file) {
-        const publicUrl = await uploadToSupabase(req.file);
-        if (publicUrl) {
-            url = publicUrl;
-        } else {
-             return res.status(500).json({ message: "Failed to upload file" });
-        }
-        
-        if (!type) {
-            if (req.file.mimetype.includes('video')) type = 'VIDEO';
-            else type = 'PDF';
-        }
+      const publicUrl = await uploadToSupabase(req.file);
+      if (publicUrl) {
+        url = publicUrl;
+      } else {
+        return res.status(500).json({ message: "Échec du téléversement du fichier sur le serveur." });
+      }
     }
 
-    if (!title || !type || !url) {
-        return res.status(400).json({ message: "Title, type and file/url are required" });
+    const finalType = normalizeResourceType(type, req.file?.mimetype, url);
+
+    if (!title || !url) {
+      return res.status(400).json({ message: "Le titre et le fichier/lien sont obligatoires." });
     }
 
-    if (!id) return res.status(400).json({ message: "ID required" });
+    if (!id) return res.status(400).json({ message: "ID cours manquant" });
 
     const course = await prisma.course.findUnique({ where: { id: id as string } });
     if (!course) {
-      return res.status(404).json({ message: "Course not found" });
+      return res.status(404).json({ message: "Cours introuvable" });
     }
 
     const material = await prisma.resource.create({
       data: {
         title,
-        type,
+        type: finalType,
         url,
         source: source || null,
-        chapterId: chapterId || null,
+        chapterId: chapterId && String(chapterId).trim() !== "" ? String(chapterId).trim() : null,
         courseId: id as string,
         niveauId: course.niveauId || null,
         subjectId: course.subjectId || null,
@@ -633,9 +659,9 @@ export const addMaterial = async (req: AuthRequest, res: Response) => {
     });
 
     res.status(201).json(material);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error adding material", error });
+  } catch (error: any) {
+    console.error("Error adding material:", error);
+    res.status(500).json({ message: error.message || "Erreur lors de l'ajout du support de cours" });
   }
 };
 
@@ -648,7 +674,7 @@ export const updateMaterial = async (req: AuthRequest, res: Response) => {
     const { id } = req.params; // materialId
     let { title, type, url, source, chapterId } = req.body;
 
-    if (!id) return res.status(400).json({ message: "ID required" });
+    if (!id) return res.status(400).json({ message: "ID support manquant" });
 
     const material = await prisma.resource.findUnique({
       where: { id: id as string },
@@ -658,41 +684,37 @@ export const updateMaterial = async (req: AuthRequest, res: Response) => {
     });
 
     if (!material) {
-      return res.status(404).json({ message: "Material not found" });
+      return res.status(404).json({ message: "Support introuvable" });
     }
 
     if (req.file) {
-        const publicUrl = await uploadToSupabase(req.file);
-        if (publicUrl) {
-            url = publicUrl;
-        } else {
-             return res.status(500).json({ message: "Failed to upload file" });
-        }
-        
-        if (!type) {
-            if (req.file.mimetype.includes('video')) type = 'VIDEO';
-            else type = 'PDF';
-        }
+      const publicUrl = await uploadToSupabase(req.file);
+      if (publicUrl) {
+        url = publicUrl;
+      } else {
+        return res.status(500).json({ message: "Échec du téléversement du fichier." });
+      }
     } else {
-        url = url || material.url;
-        type = type || material.type;
+      url = url || material.url;
     }
+
+    const finalType = type ? normalizeResourceType(type, req.file?.mimetype, url) : material.type;
 
     const updated = await prisma.resource.update({
       where: { id: String(id) },
       data: {
         title: title || material.title,
-        type,
+        type: finalType,
         url,
         source: source || null,
-        chapterId: chapterId !== undefined ? (chapterId || null) : material.chapterId,
+        chapterId: chapterId !== undefined ? (chapterId && String(chapterId).trim() !== "" ? String(chapterId).trim() : null) : material.chapterId,
       },
     });
 
     res.json(updated);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating material:", error);
-    res.status(500).json({ message: "Error updating material" });
+    res.status(500).json({ message: error.message || "Erreur lors de la modification du support" });
   }
 };
 
