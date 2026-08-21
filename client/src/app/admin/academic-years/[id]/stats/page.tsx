@@ -150,8 +150,8 @@ export default function AcademicYearStatsPage() {
           Retour
         </Button>
         <PageHeader
-          title={`Statistiques — ${year.name}`}
-          subtitle={`${year.status === 'EN_COURS' ? '🟢 En cours' : year.status === 'ACHEVE' ? '✅ Terminée' : '🔵 Créée'} · ${year.schools.map(s => s.name).join(', ')}`}
+          title={`Statistiques de l'Année Scolaire — ${year.name}`}
+          subtitle={`${year.status === 'EN_COURS' ? '🟢 Session active (En cours)' : year.status === 'ACHEVE' ? '✅ Session terminée' : '🔵 Session créée'}`}
         />
       </div>
 
@@ -159,7 +159,7 @@ export default function AcademicYearStatsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
           { label: 'Classes', value: overview.nbClasses, icon: School, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200' },
-          { label: 'Élèves', value: overview.nbStudents, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200' },
+          { label: 'Apprenants', value: overview.nbStudents, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200' },
           { label: 'Cours', value: overview.nbCourses, icon: BookOpen, color: 'text-purple-600', bg: 'bg-purple-50 border-purple-200' },
           { label: 'Devoirs', value: overview.nbAssignments, icon: FileText, color: 'text-orange-600', bg: 'bg-orange-50 border-orange-200' },
           { label: 'Bulletins', value: bulletins.total, icon: Award, color: 'text-pink-600', bg: 'bg-pink-50 border-pink-200' },
@@ -342,7 +342,7 @@ export default function AcademicYearStatsPage() {
               <Tooltip
                 contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '13px' }}
                 formatter={(value: any, _, props: any) => [
-                  `${value}/20 — ${props.payload.nbStudents} élèves`,
+                  `${value}/20 — ${props.payload.nbStudents} apprenant(s)`,
                   props.payload.fullName,
                 ]}
               />
@@ -375,7 +375,7 @@ export default function AcademicYearStatsPage() {
               <tr>
                 <th className="px-4 py-3 text-left font-semibold text-gray-600">#</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-600">Classe</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-600">Élèves</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-600">Apprenants</th>
                 <th className="px-4 py-3 text-center font-semibold text-gray-600">Moyenne</th>
                 <th className="px-4 py-3 text-center font-semibold text-gray-600">Performance</th>
               </tr>

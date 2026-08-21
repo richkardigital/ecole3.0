@@ -388,3 +388,191 @@ export const deleteSchool = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Error deleting school", error });
   }
 };
+
+/**
+ * Retourne les statistiques globales complètes d'un établissement scolaire
+ */
+export const getSchoolStats = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = String(req.params.id);
+    if (!id) return res.status(400).json({ message: "ID établissement manquant" });
+
+    const school = await prisma.school.findUnique({
+      where: { id },
+      include: {
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+        teachingType: { select: { id: true, name: true } },
+        schoolType: { select: { id: true, name: true } },
+        _count: { select: { classes: true, users: true } }
+      },
+    });
+
+    if (!school) return res.status(404).json({ message: "Établissement introuvable" });
+
+    // 1. Classes & niveaux
+    const classes = await prisma.class.findMany({
+      where: { schoolId: id },
+      include: {
+        niveau: { select: { id: true, nom: true } },
+        _count: { select: { enrollments: true, teacherClasses: true } }
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    const classIds = classes.map(c => c.id);
+
+    // 2. Utilisateurs par rôle
+    const users = await prisma.user.findMany({
+      where: { schoolId: id },
+      select: { id: true, role: true, gender: true, isActive: true }
+    });
+
+    const students = users.filter(u => u.role === 'APPRENANT');
+    const nbStudents = students.length;
+    const nbTeachers = users.filter(u => u.role === 'ENSEIGNANT').length;
+    const nbEducators = users.filter(u => u.role === 'EDUCATEUR').length;
+    const nbParents = users.filter(u => u.role === 'PARENT').length;
+    const totalUsers = users.length;
+
+    // Répartition genre
+    const nbGirls = students.filter(s => s.gender === 'FEMININ').length;
+    const nbBoys = students.filter(s => s.gender === 'MASCULIN').length;
+    const nbOtherGender = nbStudents - (nbGirls + nbBoys);
+
+    // 3. Cours & Devoirs
+    const coursesCount = await prisma.course.count({
+      where: {
+        niveau: { schoolId: id }
+      }
+    }).catch(() => 0);
+
+    const assignmentsCount = await prisma.assignment.count({
+      where: {
+        OR: [
+          { schoolId: id },
+          { niveau: { schoolId: id } }
+        ]
+      }
+    }).catch(() => 0);
+
+    // 4. Bulletins
+    const bulletins = await prisma.bulletinEleve.findMany({
+      where: {
+        classId: { in: classIds }
+      },
+      select: {
+        id: true,
+        statut: true,
+        moyenneGenerale: true,
+        classId: true
+      }
+    }).catch(() => []);
+
+    const totalBulletins = bulletins.length;
+    const bulletinsByStatus: Record<string, number> = {
+      BROUILLON: 0,
+      SOUMIS_ENSEIGNANT: 0,
+      VALIDE_EDUCATEUR: 0,
+      VALIDE_DIRECTEUR: 0,
+      VALIDE_SUPER_ADMIN: 0,
+      REJETE: 0
+    };
+
+    let totalMoyenne = 0;
+    let countEvaluated = 0;
+    let countPassed = 0;
+
+    for (const b of bulletins) {
+      bulletinsByStatus[b.statut] = (bulletinsByStatus[b.statut] || 0) + 1;
+      if (b.moyenneGenerale !== null && b.moyenneGenerale !== undefined) {
+        totalMoyenne += b.moyenneGenerale;
+        countEvaluated++;
+        if (b.moyenneGenerale >= 10) {
+          countPassed++;
+        }
+      }
+    }
+
+    const schoolAverage = countEvaluated > 0 ? parseFloat((totalMoyenne / countEvaluated).toFixed(2)) : null;
+    const tauxReussite = countEvaluated > 0 ? Math.round((countPassed / countEvaluated) * 100) : 0;
+    const validesCount = (bulletinsByStatus['VALIDE_DIRECTEUR'] || 0) + (bulletinsByStatus['VALIDE_SUPER_ADMIN'] || 0);
+    const tauxValidation = totalBulletins > 0 ? Math.round((validesCount / totalBulletins) * 100) : 0;
+
+    // 5. Absences
+    const absencesCount = await prisma.absence.count({
+      where: {
+        student: { schoolId: id }
+      }
+    }).catch(() => 0);
+
+    // 6. Statistiques et moyennes par classe
+    const classStats = classes.map(c => {
+      const classBulletins = bulletins.filter(b => b.classId === c.id && b.moyenneGenerale !== null);
+      const classAvg = classBulletins.length > 0
+        ? parseFloat((classBulletins.reduce((acc, curr) => acc + (curr.moyenneGenerale || 0), 0) / classBulletins.length).toFixed(2))
+        : null;
+
+      return {
+        classId: c.id,
+        className: c.name,
+        niveauName: c.niveau?.nom || 'Non spécifié',
+        nbStudents: c._count.enrollments,
+        nbCourses: c._count.teacherClasses,
+        averageMoyenne: classAvg
+      };
+    });
+
+    // 7. Répartition par niveau
+    const levelMap: Record<string, { niveauName: string; nbClasses: number; nbStudents: number }> = {};
+    for (const c of classes) {
+      const nName = c.niveau?.nom || 'Autres';
+      if (!levelMap[nName]) {
+        levelMap[nName] = { niveauName: nName, nbClasses: 0, nbStudents: 0 };
+      }
+      levelMap[nName].nbClasses++;
+      levelMap[nName].nbStudents += c._count.enrollments;
+    }
+
+    res.json({
+      school,
+      overview: {
+        nbClasses: classes.length,
+        nbStudents,
+        nbTeachers,
+        nbEducators,
+        nbParents,
+        totalUsers,
+        nbCourses: coursesCount,
+        nbAssignments: assignmentsCount,
+        nbAbsences: absencesCount,
+        gender: {
+          girls: nbGirls,
+          boys: nbBoys,
+          other: nbOtherGender
+        }
+      },
+      performance: {
+        schoolAverage,
+        tauxReussite,
+        tauxValidation,
+        totalBulletins,
+        bulletinsByStatus,
+        totalEvalues: countEvaluated,
+        totalReussite: countPassed
+      },
+      levelDistribution: Object.values(levelMap),
+      classRankings: classStats
+    });
+  } catch (error: any) {
+    console.error("Error calculating school stats:", error);
+    res.status(500).json({ message: "Erreur lors du calcul des statistiques de l'établissement" });
+  }
+};

@@ -76,7 +76,7 @@ export default function AcademicYearDetailsPage() {
           </Button>
           <Link to={`/admin/academic-years/${id}/stats`}>
             <Button variant="primary" leftIcon={<BarChart className="w-4 h-4" />}>
-              Statistiques Globales
+              Statistiques de l'Année
             </Button>
           </Link>
         </div>

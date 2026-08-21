@@ -5,7 +5,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '@/lib/api';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { ArrowLeft, School as SchoolIcon, User, BookOpen, Users, MapPin, Phone, Mail, Edit2 } from 'lucide-react';
+import { ArrowLeft, School as SchoolIcon, User, BookOpen, Users, MapPin, Phone, Mail, Edit2, BarChart3 } from 'lucide-react';
 
 interface SchoolDetail {
   id: string;
@@ -87,11 +87,18 @@ export default function SchoolDetailsPage() {
           </div>
         </div>
 
-        <Link to={`/admin/schools/${school.id}/edit`}>
-            <Button variant="outline" leftIcon={<Edit2 className="w-4 h-4" />}>
-                Modifier
+        <div className="flex items-center gap-2">
+          <Link to={`/admin/schools/${school.id}/stats`}>
+            <Button variant="primary" leftIcon={<BarChart3 className="w-4 h-4" />}>
+              Statistiques globales
             </Button>
-        </Link>
+          </Link>
+          <Link to={`/admin/schools/${school.id}/edit`}>
+            <Button variant="outline" leftIcon={<Edit2 className="w-4 h-4" />}>
+              Modifier
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

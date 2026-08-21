@@ -9,6 +9,7 @@ import Schools from '@/app/admin/schools/page';
 import NewSchoolPage from '@/app/admin/schools/new/page';
 import SchoolDetailsPage from '@/app/admin/schools/[id]/page';
 import EditSchoolPage from '@/app/admin/schools/[id]/edit/page';
+import SchoolStatsPage from '@/app/admin/schools/[id]/stats/page';
 import Users from '@/app/admin/users/page';
 import Classes from '@/app/admin/classes/page';
 import NewClassPage from '@/app/admin/classes/new/page';
@@ -128,6 +129,7 @@ function App() {
                     <Route path="/admin/schools" element={<Schools />} />
                     <Route path="/admin/schools/new" element={<NewSchoolPage />} />
                     <Route path="/admin/schools/:id" element={<SchoolDetailsPage />} />
+                    <Route path="/admin/schools/:id/stats" element={<SchoolStatsPage />} />
                     <Route path="/admin/schools/:id/edit" element={<EditSchoolPage />} />
                     <Route path="/admin/teaching-types" element={<TeachingTypesPage />} />
                     <Route path="/admin/school-types" element={<SchoolTypesPage />} />
@@ -178,6 +180,7 @@ function App() {
                   {/* ═══════════════════════════════════════════ */}
                   <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'DIRECTEUR']} />}>
                     <Route path="/directeur/dashboard" element={<Dashboard />} />
+                    <Route path="/directeur/schools/:id/stats" element={<SchoolStatsPage />} />
                     <Route path="/directeur/classes" element={<Classes />} />
                     <Route path="/directeur/classes/new" element={<NewClassPage />} />
                     <Route path="/directeur/classes/:id" element={<ClassDetailsPage />} />

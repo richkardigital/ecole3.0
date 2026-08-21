@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import { Plus, Trash2, User, Edit2, Lock, Unlock, School as SchoolIcon, Loader2, BookOpen, FileSpreadsheet, Eye, Search, Phone, Mail, MapPin } from 'lucide-react';
+import { Plus, Trash2, User, Edit2, Lock, Unlock, School as SchoolIcon, Loader2, BookOpen, FileSpreadsheet, Eye, Search, Phone, Mail, MapPin, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ConfirmationModal from '@/components/ui/ConfirmModal';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -280,6 +280,9 @@ const Schools = () => {
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex justify-end gap-2">
+                                <Link to={`/admin/schools/${school.id}/stats`} className="text-emerald-400 hover:text-white bg-brand-sidebar hover:bg-emerald-600/30 p-2 rounded-lg transition-colors border border-transparent hover:border-emerald-500/30" title="Statistiques globales">
+                                    <BarChart3 className="w-4 h-4" />
+                                </Link>
                                 <Link to={`/admin/schools/${school.id}`} className="text-brand-accent hover:text-white bg-brand-sidebar hover:bg-brand-border p-2 rounded-lg transition-colors border border-transparent hover:border-brand-border" title="Voir les détails">
                                     <Eye className="w-4 h-4" />
                                 </Link>
